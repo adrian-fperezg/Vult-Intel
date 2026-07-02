@@ -76,9 +76,11 @@ export default function Settings() {
     const videoPct = totalLimits.videos > 0 ? Math.min((metrics.videosGenerated / totalLimits.videos) * 100, 100) : 0;
 
     const hasVeoStudio = activeAddons.includes('veo_studio_pack');
+    const hasManychat = activeAddons.includes('vult_pulse');
 
     const [isManagingSubscription, setIsManagingSubscription] = useState(false);
     const [isBuyingAddon, setIsBuyingAddon] = useState(false);
+    const [isBuyingManychat, setIsBuyingManychat] = useState(false);
     const [isUpgrading, setIsUpgrading] = useState(false);
     const [isPurgingCache, setIsPurgingCache] = useState(false);
     const [isClearingAssets, setIsClearingAssets] = useState(false);
@@ -108,6 +110,23 @@ export default function Settings() {
             showToast("Failed to initiate checkout", 'error');
         } finally {
             setIsBuyingAddon(false);
+        }
+    };
+
+    const handleBuyManychatAddon = async () => {
+        if (!currentUser) return;
+        setIsBuyingManychat(true);
+        try {
+            await startCheckout(
+                'prod_ManychatPlaceholder',
+                window.location.origin + '/settings',
+                window.location.origin + '/settings'
+            );
+        } catch (error) {
+            console.error("Error creating Vult Pulse checkout session:", error);
+            showToast("Failed to initiate checkout", 'error');
+        } finally {
+            setIsBuyingManychat(false);
         }
     };
 
@@ -402,7 +421,7 @@ export default function Settings() {
                         <h2 className="text-xl font-bold tracking-tight">{t('commandCenter.subscriptionStudio')}</h2>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                         {/* Current Plan */}
                         <div className="bg-gradient-to-br from-indigo-600/10 to-purple-600/5 border border-indigo-500/20 rounded-3xl p-8 space-y-6 flex flex-col justify-between">
                             <div>
@@ -471,6 +490,45 @@ export default function Settings() {
                                         className="w-full py-4 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white rounded-2xl text-sm font-bold transition-all active:scale-95 shadow-[0_0_20px_rgba(236,72,153,0.3)]"
                                     >
                                         {isBuyingAddon ? "Processing..." : t('commandCenter.buyAddon')}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Manychat Add-on */}
+                        <div className="bg-white/5 border border-violet-500/10 rounded-3xl p-8 space-y-6 flex flex-col justify-between relative overflow-hidden group">
+                            <div className="absolute -right-12 -top-12 size-40 bg-violet-500/20 rounded-full blur-3xl group-hover:bg-violet-500/30 transition-colors" />
+
+                            <div>
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-xl font-bold text-white">Vult Pulse</h3>
+                                    <span className="text-xs font-black text-violet-400 bg-violet-500/10 px-3 py-1 rounded-full border border-violet-500/20">
+                                        {hasManychat ? "Active" : "$49/mo Add-on"}
+                                    </span>
+                                </div>
+                                <p className="text-sm text-slate-400 leading-relaxed max-w-[90%]">
+                                    AI-powered DM automation for Instagram, Facebook &amp; WhatsApp. Build flows, run broadcast campaigns, and sync leads to your CRM.
+                                </p>
+                            </div>
+
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between p-3 bg-black/20 rounded-xl border border-white/5">
+                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{t('common.status')}</span>
+                                    <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                                        {!hasManychat ? (
+                                            <><Lock className="size-3" />{t('commandCenter.lockedFeature')}</>
+                                        ) : (
+                                            <><CheckCircle2 className="size-3 text-emerald-400" /><span className="text-emerald-400">Unlocked</span></>
+                                        )}
+                                    </div>
+                                </div>
+                                {!hasManychat && (
+                                    <button
+                                        onClick={handleBuyManychatAddon}
+                                        disabled={isBuyingManychat}
+                                        className="w-full py-4 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white rounded-2xl text-sm font-bold transition-all active:scale-95 shadow-[0_0_20px_rgba(139,92,246,0.3)] disabled:opacity-50"
+                                    >
+                                        {isBuyingManychat ? "Processing..." : "Activate Vult Pulse"}
                                     </button>
                                 )}
                             </div>

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { landingTranslations } from '@/lib/translations';
-import { CheckCircle2, Loader2, Zap, Mail, ArrowRight, Inbox, Users, BarChart2 } from 'lucide-react';
+import { CheckCircle2, Loader2, Zap, Mail, ArrowRight, Inbox, Users, BarChart2, MessageCircle, Megaphone, GitMerge } from 'lucide-react';
 import { useCheckout } from '@/hooks/useCheckout';
 import { useUserMetrics } from '@/hooks/useUserMetrics';
 import { motion } from 'framer-motion';
@@ -13,6 +13,7 @@ const PLAN_GROWTH = 'prod_U33x2QQAQH8sMr';
 const PLAN_AGENCY = 'prod_U33xENDetyV4Ux';
 const ADDON_VEO = 'prod_U54OcVdHHV38Qv';
 const ADDON_OUTREACH = 'prod_UBRSFq7kaL7bSr';
+const ADDON_VULT_PULSE = 'prod_ManychatPlaceholder';
 
 interface PricingSectionProps {
     id?: string;
@@ -31,6 +32,7 @@ export default function PricingSection({ id = "pricing", showAddon = true }: Pri
 
     const isVeoActive = isFounder || activeAddons.includes('veo_studio_pack'); // Added isVeoActive
     const isOutreachActive = isFounder || activeAddons.includes('outreach'); // Added isOutreachActive
+    const isManychatActive = isFounder || activeAddons.includes('vult_pulse');
 
     const handleChoosePlan = async (productId: string) => {
         if (isFounder) { // Added founder check
@@ -347,6 +349,127 @@ export default function PricingSection({ id = "pricing", showAddon = true }: Pri
                                             theme === 'dark' ? 'bg-teal-500/10' : 'bg-teal-50'
                                         }`}>
                                             <span className="text-teal-500">{feat.icon}</span>
+                                        </div>
+                                        {feat.label}
+                                    </motion.div>
+                                ))}
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+
+                {/* Manychat Automation Add-on Banner */}
+                {showAddon && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 30 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.6, ease: "easeOut" }}
+                        className={`mt-12 rounded-[4rem] border relative overflow-hidden group transition-all duration-500 hover:shadow-2xl ${
+                            theme === 'dark'
+                                ? 'bg-slate-950 border-violet-500/30 shadow-2xl shadow-violet-500/5'
+                                : 'bg-white border-violet-100 shadow-xl shadow-violet-500/5'
+                        }`}
+                    >
+                        {/* Animated background mesh/shimmer */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-violet-500/[0.03] via-transparent to-purple-500/[0.03] pointer-events-none" />
+                        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 bg-[radial-gradient(circle_at_50%_0%,rgba(139,92,246,0.1),transparent_70%)] pointer-events-none" />
+
+                        {/* Corner badge */}
+                        <motion.div
+                            animate={{ y: [0, -10, 0] }}
+                            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                            className="absolute top-0 right-0 p-5 bg-violet-500 text-white rounded-bl-[3rem] shadow-2xl z-20 transition-transform group-hover:scale-110 duration-500"
+                        >
+                            <MessageCircle size={32} fill="white" className="drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]" />
+                        </motion.div>
+
+                        <div className="p-10 md:p-20">
+                            {/* Top section: title + description + price + CTA */}
+                            <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-12 relative z-10 mb-16">
+                                <div className="text-left flex-grow">
+                                    <motion.div
+                                        initial={{ opacity: 0, x: -20 }}
+                                        whileInView={{ opacity: 1, x: 0 }}
+                                        viewport={{ once: true }}
+                                        className={`inline-flex items-center gap-2 px-5 py-2 rounded-full text-xs font-black uppercase tracking-[0.25em] mb-6 ${
+                                        theme === 'dark' ? 'bg-violet-500/10 text-violet-400 border border-violet-500/20' : 'bg-violet-50 text-violet-700 border border-violet-100'
+                                    }`}>
+                                        <Zap size={14} fill="currentColor" className="animate-pulse" />
+                                        {t.manychatAddonBadge}
+                                    </motion.div>
+                                    <h4 className="text-5xl md:text-7xl font-black text-violet-500 tracking-tighter leading-[0.9] mb-6">{t.manychatAddonTitle}</h4>
+                                    <p className={`text-xl md:text-2xl font-medium max-w-2xl leading-relaxed ${
+                                        theme === 'dark' ? 'text-slate-400' : 'text-slate-600'
+                                    }`}>{t.manychatAddonDesc}</p>
+                                </div>
+
+                                <div className="flex flex-col items-start xl:items-end gap-8 shrink-0 w-full xl:w-auto">
+                                    <div className="text-left xl:text-right">
+                                        <div className="flex items-baseline gap-2 xl:justify-end">
+                                            <span className="text-6xl md:text-8xl font-black text-violet-600 tracking-tighter leading-none">{t.manychatAddonPrice}</span>
+                                            <span className="text-2xl font-bold opacity-30">/mo</span>
+                                        </div>
+                                        <div className="text-sm font-black uppercase tracking-[0.15em] text-violet-500/60 mt-3">
+                                            {t.manychatActiveOnly}
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => !isManychatActive && handleChoosePlan(ADDON_VULT_PULSE)}
+                                        disabled={isCheckoutLoading || isManychatActive}
+                                        className={`w-full xl:w-auto px-12 py-6 rounded-[2rem] font-black text-2xl transition-all shadow-2xl active:scale-95 flex items-center justify-center gap-3 disabled:opacity-80 disabled:cursor-not-allowed group/btn ${
+                                            isManychatActive
+                                                ? 'bg-emerald-500/10 text-emerald-500 border-2 border-emerald-500/20 cursor-default'
+                                                : 'bg-violet-500 text-white hover:bg-violet-600 shadow-violet-500/30'
+                                        }`}
+                                    >
+                                        {isManychatActive ? (
+                                            <>
+                                                <CheckCircle2 className="size-8" />
+                                                <span>{isFounder ? t.activeForFounder : t.manychatAddonBadge}</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                {isCheckoutLoading && selectedPlan === ADDON_MANYCHAT ? (
+                                                    <>
+                                                        <Loader2 className="animate-spin" size={28} />
+                                                        <span>{language === 'es' ? 'Procesando...' : 'Processing...'}</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <span>{t.manychatActivateBtn}</span>
+                                                        <ArrowRight size={24} className="group-hover/btn:translate-x-2 transition-transform duration-300" />
+                                                    </>
+                                                )}
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Feature grid with staggered animation */}
+                            <div className="relative z-10 grid grid-cols-1 sm:grid-cols-3 gap-6">
+                                {[
+                                    { icon: <MessageCircle size={22} />, label: t.manychatFeatureDMs, delay: 0.1 },
+                                    { icon: <Megaphone size={22} />, label: t.manychatFeatureBroadcast, delay: 0.2 },
+                                    { icon: <GitMerge size={22} />, label: t.manychatFeatureCRM, delay: 0.3 },
+                                ].map((feat, i) => (
+                                    <motion.div
+                                        key={i}
+                                        initial={{ opacity: 0, y: 20 }}
+                                        whileInView={{ opacity: 1, y: 0 }}
+                                        viewport={{ once: true }}
+                                        transition={{ delay: feat.delay, duration: 0.5 }}
+                                        className={`flex items-center gap-4 px-8 py-6 rounded-3xl font-bold text-lg border transition-all duration-300 hover:scale-[1.02] ${
+                                            theme === 'dark'
+                                                ? 'bg-violet-500/5 border-violet-500/10 text-violet-300 hover:border-violet-500/30 hover:bg-violet-500/10 shadow-lg shadow-violet-500/5'
+                                                : 'bg-white border-violet-100 text-violet-800 hover:border-violet-200 hover:shadow-xl shadow-violet-500/5'
+                                        }`}
+                                    >
+                                        <div className={`p-3 rounded-2xl ${
+                                            theme === 'dark' ? 'bg-violet-500/10' : 'bg-violet-50'
+                                        }`}>
+                                            <span className="text-violet-500">{feat.icon}</span>
                                         </div>
                                         {feat.label}
                                     </motion.div>

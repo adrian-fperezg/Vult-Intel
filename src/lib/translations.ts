@@ -164,6 +164,16 @@ export const landingTranslations = {
         outreachFeatureTracking: "Open & Click Tracking",
         activeForFounder: "Active for Founder",
 
+        manychatAddonTitle: "⚡ ADD-ON: Vult Pulse",
+        manychatAddonPrice: "+$49/mo",
+        manychatAddonDesc: "Supercharge your DMs and chat funnels with AI-powered conversation automation. Build Instagram, Facebook, and WhatsApp flows, qualify leads 24/7, send broadcast campaigns, and sync every conversation to your CRM—without lifting a finger.",
+        manychatAddonBadge: "Pulse Power",
+        manychatActiveOnly: "Active subscribers only",
+        manychatActivateBtn: "Activate Vult Pulse",
+        manychatFeatureDMs: "Instagram & FB DM Flows",
+        manychatFeatureBroadcast: "Broadcast Campaigns",
+        manychatFeatureCRM: "CRM Sync & Lead Scoring",
+
         // FAQ
         faqTitle: "Frequently Asked Questions",
         faqQ1: "How does Vult Intel save me $4,700/month?",
@@ -351,6 +361,16 @@ export const landingTranslations = {
         outreachFeatureContacts: "Gestión de Contactos",
         outreachFeatureTracking: "Seguimiento de Apertura y Clics",
         activeForFounder: "Activo para Fundador",
+
+        manychatAddonTitle: "⚡ ADD-ON: Vult Pulse",
+        manychatAddonPrice: "+$49/mes",
+        manychatAddonDesc: "Potencia tus DMs y embudos de chat con automatización de conversaciones impulsada por IA. Crea flujos para Instagram, Facebook y WhatsApp, califica leads las 24 horas, envía campañas de difusión y sincroniza cada conversación con tu CRM—sin mover un dedo.",
+        manychatAddonBadge: "Potencia Pulse",
+        manychatActiveOnly: "Solo para suscriptores activos",
+        manychatActivateBtn: "Activar Vult Pulse",
+        manychatFeatureDMs: "Flujos de DM de Instagram y FB",
+        manychatFeatureBroadcast: "Campañas de Difusión",
+        manychatFeatureCRM: "Sync CRM y Puntuación de Leads",
 
         // FAQ
         faqTitle: "Preguntas Frecuentes",

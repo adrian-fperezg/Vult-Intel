@@ -8,7 +8,7 @@ export type PlanId = 'solo' | 'growth' | 'agency';
 /**
  * Define los complementos (add-ons) disponibles que modifican los límites.
  */
-export type AddonId = 'veo_studio_pack' | 'outreach';
+export type AddonId = 'veo_studio_pack' | 'outreach' | 'vult_pulse';
 
 /**
  * Perfil de suscripción del usuario, reflejando el estado en la base de datos.
@@ -89,7 +89,8 @@ export const ADDON_MODIFIERS: Record<AddonId, Partial<SubscriptionLimits>> = {
     veo_studio_pack: {
         videos: 32
     },
-    outreach: {}
+    outreach: {},
+    vult_pulse: {}
 };
 
 /**
