@@ -420,8 +420,9 @@
         "signOut": "Cerrar Sesión",
         "veoStudio": "Veo Studio",
         "socialStudio": "Social Studio",
-        "visualWorkflows": "Flujos de Trabajo Visuales",
-        "webGrowthPlan": "Plan Growth Web"
+        "visualWorkflows": "Workflows Visuales",
+        "vultPulse": "Vult Pulse",
+        "webGrowthPlan": "Plan de Crecimiento Web"
     },
     "newMasterplan": "Nuevo Plan Maestro",
     "newPrompt": "Nuevo Prompt",

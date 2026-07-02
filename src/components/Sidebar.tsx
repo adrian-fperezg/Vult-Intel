@@ -20,7 +20,8 @@ import {
   Clapperboard,
   Radio,
   Shield,
-  Send
+  Send,
+  MessageCircle
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -48,6 +49,7 @@ const navItems = [
   { icon: LayoutGrid, key: 'visualWorkflows', path: '/visual-workflows' },
   { icon: Send, key: 'outreach', path: '/outreach', teal: true },
   { icon: Share2, key: 'socialStudio', path: '/social-studio', violet: true },
+  { icon: MessageCircle, key: 'vultPulse', path: '/vult-pulse', violet: true },
   { icon: Clapperboard, key: 'veoStudio', path: '/veo-studio', amber: true },
 ];
 

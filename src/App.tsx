@@ -21,6 +21,7 @@ import VeoStudioLayout from './pages/VeoStudioLayout';
 import SocialStudioLayout from './pages/SocialStudioLayout';
 import AuthPage from './pages/AuthPage';
 import AdminDashboard from './pages/AdminDashboard';
+import VultPulse from './pages/VultPulse';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import Unsubscribe from './pages/Unsubscribe';
@@ -77,6 +78,7 @@ export default function App() {
             <Route path="outreach" element={<OutreachLayout />} />
             <Route path="veo-studio" element={<VeoStudioLayout />} />
             <Route path="social-studio" element={<SocialStudioLayout />} />
+            <Route path="vult-pulse" element={<VultPulse />} />
             <Route path="admin" element={<AdminDashboard />} />
           </Route>
           {/* Catch-all route to redirect back to Landing or 404 */}
