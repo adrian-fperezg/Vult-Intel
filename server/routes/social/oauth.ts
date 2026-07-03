@@ -63,6 +63,24 @@ const PLATFORMS: Record<string, {
     clientIdEnv: 'TIKTOK_CLIENT_KEY',
     clientSecretEnv: 'TIKTOK_CLIENT_SECRET',
   },
+  instagram_dm: {
+    name: 'Instagram DM',
+    authUrl: 'https://www.facebook.com/v19.0/dialog/oauth',
+    tokenUrl: 'https://graph.facebook.com/v19.0/oauth/access_token',
+    userInfoUrl: 'https://graph.facebook.com/me?fields=id,name,picture',
+    scopes: 'instagram_manage_messages,pages_manage_metadata,pages_read_engagement,pages_show_list,public_profile',
+    clientIdEnv: 'FACEBOOK_APP_ID',
+    clientSecretEnv: 'FACEBOOK_APP_SECRET',
+  },
+  whatsapp: {
+    name: 'WhatsApp Business',
+    authUrl: 'https://www.facebook.com/v19.0/dialog/oauth',
+    tokenUrl: 'https://graph.facebook.com/v19.0/oauth/access_token',
+    userInfoUrl: 'https://graph.facebook.com/me?fields=id,name,picture',
+    scopes: 'whatsapp_business_management,whatsapp_business_messaging',
+    clientIdEnv: 'FACEBOOK_APP_ID',
+    clientSecretEnv: 'FACEBOOK_APP_SECRET',
+  }
 };
 
 // ─── OAUTH INITIATION ─────────────────────────────────────────────────────────
@@ -71,6 +89,7 @@ router.get('/:platform', async (req: AuthRequest, res) => {
   const { platform } = req.params;
   const userId = req.user?.uid;
   const pId = (req.headers['x-project-id'] as string) || (req.query.project_id as string);
+  const source = req.query.source as string || 'social-studio';
 
   const config = PLATFORMS[platform];
   if (!config) return res.status(400).json({ error: `Unknown platform: ${platform}` });
@@ -85,7 +104,7 @@ router.get('/:platform', async (req: AuthRequest, res) => {
     });
   }
 
-  const state = Buffer.from(JSON.stringify({ pId, userId, platform })).toString('base64url');
+  const state = Buffer.from(JSON.stringify({ pId, userId, platform, source })).toString('base64url');
   const redirectUri = `${BACKEND_URL}/api/social/auth/${platform}/callback`;
 
   const params = new URLSearchParams({
@@ -106,24 +125,32 @@ router.get('/:platform/callback', async (req, res) => {
   const { platform } = req.params;
   const { code, state, error } = req.query as Record<string, string>;
 
+  let stateData: { pId: string; userId: string; platform: string; source?: string } = { pId: '', userId: '', platform: '', source: 'social-studio' };
+  try {
+    if (state) {
+      stateData = JSON.parse(Buffer.from(state, 'base64url').toString());
+    }
+  } catch {
+    return res.status(400).send('Invalid state');
+  }
+
+  const getRedirectBaseUrl = () => {
+    return stateData.source === 'vult-pulse' 
+      ? `${process.env.FRONTEND_URL}/vult-pulse?tab=settings`
+      : `${process.env.FRONTEND_URL}/social-studio?tab=accounts`;
+  };
+
   if (error) {
-    return res.redirect(`${process.env.FRONTEND_URL}/social-studio?tab=accounts&error=${encodeURIComponent(error)}`);
+    return res.redirect(`${getRedirectBaseUrl()}&error=${encodeURIComponent(error)}`);
   }
 
   const config = PLATFORMS[platform];
   if (!config) return res.status(400).send(`Unknown platform: ${platform}`);
 
-  let stateData: { pId: string; userId: string; platform: string };
-  try {
-    stateData = JSON.parse(Buffer.from(state, 'base64url').toString());
-  } catch {
-    return res.status(400).send('Invalid state');
-  }
-
   const clientId = process.env[config.clientIdEnv];
   const clientSecret = process.env[config.clientSecretEnv];
   if (!clientId || !clientSecret) {
-    return res.redirect(`${process.env.FRONTEND_URL}/social-studio?tab=accounts&error=not_configured`);
+    return res.redirect(`${getRedirectBaseUrl()}&error=not_configured`);
   }
 
   try {
@@ -161,7 +188,7 @@ router.get('/:platform/callback', async (req, res) => {
         username = userData.email || userData.sub;
         displayName = `${userData.given_name || ''} ${userData.family_name || ''}`.trim();
         avatarUrl = userData.picture || '';
-      } else if (platform === 'facebook') {
+      } else if (platform === 'facebook' || platform === 'instagram_dm' || platform === 'whatsapp') {
         accountId = userData.id;
         username = userData.name;
         displayName = userData.name;
@@ -229,10 +256,10 @@ router.get('/:platform/callback', async (req, res) => {
       channelId || null
     );
 
-    res.redirect(`${process.env.FRONTEND_URL}/social-studio?tab=accounts&connected=${platform}`);
+    res.redirect(`${getRedirectBaseUrl()}&connected=${platform}`);
   } catch (err: any) {
     console.error(`[SOCIAL_OAUTH] ${platform} error:`, err.message);
-    res.redirect(`${process.env.FRONTEND_URL}/social-studio?tab=accounts&error=${encodeURIComponent(err.message)}`);
+    res.redirect(`${getRedirectBaseUrl()}&error=${encodeURIComponent(err.message)}`);
   }
 });
 

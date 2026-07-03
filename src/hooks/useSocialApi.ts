@@ -80,10 +80,22 @@ export function useSocialApi() {
     return res.json();
   }, [headers]);
 
-  const getConnectUrl = useCallback((platform: string) => {
-    const token = currentUser?.uid;
-    return `${BACKEND_URL}/api/social/auth/${platform}?project_id=${activeProjectId}`;
-  }, [currentUser, activeProjectId]);
+  const getConnectUrl = useCallback((platform: string, source: string = 'social-studio') => {
+    return `${BACKEND_URL}/api/social/auth/${platform}?project_id=${activeProjectId}&source=${source}`;
+  }, [activeProjectId]);
 
-  return { getAccounts, deleteAccount, getPosts, createPost, updatePost, deletePost, publishNow, getConnectUrl, activeProjectId };
+  const connectTokenAccount = useCallback(async (platform: string, credentials: any) => {
+    const h = await headers();
+    const res = await fetch(`${BASE_URL}/accounts/token`, {
+      method: 'POST', headers: h,
+      body: JSON.stringify({ platform, credentials, project_id: activeProjectId }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Failed to connect ${platform}: ${res.status}`);
+    }
+    return res.json();
+  }, [headers, activeProjectId]);
+
+  return { getAccounts, deleteAccount, getPosts, createPost, updatePost, deletePost, publishNow, getConnectUrl, connectTokenAccount, activeProjectId };
 }
