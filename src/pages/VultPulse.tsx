@@ -15,8 +15,9 @@ import ContactsView   from './vult-pulse/ContactsView';
 import BroadcastsView from './vult-pulse/BroadcastsView';
 import GrowthToolsView from './vult-pulse/GrowthToolsView';
 import AnalyticsView  from './vult-pulse/AnalyticsView';
+import SettingsView   from './vult-pulse/SettingsView';
 
-type PulseTab = 'flows' | 'inbox' | 'contacts' | 'broadcasts' | 'growth-tools' | 'analytics';
+type PulseTab = 'flows' | 'inbox' | 'contacts' | 'broadcasts' | 'growth-tools' | 'analytics' | 'settings';
 
 const TABS: Array<{ id: PulseTab; label: string; icon: React.ReactNode; badge?: number }> = [
     { id: 'flows',        label: 'Flows',        icon: <Zap className="size-4" /> },
@@ -25,6 +26,7 @@ const TABS: Array<{ id: PulseTab; label: string; icon: React.ReactNode; badge?: 
     { id: 'broadcasts',   label: 'Broadcasts',   icon: <Radio className="size-4" /> },
     { id: 'growth-tools', label: 'Growth Tools', icon: <MessageCircle className="size-4" /> },
     { id: 'analytics',    label: 'Analytics',    icon: <BarChart2 className="size-4" /> },
+    { id: 'settings',     label: 'Settings',     icon: <Settings className="size-4" /> },
 ];
 
 export default function VultPulse() {
@@ -152,6 +154,7 @@ export default function VultPulse() {
                         {activeTab === 'broadcasts'   && <BroadcastsView />}
                         {activeTab === 'growth-tools' && <GrowthToolsView />}
                         {activeTab === 'analytics'    && <AnalyticsView />}
+                        {activeTab === 'settings'     && <SettingsView />}
                     </motion.div>
                 </AnimatePresence>
             </div>
