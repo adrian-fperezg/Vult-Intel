@@ -430,7 +430,7 @@ export default function PricingSection({ id = "pricing", showAddon = true }: Pri
                                             </>
                                         ) : (
                                             <>
-                                                {isCheckoutLoading && selectedPlan === ADDON_MANYCHAT ? (
+                                                {isCheckoutLoading && selectedPlan === ADDON_VULT_PULSE ? (
                                                     <>
                                                         <Loader2 className="animate-spin" size={28} />
                                                         <span>{language === 'es' ? 'Procesando...' : 'Processing...'}</span>

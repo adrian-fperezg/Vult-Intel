@@ -52,7 +52,7 @@ export function useUserMetrics(): UseUserMetricsReturn {
     useEffect(() => {
         if (isFounder) {
             setTotalLimits(UNLIMITED_LIMITS);
-            setActiveAddons(['veo_studio_pack', 'outreach']);
+            setActiveAddons(['veo_studio_pack', 'outreach', 'vult_pulse']);
             setLoading(false);
             return;
         }
