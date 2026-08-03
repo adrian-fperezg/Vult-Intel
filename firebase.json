@@ -25,6 +25,13 @@
           }
         ]
       }
+    ],
+    "redirects": [
+      {
+        "source": "/api/:path*",
+        "destination": "https://vult-intel-backend-production.up.railway.app/api/:path",
+        "type": 308
+      }
     ]
   }
 }
