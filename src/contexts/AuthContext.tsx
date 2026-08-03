@@ -102,7 +102,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const loginWithGoogle = useCallback(async () => {
         try {
-            googleProvider.addScope('https://www.googleapis.com/auth/drive.file');
             const result = await signInWithPopup(auth, googleProvider);
             logAuthEvent('google', 'login');
 
