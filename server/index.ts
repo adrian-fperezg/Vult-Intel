@@ -2563,6 +2563,10 @@ async function checkActiveSubscription(uid: string, email?: string): Promise<{ a
 }
 
 // ─── SECURE AI PROXY (PRIMARY) ────────────────────────────────────────────────
+app.get('/api/version', (req, res) => {
+  res.json({ version: '1.0.1', status: 'live' });
+});
+
 // POST /api/generate-content — Auth + Subscription validation + Gemini execution
 app.post("/api/generate-content", verifyFirebaseToken, async (req: AuthRequest, res) => {
   const uid = req.user?.uid;
