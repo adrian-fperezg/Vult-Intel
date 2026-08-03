@@ -2527,16 +2527,118 @@ app.post("/api/ai/generate-speech", verifyFirebaseToken, async (req: AuthRequest
   }
 });
 
-// Generic endpoint as a catch-all/migration bridge
+// ─── SUBSCRIPTION VALIDATION HELPER ───────────────────────────────────────────
+const FOUNDER_EMAIL_BACKEND = 'adrianfperezg@gmail.com';
+
+/**
+ * Checks if a user has an active subscription (Stripe), or is a founder/tester/admin.
+ * Returns { allowed: true } if the user can proceed, or { allowed: false, reason } otherwise.
+ */
+async function checkActiveSubscription(uid: string, email?: string): Promise<{ allowed: boolean; reason?: string }> {
+  // 1. Founder bypass
+  if (email?.toLowerCase() === FOUNDER_EMAIL_BACKEND) {
+    return { allowed: true };
+  }
+
+  // 2. Check customer doc for isTester / admin role
+  const customerDoc = await admin.firestore().collection('customers').doc(uid).get();
+  const customerData = customerDoc.data();
+
+  if (customerData?.isTester === true || customerData?.role === 'admin') {
+    return { allowed: true };
+  }
+
+  // 3. Check Stripe subscription via subcollection (written by Stripe Firebase Extension)
+  const subsSnap = await admin.firestore()
+    .collection('customers').doc(uid).collection('subscriptions')
+    .where('status', 'in', ['active', 'trialing'])
+    .limit(1)
+    .get();
+
+  if (!subsSnap.empty) {
+    return { allowed: true };
+  }
+
+  return { allowed: false, reason: 'Active subscription required. Please upgrade your plan to use AI features.' };
+}
+
+// ─── SECURE AI PROXY (PRIMARY) ────────────────────────────────────────────────
+// POST /api/generate-content — Auth + Subscription validation + Gemini execution
+app.post("/api/generate-content", verifyFirebaseToken, async (req: AuthRequest, res) => {
+  const uid = req.user?.uid;
+  const email = req.user?.email;
+
+  if (!uid) return res.status(401).json({ error: "Unauthorized" });
+
+  try {
+    // --- Subscription check ---
+    const access = await checkActiveSubscription(uid, email);
+    if (!access.allowed) {
+      return res.status(403).json({
+        error: access.reason || 'Active subscription required.',
+        code: 'SUBSCRIPTION_REQUIRED'
+      });
+    }
+
+    // --- Execute Gemini request ---
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey) {
+      return res.status(500).json({ error: "AI service is not configured on the server." });
+    }
+
+    const { model, contents, config, tools } = req.body;
+    const ai = new GoogleGenAI({ apiKey: geminiKey });
+
+    const finalConfig = { ...(config || {}) };
+    if (tools) finalConfig.tools = tools;
+
+    const response = await ai.models.generateContent({
+      model: model || 'gemini-2.5-flash',
+      contents,
+      config: finalConfig,
+    });
+
+    // Track token usage
+    const tokens = response.usageMetadata?.totalTokenCount ?? 0;
+    if (tokens > 0) {
+      admin.firestore().collection('customers').doc(uid).set({
+        totalTokensUsed: admin.firestore.FieldValue.increment(tokens)
+      }, { merge: true }).catch(err => console.error("[Token Tracking Error]:", err));
+    }
+
+    res.json(response);
+  } catch (err: any) {
+    console.error("[/api/generate-content Error]:", err);
+    res.status(500).json({ error: err.message || "Internal server error" });
+  }
+});
+
+// Generic endpoint (legacy — also secured with subscription check)
 app.post("/api/outreach/generate-generic", verifyFirebaseToken, async (req: AuthRequest, res) => {
+  const uid = req.user?.uid;
+  const email = req.user?.email;
   const { model, contents, config, tools } = req.body;
   const projectId = req.headers['x-project-id'] as string;
 
+  if (!uid) return res.status(401).json({ error: "Unauthorized" });
   if (!projectId) return res.status(400).json({ error: "x-project-id header is required" });
-  
+
   try {
-    const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-    const ai = new GoogleGenAI({ apiKey: geminiKey || "" });
+    // --- Subscription check (same as /api/generate-content) ---
+    const access = await checkActiveSubscription(uid, email);
+    if (!access.allowed) {
+      return res.status(403).json({
+        error: access.reason || 'Active subscription required.',
+        code: 'SUBSCRIPTION_REQUIRED'
+      });
+    }
+
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey) {
+      return res.status(500).json({ error: "AI service is not configured on the server." });
+    }
+
+    const ai = new GoogleGenAI({ apiKey: geminiKey });
     
     const finalConfig = { ...(config || {}) };
     if (tools) finalConfig.tools = tools;
@@ -2548,8 +2650,8 @@ app.post("/api/outreach/generate-generic", verifyFirebaseToken, async (req: Auth
     });
 
     const tokens = response.usageMetadata?.totalTokenCount ?? 0;
-    if (req.user?.uid) {
-      admin.firestore().collection('customers').doc(req.user.uid).set({
+    if (tokens > 0) {
+      admin.firestore().collection('customers').doc(uid).set({
         totalTokensUsed: admin.firestore.FieldValue.increment(tokens)
       }, { merge: true }).catch(err => console.error("[Backend Token Tracking Error]:", err));
     }

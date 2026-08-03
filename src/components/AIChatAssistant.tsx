@@ -5,7 +5,7 @@ import { useProject } from '@/contexts/ProjectContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useTranslation } from '@/contexts/TranslationContext';
-import { generateChatResponse, ChatMessage } from '@/services/ai';
+import { generateChatResponse, ChatMessage, isSubscriptionError } from '@/services/ai';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
@@ -64,9 +64,13 @@ export default function AIChatAssistant() {
             const response = await generateChatResponse(history, currentUser?.uid, activeProject, language);
 
             setMessages(prev => [...prev, { role: 'model', content: response }]);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Chat error:', error);
-            setMessages(prev => [...prev, { role: 'model', content: t('chatError') }]);
+            if (isSubscriptionError(error)) {
+                setMessages(prev => [...prev, { role: 'model', content: '⚠️ Tu suscripción no está activa. Actualiza tu plan para usar las funciones de IA.' }]);
+            } else {
+                setMessages(prev => [...prev, { role: 'model', content: t('chatError') }]);
+            }
         } finally {
             setIsLoading(false);
         }

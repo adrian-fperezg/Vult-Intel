@@ -6,9 +6,8 @@ import { isFounder as checkIsFounder } from '@/utils/founderUtils';
 import { safeJsonParse } from '@/utils/jsonUtils';
 import { getLanguageDirective } from '@/utils/aiLanguageUtils';
 
-// Note: Many functions in this file still use direct client-side AI calls.
-// These are being migrated to backend proxies for security.
-// For now, only the Radar and Brand Strategy endpoints are migrated.
+// All AI requests are routed through the authenticated backend proxy (/api/generate-content)
+// which validates Firebase Auth token + active Stripe subscription before executing Gemini calls.
 
 
 // ── Core Imports & Global AI Client ──────────────────────────────────────────
@@ -137,6 +136,14 @@ export function validateQuota(tokensAvailable: number, email?: string | null): v
 }
 
 /**
+ * Checks if an error was caused by a missing/expired subscription.
+ * Use in catch blocks to show a user-friendly message.
+ */
+export function isSubscriptionError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes('Tu suscripción no está activa');
+}
+
+/**
  * PROXY WRAPPER (Recommended for production)
  * This centralizes all AI requests to our authenticated backend.
  */
@@ -155,7 +162,7 @@ async function callSecureAIProxy(model: string, contents: any, config?: any, too
       headers['x-project-id'] = projectId;
     }
     
-    const response = await fetch('/api/outreach/generate-generic', {
+    const response = await fetch('/api/generate-content', {
       method: 'POST',
       headers,
       body: JSON.stringify({ model, contents, config, tools })
@@ -163,6 +170,10 @@ async function callSecureAIProxy(model: string, contents: any, config?: any, too
     
     if (!response.ok) {
       const errorBody = await response.json().catch(() => ({}));
+      // Surface subscription-required errors with a specific message for UI handling
+      if (response.status === 403 && errorBody.code === 'SUBSCRIPTION_REQUIRED') {
+        throw new Error('⚠️ Tu suscripción no está activa. Actualiza tu plan para usar las funciones de IA.');
+      }
       throw new Error(errorBody.error || `Proxy request failed with status ${response.status}`);
     }
     
