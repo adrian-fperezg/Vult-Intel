@@ -2607,7 +2607,6 @@ app.post("/api/generate-content", verifyFirebaseToken, async (req: AuthRequest, 
     }
 
     res.json({
-      ...response,
       text: response.text
     });
   } catch (err: any) {
