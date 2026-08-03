@@ -2606,7 +2606,10 @@ app.post("/api/generate-content", verifyFirebaseToken, async (req: AuthRequest, 
       }, { merge: true }).catch(err => console.error("[Token Tracking Error]:", err));
     }
 
-    res.json(response);
+    res.json({
+      ...response,
+      text: response.text
+    });
   } catch (err: any) {
     console.error("[/api/generate-content Error]:", err);
     res.status(500).json({ error: err.message || "Internal server error" });
