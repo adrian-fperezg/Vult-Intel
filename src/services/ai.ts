@@ -162,7 +162,8 @@ async function callSecureAIProxy(model: string, contents: any, config?: any, too
       headers['x-project-id'] = projectId;
     }
     
-    const response = await fetch('/api/generate-content', {
+    const baseUrl = import.meta.env.VITE_API_URL || '';
+    const response = await fetch(`${baseUrl}/api/generate-content`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ model, contents, config, tools })
