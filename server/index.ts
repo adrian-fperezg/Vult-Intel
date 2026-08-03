@@ -2606,8 +2606,25 @@ app.post("/api/generate-content", verifyFirebaseToken, async (req: AuthRequest, 
       }, { merge: true }).catch(err => console.error("[Token Tracking Error]:", err));
     }
 
+    let responseText = "";
+    try {
+      if (typeof response.text === "function") {
+        responseText = await response.text();
+      } else if (typeof response.text === "string") {
+        responseText = response.text;
+      } else if (response.candidates?.[0]?.content?.parts?.[0]?.text) {
+        responseText = response.candidates[0].content.parts[0].text;
+      } else {
+        // Fallback to serialization if everything fails
+        responseText = JSON.stringify(response.candidates || response);
+      }
+    } catch (extractErr) {
+      console.error("[Gemini Text Extraction Error]:", extractErr);
+      responseText = "Error extracting content from AI.";
+    }
+
     res.json({
-      text: response.text
+      text: responseText
     });
   } catch (err: any) {
     console.error("[/api/generate-content Error]:", err);
