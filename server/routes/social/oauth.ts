@@ -105,7 +105,7 @@ const PLATFORMS: Record<string, {
 // GET /api/social/auth/:platform?project_id=...&user_id=...
 router.get('/:platform', async (req: AuthRequest, res) => {
   const { platform } = req.params;
-  const userId = req.user?.uid;
+  const userId = req.user?.uid || (req.query.user_id as string);
   const pId = (req.headers['x-project-id'] as string) || (req.query.project_id as string);
   const source = req.query.source as string || 'social-studio';
 
