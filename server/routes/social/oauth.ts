@@ -8,7 +8,21 @@ import { v4 as uuidv4 } from 'uuid';
 const router = Router();
 
 // ─── PLATFORM CONFIGS ─────────────────────────────────────────────────────────
-const BACKEND_URL = process.env.APP_URL || 'http://localhost:3001';
+const getBackendUrl = () => {
+  let url = process.env.APP_URL;
+  if (!url && process.env.RAILWAY_PUBLIC_DOMAIN) {
+    url = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
+  }
+  if (!url) {
+    url = process.env.NODE_ENV === 'production' 
+      ? 'https://vult-intel-backend-production.up.railway.app' 
+      : 'http://localhost:3001';
+  }
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = `https://${url}`;
+  }
+  return url.replace(/\/+$/, '');
+};
 
 const PLATFORMS: Record<string, {
   name: string;
@@ -123,7 +137,7 @@ router.get('/:platform', async (req: AuthRequest, res) => {
   }
 
   const state = Buffer.from(JSON.stringify({ pId, userId, platform, source })).toString('base64url');
-  const redirectUri = `${BACKEND_URL}/api/social/auth/${platform}/callback`;
+  const redirectUri = `${getBackendUrl()}/api/social/auth/${platform}/callback`;
 
   const params = new URLSearchParams({
     response_type: 'code',
@@ -172,7 +186,7 @@ router.get('/:platform/callback', async (req, res) => {
   }
 
   try {
-    const redirectUri = `${BACKEND_URL}/api/social/auth/${platform}/callback`;
+    const redirectUri = `${getBackendUrl()}/api/social/auth/${platform}/callback`;
 
     // Exchange code for tokens
     const tokenRes = await fetch(config.tokenUrl, {
