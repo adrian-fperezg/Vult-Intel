@@ -2616,7 +2616,7 @@ app.post("/api/generate-content", verifyFirebaseToken, async (req: AuthRequest, 
     let responseText = "";
     try {
       if (typeof response.text === "function") {
-        responseText = await response.text();
+        responseText = await (response as any).text();
       } else if (typeof response.text === "string") {
         responseText = response.text;
       } else if (response.candidates?.[0]?.content?.parts?.[0]?.text) {
