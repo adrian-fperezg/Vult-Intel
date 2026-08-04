@@ -81,8 +81,8 @@ export function useSocialApi() {
   }, [headers]);
 
   const getConnectUrl = useCallback((platform: string, source: string = 'social-studio') => {
-    return `${BACKEND_URL}/api/social/auth/${platform}?project_id=${activeProjectId}&source=${source}`;
-  }, [activeProjectId]);
+    return `${BACKEND_URL}/api/social/auth/${platform}?project_id=${activeProjectId}&user_id=${currentUser?.uid || ''}&source=${source}`;
+  }, [activeProjectId, currentUser?.uid]);
 
   const connectTokenAccount = useCallback(async (platform: string, credentials: any) => {
     const h = await headers();
