@@ -178,6 +178,23 @@ router.get('/:platform/callback', async (req, res) => {
   const { platform } = req.params;
   const { code, state, error } = req.query as Record<string, string>;
 
+  // Intercept Meta Webhook verification if hub.mode is present
+  const mode = req.query['hub.mode'] as string;
+  const token = req.query['hub.verify_token'] as string;
+  const challenge = req.query['hub.challenge'] as string;
+  
+  if (mode === 'subscribe') {
+    const VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN || process.env.INSTAGRAM_WEBHOOK_VERIFY_TOKEN || 'vult_intel_meta_webhook_secret';
+    if (token === VERIFY_TOKEN) {
+      console.log(`✅ Meta Webhook Verified on callback URL for ${platform}`);
+      return res.status(200).send(challenge); // Return challenge in plain text
+    } else {
+      console.error(`❌ Meta Webhook Verification Failed. Expected token:`, VERIFY_TOKEN, 'Received:', token);
+      return res.sendStatus(403);
+    }
+  }
+
+  // Otherwise proceed with normal OAuth callback
   let stateData: { pId: string; userId: string; platform: string; source?: string } = { pId: '', userId: '', platform: '', source: 'social-studio' };
   try {
     if (state) {
@@ -414,6 +431,14 @@ router.get('/:platform/callback', async (req, res) => {
     console.error(`[SOCIAL_OAUTH] ${platform} error:`, err.message);
     res.redirect(`${getRedirectBaseUrl()}&error=${encodeURIComponent(err.message)}`);
   }
+});
+
+// ─── OAUTH/WEBHOOK EVENT CALLBACK ─────────────────────────────────────────────
+router.post('/:platform/callback', express.json(), (req, res) => {
+  const { platform } = req.params;
+  console.log(`📩 Meta/${platform} Webhook Event Received on Callback URL:`, JSON.stringify(req.body, null, 2));
+  // Acknowledge receipt of the event immediately as required by Meta
+  res.status(200).send('EVENT_RECEIVED');
 });
 
 export default router;
