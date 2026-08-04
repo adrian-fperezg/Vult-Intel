@@ -24,6 +24,17 @@ const getBackendUrl = () => {
   return url.replace(/\/+$/, '');
 };
 
+const getFrontendUrl = () => {
+  let url = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.VITE_APP_URL;
+  if (!url) {
+    url = process.env.NODE_ENV === 'production' ? 'https://vultintel.com' : 'http://localhost:5173';
+  }
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = `https://${url}`;
+  }
+  return url.replace(/\/+$/, '');
+};
+
 const PLATFORMS: Record<string, {
   name: string;
   authUrl: string;
@@ -167,9 +178,10 @@ router.get('/:platform/callback', async (req, res) => {
   }
 
   const getRedirectBaseUrl = () => {
+    const frontend = getFrontendUrl();
     return stateData.source === 'vult-pulse' 
-      ? `${process.env.FRONTEND_URL}/vult-pulse?tab=settings`
-      : `${process.env.FRONTEND_URL}/social-studio?tab=accounts`;
+      ? `${frontend}/vult-pulse?tab=settings`
+      : `${frontend}/social-studio?tab=accounts`;
   };
 
   if (error) {
