@@ -89,6 +89,15 @@ const PLATFORMS: Record<string, {
     scopes: 'instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement',
     clientIdEnv: 'FACEBOOK_APP_ID',
     clientSecretEnv: 'FACEBOOK_APP_SECRET',
+  },
+  threads: {
+    name: 'Threads',
+    authUrl: 'https://threads.net/oauth/authorize',
+    tokenUrl: 'https://graph.threads.net/oauth/access_token',
+    userInfoUrl: 'https://graph.threads.net/v1.0/me',
+    scopes: 'threads_basic,threads_content_publish',
+    clientIdEnv: 'THREADS_APP_ID',
+    clientSecretEnv: 'THREADS_APP_SECRET',
   }
 };
 

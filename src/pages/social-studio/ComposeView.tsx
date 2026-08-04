@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { useSocialApi } from '@/hooks/useSocialApi';
 import {
   Send, Clock, FileEdit, Plus, X, Image, Link2, ChevronDown,
-  Linkedin, Twitter, Youtube, Facebook, Instagram, ExternalLink, Video
+  Linkedin, Twitter, Youtube, Facebook, Instagram, ExternalLink, Video, Hash
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -16,6 +16,7 @@ const PLATFORM_META: Record<string, { icon: any; color: string; bg: string; labe
   youtube:   { icon: Youtube,   color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/30',      label: 'YouTube',   charLimit: 5000 },
   twitter:   { icon: Twitter,   color: 'text-sky-400',    bg: 'bg-sky-500/10 border-sky-500/30',      label: 'Twitter/X', charLimit: 280 },
   tiktok:    { icon: ExternalLink, color: 'text-white',   bg: 'bg-white/5 border-white/20',           label: 'TikTok',    charLimit: 2200 },
+  threads:   { icon: Hash,      color: 'text-slate-100',  bg: 'bg-slate-500/10 border-slate-500/30',  label: 'Threads',   charLimit: 500 },
 };
 
 interface ComposeViewProps {

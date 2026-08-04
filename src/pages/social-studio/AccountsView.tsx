@@ -4,7 +4,7 @@ import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import {
   Link2, Trash2, ExternalLink, CheckCircle2, Lock,
-  Linkedin, Twitter, Youtube, Facebook, Instagram
+  Linkedin, Twitter, Youtube, Facebook, Instagram, Hash, Video
 } from 'lucide-react';
 
 const PLATFORMS = [
@@ -18,6 +18,19 @@ const PLATFORMS = [
     description: 'Publish to your YouTube community posts',
     envKey: 'GOOGLE_CLIENT_ID',
     available: true, // Uses existing Google OAuth
+  },
+  {
+    id: 'threads',
+    name: 'Threads',
+    icon: Hash,
+    color: 'text-slate-100',
+    bg: 'bg-slate-500/10 border-slate-500/20',
+    activeBg: 'bg-slate-500/15 border-slate-500/40',
+    description: 'Publish posts to your Threads account',
+    envKey: 'THREADS_CLIENT_ID',
+    available: false,
+    setupUrl: 'https://developers.facebook.com/apps',
+    setupGuide: 'Create a Meta App → configure Threads App tokens → add to Railway variables',
   },
   {
     id: 'linkedin',

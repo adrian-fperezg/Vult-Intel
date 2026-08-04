@@ -306,6 +306,105 @@ async function publishToTikTok(account: any, post: any): Promise<string> {
   throw new Error('TikTok requires a video. Upload a video file to publish to TikTok.');
 }
 
+async function publishToThreads(account: any, post: any): Promise<string> {
+  const token = decryptToken(account.access_token);
+  const mediaUrls = post.media_urls || [];
+  
+  let creationId: string;
+  let isVideo = false;
+
+  if (mediaUrls.length > 1) {
+    const itemIds = [];
+    for (const url of mediaUrls.slice(0, 10)) {
+      const isItemVideo = url.match(/\\.(mp4|mov)$/i);
+      if (isItemVideo) isVideo = true;
+      const res = await fetch(`https://graph.threads.net/v1.0/me/threads`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          media_type: isItemVideo ? 'VIDEO' : 'IMAGE',
+          [isItemVideo ? 'video_url' : 'image_url']: url,
+          is_carousel_item: true,
+          access_token: token
+        })
+      });
+      const data = await res.json() as any;
+      if (data.error) throw new Error(data.error.message);
+      itemIds.push(data.id);
+    }
+    
+    const carouselRes = await fetch(`https://graph.threads.net/v1.0/me/threads`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        media_type: 'CAROUSEL',
+        children: itemIds.join(','),
+        text: post.body,
+        access_token: token
+      })
+    });
+    const carouselData = await carouselRes.json() as any;
+    if (carouselData.error) throw new Error(carouselData.error.message);
+    creationId = carouselData.id;
+
+  } else if (mediaUrls.length === 1) {
+    const url = mediaUrls[0];
+    isVideo = !!url.match(/\\.(mp4|mov)$/i);
+    const res = await fetch(`https://graph.threads.net/v1.0/me/threads`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        media_type: isVideo ? 'VIDEO' : 'IMAGE',
+        [isVideo ? 'video_url' : 'image_url']: url,
+        text: post.body,
+        access_token: token
+      })
+    });
+    const data = await res.json() as any;
+    if (data.error) throw new Error(data.error.message);
+    creationId = data.id;
+
+  } else {
+    const res = await fetch(`https://graph.threads.net/v1.0/me/threads`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        media_type: 'TEXT',
+        text: post.body,
+        access_token: token
+      })
+    });
+    const data = await res.json() as any;
+    if (data.error) throw new Error(data.error.message);
+    creationId = data.id;
+  }
+
+  if (isVideo) {
+    let attempts = 0;
+    while (attempts < 15) {
+      const statusRes = await fetch(`https://graph.threads.net/v1.0/${creationId}?fields=status,error_message&access_token=${token}`);
+      const statusData = await statusRes.json() as any;
+      if (statusData.status === 'FINISHED') break;
+      if (statusData.status === 'ERROR') throw new Error(`Threads video processing failed: ${statusData.error_message}`);
+      attempts++;
+      await new Promise(r => setTimeout(r, 5000));
+    }
+    if (attempts >= 15) throw new Error('Timeout waiting for Threads video processing');
+  }
+
+  const pubRes = await fetch(`https://graph.threads.net/v1.0/me/threads_publish`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      creation_id: creationId,
+      access_token: token
+    })
+  });
+  const pubData = await pubRes.json() as any;
+  if (pubData.error) throw new Error(pubData.error.message);
+  return pubData.id;
+}
+
 // ─── PLATFORM DISPATCH ────────────────────────────────────────────────────────
 async function publishToAccount(account: any, post: any): Promise<string> {
   switch (account.platform) {
@@ -315,6 +414,7 @@ async function publishToAccount(account: any, post: any): Promise<string> {
     case 'youtube':   return publishToYouTube(account, post);
     case 'twitter':   return publishToTwitter(account, post);
     case 'tiktok':    return publishToTikTok(account, post);
+    case 'threads':   return publishToThreads(account, post);
     default:          throw new Error(`Unsupported platform: ${account.platform}`);
   }
 }
