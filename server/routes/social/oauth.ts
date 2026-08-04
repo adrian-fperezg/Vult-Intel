@@ -220,7 +220,7 @@ router.get('/:platform/callback', async (req, res) => {
     if (!tokenData.access_token) throw new Error(tokenData.error_description || 'Failed to get access token');
 
     // Get user info
-    let accountId = '', username = '', displayName = '', avatarUrl = '', channelId = '';
+    let accountsToInsert: any[] = [];
     
     if (config.userInfoUrl) {
       const headers: Record<string, string> = { Authorization: `Bearer ${tokenData.access_token}` };
@@ -228,37 +228,93 @@ router.get('/:platform/callback', async (req, res) => {
       const userData = await userRes.json() as any;
 
       if (platform === 'linkedin') {
-        accountId = userData.sub;
-        username = userData.email || userData.sub;
-        displayName = `${userData.given_name || ''} ${userData.family_name || ''}`.trim();
-        avatarUrl = userData.picture || '';
-      } else if (platform === 'facebook' || platform === 'instagram_dm' || platform === 'whatsapp' || platform === 'instagram') {
-        accountId = userData.id;
-        username = userData.name;
-        displayName = userData.name;
-        avatarUrl = userData.picture?.data?.url || '';
+        accountsToInsert.push({
+          accountId: userData.sub,
+          username: userData.email || userData.sub,
+          displayName: `${userData.given_name || ''} ${userData.family_name || ''}`.trim(),
+          avatarUrl: userData.picture || '',
+          channelId: ''
+        });
 
-        // For Instagram publishing, we need the Instagram Business Account ID from the linked Facebook Page
-        if (platform === 'instagram') {
+        // Fetch LinkedIn Organizations (Pages)
+        try {
+          const orgsRes = await fetch('https://api.linkedin.com/v2/organizationAcls?q=roleAssignee', { headers });
+          const orgsData = await orgsRes.json() as any;
+          if (orgsData.elements) {
+            for (const org of orgsData.elements) {
+              const orgUrn = org.organization;
+              const orgId = orgUrn.split(':').pop();
+              
+              let orgName = `LinkedIn Page ${orgId}`;
+              let orgAvatar = '';
+              try {
+                 const orgDetailRes = await fetch(`https://api.linkedin.com/v2/organizations/${orgId}`, { headers });
+                 const orgDetail = await orgDetailRes.json() as any;
+                 if (orgDetail.localizedName) orgName = orgDetail.localizedName;
+                 // Note: avatar might require a more complex query, skipping for now
+              } catch(e) {}
+
+              accountsToInsert.push({
+                accountId: orgId,
+                username: orgName,
+                displayName: orgName,
+                avatarUrl: orgAvatar,
+                channelId: orgUrn
+              });
+            }
+          }
+        } catch (e) {
+          console.error('LinkedIn Orgs fetch failed:', e);
+        }
+
+      } else if (platform === 'facebook' || platform === 'instagram_dm' || platform === 'whatsapp' || platform === 'instagram') {
+        const mainId = userData.id;
+        const mainUsername = userData.name;
+        const mainDisplayName = userData.name;
+        const mainAvatarUrl = userData.picture?.data?.url || '';
+
+        if (platform === 'facebook') {
+          // Push personal profile
+          accountsToInsert.push({ accountId: mainId, username: mainUsername, displayName: mainDisplayName, avatarUrl: mainAvatarUrl, channelId: '' });
+          
+          try {
+            const pagesRes = await fetch('https://graph.facebook.com/v19.0/me/accounts?fields=name,access_token,picture', { headers });
+            const pagesData = await pagesRes.json() as any;
+            if (pagesData.data) {
+              for (const page of pagesData.data) {
+                accountsToInsert.push({
+                  accountId: page.id,
+                  username: page.name,
+                  displayName: page.name,
+                  avatarUrl: page.picture?.data?.url || '',
+                  channelId: page.id,
+                  customToken: page.access_token
+                });
+              }
+            }
+          } catch (e) {
+             console.error('Facebook Pages fetch failed:', e);
+          }
+        } else if (platform === 'instagram') {
           try {
             const pagesRes = await fetch('https://graph.facebook.com/v19.0/me/accounts?fields=instagram_business_account,name,access_token', { headers });
             const pagesData = await pagesRes.json() as any;
             const validPage = pagesData.data?.find((p: any) => p.instagram_business_account);
             if (validPage) {
-              accountId = validPage.instagram_business_account.id;
-              // We could also store validPage.id as page_id, but the query uses EXCLUDED.channel_id for extra IDs, let's store it there
-              channelId = validPage.id;
-              
-              // We should also fetch the IG user profile for a better username/avatar
+              const igId = validPage.instagram_business_account.id;
+              let igUser = mainUsername;
+              let igDisplay = mainDisplayName;
+              let igAvatar = mainAvatarUrl;
               try {
-                const igRes = await fetch(`https://graph.facebook.com/v19.0/${accountId}?fields=username,name,profile_picture_url&access_token=${tokenData.access_token}`);
+                const igRes = await fetch(`https://graph.facebook.com/v19.0/${igId}?fields=username,name,profile_picture_url&access_token=${tokenData.access_token}`);
                 const igData = await igRes.json() as any;
-                if (igData.username) username = igData.username;
-                if (igData.name) displayName = igData.name;
-                if (igData.profile_picture_url) avatarUrl = igData.profile_picture_url;
+                if (igData.username) igUser = igData.username;
+                if (igData.name) igDisplay = igData.name;
+                if (igData.profile_picture_url) igAvatar = igData.profile_picture_url;
               } catch (e) {
                 console.error('Failed fetching IG profile:', e);
               }
+              accountsToInsert.push({ accountId: igId, username: igUser, displayName: igDisplay, avatarUrl: igAvatar, channelId: validPage.id });
             } else {
               throw new Error('No Instagram Business account found linked to your Facebook pages.');
             }
@@ -266,69 +322,80 @@ router.get('/:platform/callback', async (req, res) => {
             console.error('Instagram Linking Error:', e.message);
             throw new Error('Failed to find linked Instagram Business Account. Ensure it is connected to a Facebook Page.');
           }
+        } else {
+           accountsToInsert.push({ accountId: mainId, username: mainUsername, displayName: mainDisplayName, avatarUrl: mainAvatarUrl, channelId: '' });
         }
       } else if (platform === 'youtube') {
-        accountId = userData.sub;
-        username = userData.email;
-        displayName = userData.name;
-        avatarUrl = userData.picture || '';
-        // Get YouTube channel ID
+        let channelId = '';
+        let displayName = userData.name;
         try {
           const chRes = await fetch('https://www.googleapis.com/youtube/v3/channels?part=id,snippet&mine=true', {
             headers: { Authorization: `Bearer ${tokenData.access_token}` }
           });
           const chData = await chRes.json() as any;
           channelId = chData.items?.[0]?.id || '';
-          if (!displayName) displayName = chData.items?.[0]?.snippet?.title || username;
+          if (!displayName) displayName = chData.items?.[0]?.snippet?.title || userData.email;
         } catch { /* channel lookup non-critical */ }
+        accountsToInsert.push({ accountId: userData.sub, username: userData.email, displayName, avatarUrl: userData.picture || '', channelId });
       } else if (platform === 'twitter') {
-        accountId = userData.data?.id || userData.id;
-        username = `@${userData.data?.username || userData.username}`;
-        displayName = userData.data?.name || userData.name;
-        avatarUrl = userData.data?.profile_image_url || '';
+        accountsToInsert.push({
+          accountId: userData.data?.id || userData.id,
+          username: `@${userData.data?.username || userData.username}`,
+          displayName: userData.data?.name || userData.name,
+          avatarUrl: userData.data?.profile_image_url || '',
+          channelId: ''
+        });
       } else if (platform === 'tiktok') {
-        accountId = userData.data?.user?.open_id || uuidv4();
-        username = userData.data?.user?.display_name || 'TikTok User';
-        displayName = username;
-        avatarUrl = userData.data?.user?.avatar_url || '';
+        const username = userData.data?.user?.display_name || 'TikTok User';
+        accountsToInsert.push({
+          accountId: userData.data?.user?.open_id || uuidv4(),
+          username: username,
+          displayName: username,
+          avatarUrl: userData.data?.user?.avatar_url || '',
+          channelId: ''
+        });
       }
     }
 
-    const expiresAt = tokenData.expires_in 
-      ? new Date(Date.now() + tokenData.expires_in * 1000)
-      : null;
+    const expiresAt = tokenData.expires_in ? new Date(Date.now() + tokenData.expires_in * 1000) : null;
+    const expiresStr = expiresAt?.toISOString() || null;
+    const defaultAccessEnc = encryptToken(tokenData.access_token);
+    const refreshEnc = tokenData.refresh_token ? encryptToken(tokenData.refresh_token) : null;
 
-    // Upsert account
-    await db.run(`
-      INSERT INTO social_accounts 
-        (id, project_id, user_id, platform, account_id, username, display_name, avatar_url, 
-         access_token, refresh_token, token_expires_at, scopes, channel_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT (project_id, platform, account_id) DO UPDATE SET
-        username = EXCLUDED.username,
-        display_name = EXCLUDED.display_name,
-        avatar_url = EXCLUDED.avatar_url,
-        access_token = EXCLUDED.access_token,
-        refresh_token = COALESCE(EXCLUDED.refresh_token, social_accounts.refresh_token),
-        token_expires_at = EXCLUDED.token_expires_at,
-        scopes = EXCLUDED.scopes,
-        channel_id = EXCLUDED.channel_id,
-        updated_at = NOW()
-    `,
-      uuidv4(),
-      stateData.pId,
-      stateData.userId,
-      platform,
-      accountId,
-      username,
-      displayName,
-      avatarUrl,
-      encryptToken(tokenData.access_token),
-      tokenData.refresh_token ? encryptToken(tokenData.refresh_token) : null,
-      expiresAt?.toISOString() || null,
-      config.scopes,
-      channelId || null
-    );
+    // Upsert accounts
+    for (const acc of accountsToInsert) {
+      const tokenToSave = acc.customToken ? encryptToken(acc.customToken) : defaultAccessEnc;
+      await db.run(`
+        INSERT INTO social_accounts 
+          (id, project_id, user_id, platform, account_id, username, display_name, avatar_url, 
+           access_token, refresh_token, token_expires_at, scopes, channel_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (project_id, platform, account_id) DO UPDATE SET
+          username = EXCLUDED.username,
+          display_name = EXCLUDED.display_name,
+          avatar_url = EXCLUDED.avatar_url,
+          access_token = EXCLUDED.access_token,
+          refresh_token = COALESCE(EXCLUDED.refresh_token, social_accounts.refresh_token),
+          token_expires_at = EXCLUDED.token_expires_at,
+          scopes = EXCLUDED.scopes,
+          channel_id = EXCLUDED.channel_id,
+          updated_at = NOW()
+      `,
+        uuidv4(),
+        stateData.pId,
+        stateData.userId,
+        platform,
+        acc.accountId,
+        acc.username,
+        acc.displayName,
+        acc.avatarUrl,
+        tokenToSave,
+        refreshEnc,
+        expiresStr,
+        config.scopes,
+        acc.channelId || null
+      );
+    }
 
     res.redirect(`${getRedirectBaseUrl()}&connected=${platform}`);
   } catch (err: any) {

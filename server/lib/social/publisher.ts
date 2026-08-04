@@ -97,8 +97,24 @@ async function publishToLinkedIn(account: any, post: any): Promise<string> {
   const data = await res.json() as any;
   if (!res.ok) throw new Error(data.message || JSON.stringify(data));
   
-  // LinkedIn uses x-restli-id for created resources sometimes, but data might have it.
   const urn = res.headers.get('x-restli-id') || (data && data.id) || 'linkedin_post';
+
+  if (post.first_comment && urn && urn !== 'linkedin_post') {
+    try {
+      await fetch(`https://api.linkedin.com/rest/socialActions/${urn}/comments`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          actor: authorUrn,
+          object: urn,
+          message: { text: post.first_comment }
+        }),
+      });
+    } catch (e: any) {
+      console.error('[PUBLISHER] LinkedIn first comment failed', e.message);
+    }
+  }
+
   return urn;
 }
 
@@ -141,6 +157,18 @@ async function publishToFacebook(account: any, post: any): Promise<string> {
     });
     const feedData = await feedRes.json() as any;
     if (feedData.error) throw new Error(feedData.error.message);
+    
+    if (post.first_comment && feedData.id) {
+      try {
+        await fetch(`https://graph.facebook.com/v19.0/${feedData.id}/comments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: post.first_comment, access_token: token }),
+        });
+      } catch (e: any) {
+        console.error('[PUBLISHER] Facebook first comment failed', e.message);
+      }
+    }
     return feedData.id;
 
   } else if (mediaUrls.length > 0) {
@@ -183,6 +211,19 @@ async function publishToFacebook(account: any, post: any): Promise<string> {
       });
       const data = await res.json() as any;
       if (data.error) throw new Error(data.error.message);
+
+      if (post.first_comment && data.id) {
+        try {
+          await fetch(`https://graph.facebook.com/v19.0/${data.id}/comments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: post.first_comment, access_token: token }),
+          });
+        } catch (e: any) {
+          console.error('[PUBLISHER] Facebook first comment failed', e.message);
+        }
+      }
+
       return data.id;
     }
     
@@ -198,6 +239,19 @@ async function publishToFacebook(account: any, post: any): Promise<string> {
     });
     const data = await res.json() as any;
     if (data.error) throw new Error(data.error.message);
+
+    if (post.first_comment && data.id) {
+      try {
+        await fetch(`https://graph.facebook.com/v19.0/${data.id}/comments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: post.first_comment, access_token: token }),
+        });
+      } catch (e: any) {
+        console.error('[PUBLISHER] Facebook first comment failed', e.message);
+      }
+    }
+
     return data.id;
   }
 }
@@ -330,6 +384,18 @@ async function publishToInstagram(account: any, post: any): Promise<string> {
   const pubData = await pubRes.json() as any;
   if (pubData.error) throw new Error(pubData.error.message);
   
+  if (post.first_comment && pubData.id) {
+    try {
+      await fetch(`https://graph.facebook.com/v19.0/${pubData.id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: post.first_comment, access_token: token }),
+      });
+    } catch (e: any) {
+      console.error('[PUBLISHER] Instagram first comment failed', e.message);
+    }
+  }
+
   return pubData.id;
 }
 
@@ -357,7 +423,25 @@ async function publishToTwitter(account: any, post: any): Promise<string> {
   });
   const data = await res.json() as any;
   if (data.errors || data.error) throw new Error(data.errors?.[0]?.message || data.detail || 'Twitter error');
-  return data.data?.id || 'tweet';
+  
+  const tweetId = data.data?.id || 'tweet';
+
+  if (post.first_comment && data.data?.id) {
+    try {
+      await fetch('https://api.twitter.com/2/tweets', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          text: post.first_comment.slice(0, 280),
+          reply: { in_reply_to_tweet_id: data.data.id }
+        }),
+      });
+    } catch (e: any) {
+      console.error('[PUBLISHER] Twitter first comment failed', e.message);
+    }
+  }
+
+  return tweetId;
 }
 
 async function publishToTikTok(account: any, post: any): Promise<string> {
@@ -467,14 +551,19 @@ async function publishToThreads(account: any, post: any): Promise<string> {
 
 // ─── PLATFORM DISPATCH ────────────────────────────────────────────────────────
 async function publishToAccount(account: any, post: any): Promise<string> {
+  const postForAccount = {
+    ...post,
+    body: account.custom_body || post.body
+  };
+  
   switch (account.platform) {
-    case 'linkedin':  return publishToLinkedIn(account, post);
-    case 'facebook':  return publishToFacebook(account, post);
-    case 'instagram': return publishToInstagram(account, post);
-    case 'youtube':   return publishToYouTube(account, post);
-    case 'twitter':   return publishToTwitter(account, post);
-    case 'tiktok':    return publishToTikTok(account, post);
-    case 'threads':   return publishToThreads(account, post);
+    case 'linkedin':  return publishToLinkedIn(account, postForAccount);
+    case 'facebook':  return publishToFacebook(account, postForAccount);
+    case 'instagram': return publishToInstagram(account, postForAccount);
+    case 'youtube':   return publishToYouTube(account, postForAccount);
+    case 'twitter':   return publishToTwitter(account, postForAccount);
+    case 'tiktok':    return publishToTikTok(account, postForAccount);
+    case 'threads':   return publishToThreads(account, postForAccount);
     default:          throw new Error(`Unsupported platform: ${account.platform}`);
   }
 }

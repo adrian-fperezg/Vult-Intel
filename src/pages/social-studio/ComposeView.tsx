@@ -4,8 +4,9 @@ import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
 import { useSocialApi } from '@/hooks/useSocialApi';
 import {
-  Send, Clock, FileEdit, Plus, X, Image, Link2, ChevronDown,
-  Linkedin, Twitter, Youtube, Facebook, Instagram, ExternalLink, Video, Hash
+  Send, Clock, FileEdit, Plus, X, Image, Link2,
+  Linkedin, Twitter, Youtube, Facebook, Instagram, ExternalLink, Video, Hash,
+  MessageSquare
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -29,10 +30,15 @@ interface ComposeViewProps {
 export default function ComposeView({ accounts, loadingAccounts, onPostCreated, onNavigateToAccounts }: ComposeViewProps) {
   const api = useSocialApi();
   const [body, setBody] = useState('');
+  const [customBodies, setCustomBodies] = useState<Record<string, string>>({});
+  const [activeTab, setActiveTab] = useState<'master' | string>('master');
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
   const [scheduledAt, setScheduledAt] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
   const [showLinkInput, setShowLinkInput] = useState(false);
+  const [firstComment, setFirstComment] = useState('');
+  const [showFirstComment, setShowFirstComment] = useState(false);
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
@@ -44,7 +50,10 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
   const toggleAccount = (id: string) => {
     setSelectedAccountIds(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
+      if (next.has(id)) {
+        next.delete(id);
+        if (activeTab === id) setActiveTab('master');
+      }
       else next.add(id);
       return next;
     });
@@ -102,11 +111,12 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
       const post = await api.createPost({
         body,
         link_url: linkUrl || undefined,
-        // We use link_title to pass the post type for the backend
         link_title: showPostTypeSelector ? instagramType : undefined,
         media_urls: mediaUrls.length > 0 ? mediaUrls : undefined,
+        first_comment: showFirstComment && firstComment.trim() ? firstComment.trim() : undefined,
         scheduled_at: mode === 'schedule' ? scheduledAt : undefined,
         account_ids: Array.from(selectedAccountIds),
+        custom_bodies: Object.keys(customBodies).length > 0 ? customBodies : undefined,
         status: mode === 'draft' ? 'draft' : mode === 'now' ? 'scheduled' : 'scheduled',
       });
 
@@ -120,10 +130,14 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
       }
 
       setBody('');
+      setCustomBodies({});
+      setActiveTab('master');
       setSelectedAccountIds(new Set());
       setScheduledAt('');
       setLinkUrl('');
       setMediaUrls([]);
+      setFirstComment('');
+      setShowFirstComment(false);
       onPostCreated();
     } catch (err: any) {
       toast.error(err.message);
@@ -133,9 +147,11 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
   };
 
   return (
-    <div className="h-full overflow-y-auto custom-scrollbar">
-      <div className="max-w-3xl mx-auto p-8 space-y-6">
-
+    <div className="h-full flex flex-col lg:flex-row gap-6 p-4 md:p-8 overflow-hidden">
+      
+      {/* Left Panel: Composer */}
+      <div className="flex-1 lg:max-w-2xl overflow-y-auto custom-scrollbar flex flex-col gap-6 p-1 pr-4">
+        
         {/* No accounts CTA */}
         {!loadingAccounts && accounts.length === 0 && (
           <motion.div
@@ -217,22 +233,60 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
               </motion.div>
             )}
 
+            {/* Custom Text Tabs */}
+            {selectedAccountIds.size > 0 && (
+              <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-1 mt-2">
+                <button
+                  onClick={() => setActiveTab('master')}
+                  className={cn(
+                    "px-4 py-2 rounded-t-lg text-sm font-semibold border-b-2 transition-colors whitespace-nowrap",
+                    activeTab === 'master' ? "border-violet-500 text-violet-400 bg-violet-500/10" : "border-transparent text-slate-400 hover:text-slate-300 hover:bg-white/5"
+                  )}
+                >
+                  Master Text
+                </button>
+                {Array.from(selectedAccountIds).map(id => {
+                  const account = accounts.find(a => a.id === id);
+                  if (!account) return null;
+                  const meta = PLATFORM_META[account.platform];
+                  const Icon = meta?.icon || ExternalLink;
+                  return (
+                    <button
+                      key={id}
+                      onClick={() => setActiveTab(id)}
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-2 rounded-t-lg text-sm font-semibold border-b-2 transition-colors whitespace-nowrap",
+                        activeTab === id ? `border-[currentColor] ${meta?.color} ${meta?.bg.split(' ')[0]}` : "border-transparent text-slate-400 hover:text-slate-300 hover:bg-white/5"
+                      )}
+                    >
+                      <Icon className="size-4" />
+                      {account.display_name || account.username}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {/* Composer */}
             <div className={cn(
-              "rounded-2xl border overflow-hidden transition-all duration-200",
-              isOverLimit ? "border-red-500/50" : "border-white/10 focus-within:border-violet-500/40"
+              "rounded-2xl border bg-[#0d1117] overflow-hidden transition-all duration-200 shadow-xl",
+              isOverLimit ? "border-red-500/50 shadow-red-500/10" : "border-white/10 focus-within:border-violet-500/40 focus-within:shadow-violet-500/10",
+              selectedAccountIds.size > 0 ? "rounded-tl-none" : ""
             )}>
               <textarea
                 ref={textareaRef}
-                value={body}
-                onChange={e => setBody(e.target.value)}
-                placeholder="What's on your mind? Write your post here..."
+                value={activeTab === 'master' ? body : (customBodies[activeTab] !== undefined ? customBodies[activeTab] : body)}
+                onChange={e => {
+                  if (activeTab === 'master') setBody(e.target.value);
+                  else setCustomBodies(prev => ({ ...prev, [activeTab]: e.target.value }));
+                }}
+                placeholder={activeTab === 'master' ? "What's on your mind? Write your post here..." : "Customize text for this network..."}
                 rows={8}
-                className="w-full bg-[#161b22] text-white text-[15px] leading-relaxed p-5 resize-none outline-none placeholder:text-slate-600"
+                className="w-full bg-transparent text-white text-[15px] leading-relaxed p-5 resize-none outline-none placeholder:text-slate-600"
               />
               
               {mediaUrls.length > 0 && (
-                <div className="px-5 pb-5 grid grid-cols-5 gap-2 bg-[#161b22]">
+                <div className="px-5 pb-5 grid grid-cols-5 gap-2">
                   {mediaUrls.map((url, i) => {
                     const isVideo = url.match(/\.(mp4|mov)$/i);
                     return (
@@ -257,6 +311,65 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
                 </div>
               )}
 
+              {/* First Comment Area */}
+              <AnimatePresence>
+                {showFirstComment && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                  >
+                    <div className="px-5 py-4 border-t border-white/5 bg-[#161b22]">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <MessageSquare className="size-4 text-violet-400" />
+                          <span className="text-sm font-semibold text-violet-400">First Comment</span>
+                        </div>
+                        <button onClick={() => setShowFirstComment(false)} className="text-slate-500 hover:text-slate-300">
+                           <X className="size-4" />
+                        </button>
+                      </div>
+                      <textarea 
+                        value={firstComment}
+                        onChange={e => setFirstComment(e.target.value)}
+                        placeholder="Add a first comment to boost engagement (works on LinkedIn, Facebook, Instagram, Twitter)..."
+                        rows={2}
+                        className="w-full bg-black/20 text-white text-[14px] p-3 rounded-xl border border-white/5 outline-none focus:border-violet-500/40 resize-none placeholder:text-slate-600"
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Link input */}
+              <AnimatePresence>
+                {showLinkInput && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden bg-[#161b22] border-t border-white/5 px-5 py-4"
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Link2 className="size-4 text-blue-400" />
+                        <span className="text-sm font-semibold text-blue-400">Link URL</span>
+                      </div>
+                      <button onClick={() => setShowLinkInput(false)} className="text-slate-500 hover:text-slate-300">
+                         <X className="size-4" />
+                      </button>
+                    </div>
+                    <input
+                      type="url"
+                      value={linkUrl}
+                      onChange={e => setLinkUrl(e.target.value)}
+                      placeholder="https://example.com"
+                      className="w-full bg-black/20 border border-white/5 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-600 outline-none focus:border-blue-500/40"
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* Toolbar */}
               <div className="flex items-center justify-between px-4 py-3 bg-[#0d1117] border-t border-white/5">
                 <div className="flex items-center gap-1">
@@ -279,10 +392,19 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
                     onClick={() => setShowLinkInput(v => !v)}
                     className={cn(
                       "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
-                      showLinkInput ? "bg-violet-500/15 text-violet-300" : "text-slate-500 hover:text-slate-300 hover:bg-white/5"
+                      showLinkInput ? "bg-blue-500/15 text-blue-300" : "text-slate-500 hover:text-slate-300 hover:bg-white/5"
                     )}
                   >
                     <Link2 className="size-3.5" /> Link
+                  </button>
+                  <button
+                    onClick={() => setShowFirstComment(v => !v)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
+                      showFirstComment ? "bg-violet-500/15 text-violet-300" : "text-slate-500 hover:text-slate-300 hover:bg-white/5"
+                    )}
+                  >
+                    <MessageSquare className="size-3.5" /> First Comment
                   </button>
                 </div>
                 <div className={cn(
@@ -294,28 +416,8 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
               </div>
             </div>
 
-            {/* Link input */}
-            <AnimatePresence>
-              {showLinkInput && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden"
-                >
-                  <input
-                    type="url"
-                    value={linkUrl}
-                    onChange={e => setLinkUrl(e.target.value)}
-                    placeholder="https://example.com"
-                    className="w-full bg-[#161b22] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-600 outline-none focus:border-violet-500/40"
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-
             {/* Schedule picker */}
-            <div className="space-y-2">
+            <div className="space-y-2 pt-2">
               <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Schedule for (optional)</p>
               <input
                 type="datetime-local"
@@ -327,11 +429,11 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
             </div>
 
             {/* Action buttons */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 pt-4">
               <button
                 onClick={() => handleSubmit('now')}
                 disabled={isSubmitting || isOverLimit}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-500 hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm transition-colors shadow-lg shadow-violet-500/20"
+                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-violet-500 hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm transition-colors shadow-lg shadow-violet-500/20"
               >
                 <Send className="size-4" />
                 {isSubmitting ? 'Publishing...' : 'Post Now'}
@@ -340,7 +442,7 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
                 <button
                   onClick={() => handleSubmit('schedule')}
                   disabled={isSubmitting}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 font-semibold text-sm transition-colors"
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 font-semibold text-sm transition-colors"
                 >
                   <Clock className="size-4" />
                   Schedule
@@ -349,7 +451,7 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
               <button
                 onClick={() => handleSubmit('draft')}
                 disabled={isSubmitting}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-slate-500 hover:text-slate-300 text-sm transition-colors"
+                className="flex items-center gap-2 px-5 py-3 rounded-xl text-slate-500 hover:text-slate-300 text-sm transition-colors"
               >
                 <FileEdit className="size-4" />
                 Save Draft
@@ -358,6 +460,91 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
           </>
         )}
       </div>
+
+      {/* Right Panel: Previews (Only when accounts exist) */}
+      {accounts.length > 0 && (
+        <div className="hidden lg:flex w-[400px] flex-col border-l border-white/10 pl-6 h-full">
+          <h3 className="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2 shrink-0">
+            <div className="size-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
+            Network Previews
+          </h3>
+          <div className="flex-1 overflow-y-auto custom-scrollbar rounded-2xl bg-[#0d1117]/50 p-1">
+            {selectedAccountIds.size === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-slate-500 text-center gap-3 border border-white/5 rounded-2xl bg-white/5">
+                 <Image className="size-8 opacity-20" />
+                 <p className="text-sm max-w-[200px]">Select an account to see how your post will look</p>
+              </div>
+            ) : (
+              <div className="space-y-5 pb-8">
+                {Array.from(selectedAccountIds).map(id => {
+                   const account = accounts.find(a => a.id === id);
+                   if (!account) return null;
+                   const meta = PLATFORM_META[account.platform];
+                   const Icon = meta?.icon || ExternalLink;
+                   return (
+                     <div key={id} className="bg-[#161b22] border border-white/5 rounded-xl p-5 shadow-lg">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="size-10 rounded-full bg-white/5 overflow-hidden border border-white/10">
+                            {account.avatar_url ? <img src={account.avatar_url} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-violet-500/20" />}
+                          </div>
+                          <div>
+                            <p className="text-[14px] font-bold text-slate-200 leading-tight">{account.display_name || account.username}</p>
+                            <p className="text-[12px] text-slate-500 flex items-center gap-1 mt-0.5">
+                              <Icon className={cn("size-3", meta?.color)} />
+                              {meta?.label || account.platform}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        {(() => {
+                           const text = customBodies[id] !== undefined ? customBodies[id] : body;
+                           if (!text && mediaUrls.length === 0) return <div className="text-[14px] text-slate-600 italic mb-3">Your text will appear here...</div>;
+                           if (text) return <div className="text-[14px] text-slate-300 whitespace-pre-wrap leading-relaxed mb-3">{text}</div>;
+                           return null;
+                        })()}
+
+                        {mediaUrls.length > 0 && (
+                          <div className={cn("grid gap-1 rounded-xl overflow-hidden mb-3 border border-white/5", mediaUrls.length > 1 ? "grid-cols-2" : "grid-cols-1")}>
+                             {mediaUrls.slice(0, 4).map((url, i) => (
+                               <div key={i} className="aspect-square bg-black/40">
+                                 {url.match(/\.(mp4|mov)$/i) ? (
+                                    <div className="w-full h-full flex items-center justify-center"><Video className="size-8 text-white/30" /></div>
+                                 ) : (
+                                    <img src={url} className="w-full h-full object-cover" />
+                                 )}
+                               </div>
+                             ))}
+                          </div>
+                        )}
+                        
+                        {showLinkInput && linkUrl && (
+                          <div className="mt-2 p-3 rounded-lg bg-black/20 border border-white/5 flex items-center gap-3">
+                            <div className="p-2 bg-white/5 rounded-md"><Link2 className="size-4 text-slate-400" /></div>
+                            <div className="text-xs text-slate-400 truncate">{linkUrl}</div>
+                          </div>
+                        )}
+
+                        {showFirstComment && firstComment.trim() && (
+                          <div className="mt-4 pt-3 border-t border-white/5 flex gap-3 relative">
+                             <div className="w-[2px] h-full bg-white/5 absolute left-4 top-10" />
+                             <div className="size-8 rounded-full bg-white/5 overflow-hidden border border-white/10 shrink-0 z-10">
+                                {account.avatar_url ? <img src={account.avatar_url} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-violet-500/20" />}
+                             </div>
+                             <div className="flex-1 bg-black/20 rounded-xl p-3 border border-white/5">
+                               <p className="text-[12px] font-bold text-slate-300 mb-0.5">{account.display_name || account.username}</p>
+                               <div className="text-[13px] text-slate-400 whitespace-pre-wrap">{firstComment}</div>
+                             </div>
+                          </div>
+                        )}
+                     </div>
+                   );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -1131,6 +1131,13 @@ export const initDb = async () => {
       console.warn(`[DB] PG Migration for radar_social_posts.tone failed:`, (err as Error).message);
     }
 
+    try {
+      await db.run(`ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS first_comment TEXT`);
+      await db.run(`ALTER TABLE social_post_targets ADD COLUMN IF NOT EXISTS custom_body TEXT`);
+    } catch (err) {
+      console.warn(`[DB] PG Migration for social_posts.first_comment or custom_body failed:`, (err as Error).message);
+    }
+
     await applyTrigger('radar_schedules');
     await applyTrigger('radar_social_posts');
 

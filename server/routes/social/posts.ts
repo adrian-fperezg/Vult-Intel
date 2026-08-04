@@ -48,7 +48,7 @@ router.get('/', async (req: AuthRequest, res) => {
 router.post('/', async (req: AuthRequest, res) => {
   const userId = req.user?.uid;
   const pId = (req.headers['x-project-id'] as string) || req.body.project_id;
-  const { body, media_urls, link_url, link_title, link_description, link_image, scheduled_at, account_ids, status } = req.body;
+  const { body, media_urls, link_url, link_title, link_description, link_image, first_comment, scheduled_at, account_ids, status, custom_bodies } = req.body;
   if (!userId || !pId) return res.status(400).json({ error: 'project_id required' });
   if (!body?.trim()) return res.status(400).json({ error: 'body is required' });
   if (!account_ids?.length) return res.status(400).json({ error: 'Select at least one account' });
@@ -58,18 +58,19 @@ router.post('/', async (req: AuthRequest, res) => {
     const postStatus = scheduled_at ? 'scheduled' : (status || 'draft');
 
     await db.run(`
-      INSERT INTO social_posts (id, project_id, user_id, body, media_urls, link_url, link_title, link_description, link_image, status, scheduled_at)
-      VALUES (?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?)
-    `, postId, pId, userId, body, JSON.stringify(media_urls || []), link_url || null, link_title || null, link_description || null, link_image || null, postStatus, scheduled_at || null);
+      INSERT INTO social_posts (id, project_id, user_id, body, media_urls, link_url, link_title, link_description, link_image, first_comment, status, scheduled_at)
+      VALUES (?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?)
+    `, postId, pId, userId, body, JSON.stringify(media_urls || []), link_url || null, link_title || null, link_description || null, link_image || null, first_comment || null, postStatus, scheduled_at || null);
 
     // Create targets for each account
     for (const accountId of account_ids) {
       const account = await db.get<any>(`SELECT platform FROM social_accounts WHERE id = ?`, accountId);
       if (account) {
+        const customBody = custom_bodies?.[accountId] || null;
         await db.run(`
-          INSERT INTO social_post_targets (id, post_id, account_id, platform, status)
-          VALUES (?, ?, ?, ?, 'pending')
-        `, uuidv4(), postId, accountId, account.platform);
+          INSERT INTO social_post_targets (id, post_id, account_id, platform, status, custom_body)
+          VALUES (?, ?, ?, ?, 'pending', ?)
+        `, uuidv4(), postId, accountId, account.platform, customBody);
       }
     }
 
@@ -85,9 +86,7 @@ router.post('/', async (req: AuthRequest, res) => {
 router.patch('/:id', async (req: AuthRequest, res) => {
   const userId = req.user?.uid;
   const { id } = req.params;
-  const { body, media_urls, link_url, scheduled_at, account_ids, status } = req.body;
-  if (!userId) return res.status(401).json({ error: 'Auth required' });
-
+  const { body, media_urls, link_url, first_comment, scheduled_at, account_ids, status, custom_bodies } = req.body;
   try {
     const post = await db.get<any>(`SELECT * FROM social_posts WHERE id = ? AND user_id = ?`, id, userId);
     if (!post) return res.status(404).json({ error: 'Post not found' });
@@ -97,22 +96,24 @@ router.patch('/:id', async (req: AuthRequest, res) => {
         body = COALESCE(?, body),
         media_urls = COALESCE(?::jsonb, media_urls),
         link_url = COALESCE(?, link_url),
+        first_comment = COALESCE(?, first_comment),
         scheduled_at = ?,
         status = COALESCE(?, status),
         updated_at = NOW()
       WHERE id = ?
-    `, body, media_urls ? JSON.stringify(media_urls) : null, link_url, scheduled_at || null, status, id);
+    `, body, media_urls ? JSON.stringify(media_urls) : null, link_url, first_comment, scheduled_at || null, status, id);
 
     if (account_ids) {
       await db.run(`DELETE FROM social_post_targets WHERE post_id = ? AND status = 'pending'`, id);
       for (const accountId of account_ids) {
         const account = await db.get<any>(`SELECT platform FROM social_accounts WHERE id = ?`, accountId);
         if (account) {
+          const customBody = custom_bodies?.[accountId] || null;
           await db.run(`
-            INSERT INTO social_post_targets (id, post_id, account_id, platform, status)
-            VALUES (?, ?, ?, ?, 'pending')
+            INSERT INTO social_post_targets (id, post_id, account_id, platform, status, custom_body)
+            VALUES (?, ?, ?, ?, 'pending', ?)
             ON CONFLICT DO NOTHING
-          `, uuidv4(), id, accountId, account.platform);
+          `, uuidv4(), id, accountId, account.platform, customBody);
         }
       }
     }

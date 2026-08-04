@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS social_posts (
   link_title      TEXT,
   link_description TEXT,
   link_image      TEXT,
+  first_comment   TEXT,
   status          TEXT NOT NULL DEFAULT 'draft',
   scheduled_at    TIMESTAMPTZ,
   published_at    TIMESTAMPTZ,
