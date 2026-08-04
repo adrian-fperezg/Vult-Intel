@@ -205,7 +205,7 @@ router.get('/:platform/callback', async (req, res) => {
   }
 
   const getRedirectBaseUrl = () => {
-    const frontend = getFrontendUrl();
+    const frontend = 'https://vultintel.com';
     return stateData.source === 'vult-pulse' 
       ? `${frontend}/vult-pulse?tab=settings`
       : `${frontend}/social-studio?tab=accounts`;
