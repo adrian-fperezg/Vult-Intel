@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 import { AuthRequest } from '../../middleware.js';
 import db from '../../db.js';
 import { encryptToken } from '../../lib/outreach/encrypt.js';
