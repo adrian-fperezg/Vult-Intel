@@ -49,7 +49,7 @@ const PLATFORMS: Record<string, {
     authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
     tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
     userInfoUrl: 'https://api.linkedin.com/v2/userinfo',
-    scopes: 'openid profile email w_member_social',
+    scopes: 'openid profile email w_member_social w_organization_social r_organization_admin',
     clientIdEnv: 'LINKEDIN_CLIENT_ID',
     clientSecretEnv: 'LINKEDIN_CLIENT_SECRET',
   },
@@ -326,22 +326,35 @@ router.get('/:platform/callback', async (req, res) => {
           try {
             const pagesRes = await fetch('https://graph.facebook.com/v19.0/me/accounts?fields=instagram_business_account,name,access_token', { headers });
             const pagesData = await pagesRes.json() as any;
-            const validPage = pagesData.data?.find((p: any) => p.instagram_business_account);
-            if (validPage) {
-              const igId = validPage.instagram_business_account.id;
-              let igUser = mainUsername;
-              let igDisplay = mainDisplayName;
-              let igAvatar = mainAvatarUrl;
-              try {
-                const igRes = await fetch(`https://graph.facebook.com/v19.0/${igId}?fields=username,name,profile_picture_url&access_token=${tokenData.access_token}`);
-                const igData = await igRes.json() as any;
-                if (igData.username) igUser = igData.username;
-                if (igData.name) igDisplay = igData.name;
-                if (igData.profile_picture_url) igAvatar = igData.profile_picture_url;
-              } catch (e) {
-                console.error('Failed fetching IG profile:', e);
+            
+            const validPages = pagesData.data?.filter((p: any) => p.instagram_business_account) || [];
+            
+            if (validPages.length > 0) {
+              for (const validPage of validPages) {
+                const igId = validPage.instagram_business_account.id;
+                let igUser = validPage.name || mainUsername; // Fallback to page name
+                let igDisplay = validPage.name || mainDisplayName;
+                let igAvatar = mainAvatarUrl;
+                
+                try {
+                  const igRes = await fetch(`https://graph.facebook.com/v19.0/${igId}?fields=username,name,profile_picture_url&access_token=${tokenData.access_token}`);
+                  const igData = await igRes.json() as any;
+                  if (igData.username) igUser = igData.username;
+                  if (igData.name) igDisplay = igData.name;
+                  if (igData.profile_picture_url) igAvatar = igData.profile_picture_url;
+                } catch (e) {
+                  console.error(`Failed fetching IG profile for ${igId}:`, e);
+                }
+                
+                accountsToInsert.push({ 
+                  accountId: igId, 
+                  username: igUser, 
+                  displayName: igDisplay, 
+                  avatarUrl: igAvatar, 
+                  channelId: validPage.id,
+                  customToken: validPage.access_token // Optional, but useful if token is page-specific
+                });
               }
-              accountsToInsert.push({ accountId: igId, username: igUser, displayName: igDisplay, avatarUrl: igAvatar, channelId: validPage.id });
             } else {
               throw new Error('No Instagram Business account found linked to your Facebook pages.');
             }
