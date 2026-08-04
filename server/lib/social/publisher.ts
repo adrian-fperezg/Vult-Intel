@@ -46,36 +46,100 @@ async function publishToFacebook(account: any, post: any): Promise<string> {
   const token = decryptToken(account.access_token);
   const pageId = account.page_id || account.account_id;
 
-  const body: any = { message: post.body, access_token: token };
-  if (post.link_url) body.link = post.link_url;
-
-  // Support for media
-  let endpoint = `https://graph.facebook.com/v19.0/${pageId}/feed`;
+  const postType = (post.link_title || 'POST').toUpperCase();
+  const mediaUrls = post.media_urls || [];
   
-  if (post.media_urls && post.media_urls.length > 0) {
-    // Basic single image support for FB
-    const url = post.media_urls[0];
-    if (url.match(/\\.(mp4|mov)$/i)) {
-      endpoint = `https://graph.facebook.com/v19.0/${pageId}/videos`;
-      body.file_url = url;
-      body.description = post.body;
-      delete body.message;
-    } else {
-      endpoint = `https://graph.facebook.com/v19.0/${pageId}/photos`;
-      body.url = url;
-      body.caption = post.body;
-      delete body.message;
+  if (mediaUrls.length > 1 && postType === 'POST') {
+    // CAROUSEL
+    const attachedMedia = [];
+    for (const url of mediaUrls.slice(0, 10)) {
+      const isVideo = url.match(/\\.(mp4|mov)$/i);
+      if (isVideo) throw new Error('Facebook currently does not support mixed video/image carousels via this API.');
+      
+      const res = await fetch(`https://graph.facebook.com/v19.0/${pageId}/photos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url,
+          published: false,
+          access_token: token
+        }),
+      });
+      const data = await res.json() as any;
+      if (data.error) throw new Error(data.error.message);
+      attachedMedia.push({ media_fbid: data.id });
     }
-  }
 
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json() as any;
-  if (data.error) throw new Error(data.error.message);
-  return data.id || 'fb_post';
+    const feedRes = await fetch(`https://graph.facebook.com/v19.0/${pageId}/feed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: post.body,
+        attached_media: attachedMedia,
+        access_token: token
+      }),
+    });
+    const feedData = await feedRes.json() as any;
+    if (feedData.error) throw new Error(feedData.error.message);
+    return feedData.id;
+
+  } else if (mediaUrls.length > 0) {
+    // SINGLE MEDIA (Story, Reel, Post)
+    const url = mediaUrls[0];
+    const isVideo = url.match(/\\.(mp4|mov)$/i);
+    
+    if (postType === 'STORY') {
+      const endpoint = isVideo ? `https://graph.facebook.com/v19.0/${pageId}/video_stories` : `https://graph.facebook.com/v19.0/${pageId}/photo_stories`;
+      const body: any = { access_token: token };
+      if (isVideo) body.video_url = url;
+      else body.photo_url = url;
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json() as any;
+      if (data.error) throw new Error(data.error.message);
+      return data.id || 'fb_story';
+      
+    } else {
+      // POST or REEL
+      const endpoint = isVideo ? `https://graph.facebook.com/v19.0/${pageId}/videos` : `https://graph.facebook.com/v19.0/${pageId}/photos`;
+      const body: any = { access_token: token };
+      
+      if (isVideo) {
+        body.file_url = url;
+        body.description = post.body;
+      } else {
+        body.url = url;
+        body.caption = post.body;
+      }
+      
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json() as any;
+      if (data.error) throw new Error(data.error.message);
+      return data.id;
+    }
+    
+  } else {
+    // TEXT / LINK ONLY
+    const body: any = { message: post.body, access_token: token };
+    if (post.link_url) body.link = post.link_url;
+
+    const res = await fetch(`https://graph.facebook.com/v19.0/${pageId}/feed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json() as any;
+    if (data.error) throw new Error(data.error.message);
+    return data.id;
+  }
 }
 
 async function checkIgMediaStatus(creationId: string, token: string): Promise<void> {

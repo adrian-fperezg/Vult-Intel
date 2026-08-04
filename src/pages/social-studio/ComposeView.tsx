@@ -50,6 +50,8 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
   };
 
   const hasInstagramSelected = Array.from(selectedAccountIds).some(id => accounts.find(a => a.id === id)?.platform === 'instagram');
+  const hasFacebookSelected = Array.from(selectedAccountIds).some(id => accounts.find(a => a.id === id)?.platform === 'facebook');
+  const showPostTypeSelector = hasInstagramSelected || hasFacebookSelected;
 
   const lowestCharLimit = Math.min(
     ...Array.from(selectedAccountIds)
@@ -99,8 +101,8 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
       const post = await api.createPost({
         body,
         link_url: linkUrl || undefined,
-        // We use link_title to pass the Instagram post type for the backend
-        link_title: hasInstagramSelected ? instagramType : undefined,
+        // We use link_title to pass the post type for the backend
+        link_title: showPostTypeSelector ? instagramType : undefined,
         media_urls: mediaUrls.length > 0 ? mediaUrls : undefined,
         scheduled_at: mode === 'schedule' ? scheduledAt : undefined,
         account_ids: Array.from(selectedAccountIds),
@@ -192,9 +194,9 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
               </div>
             </div>
 
-            {hasInstagramSelected && (
+            {showPostTypeSelector && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-3">
-                <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Instagram Post Type</p>
+                <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Post Type</p>
                 <div className="flex gap-2">
                   {(['POST', 'REEL', 'STORY'] as const).map(type => (
                     <button
@@ -203,7 +205,7 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
                       className={cn(
                         "px-4 py-2 rounded-xl border text-sm font-semibold transition-colors",
                         instagramType === type 
-                          ? "bg-pink-500/20 border-pink-500/40 text-pink-400" 
+                          ? "bg-violet-500/20 border-violet-500/40 text-violet-400" 
                           : "bg-[#161b22] border-white/10 text-slate-400 hover:text-slate-300 hover:bg-white/5"
                       )}
                     >
