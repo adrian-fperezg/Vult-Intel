@@ -126,6 +126,16 @@ const PLATFORMS: Record<string, {
   }
 };
 
+// ─── PROVIDERS STATUS ──────────────────────────────────────────────────────────
+// GET /api/social/auth/providers/status
+router.get('/providers/status', (req, res) => {
+  const status: Record<string, boolean> = {};
+  for (const [key, config] of Object.entries(PLATFORMS)) {
+    status[key] = !!(process.env[config.clientIdEnv] && process.env[config.clientSecretEnv]);
+  }
+  res.json(status);
+});
+
 // ─── OAUTH INITIATION ─────────────────────────────────────────────────────────
 // GET /api/social/auth/:platform?project_id=...&user_id=...
 router.get('/:platform', async (req: AuthRequest, res) => {

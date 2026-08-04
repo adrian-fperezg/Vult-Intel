@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
@@ -111,6 +111,14 @@ interface AccountsViewProps {
 export default function AccountsView({ accounts, loading, onRefresh, api }: AccountsViewProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [expandedSetup, setExpandedSetup] = useState<string | null>(null);
+  const [providersStatus, setProvidersStatus] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    fetch(`${BACKEND_URL}/api/social/auth/providers/status`)
+      .then(res => res.json())
+      .then(data => setProvidersStatus(data))
+      .catch(console.error);
+  }, []);
 
   const handleDisconnect = async (id: string, name: string) => {
     if (!confirm(`Disconnect ${name}?`)) return;
@@ -197,7 +205,7 @@ export default function AccountsView({ accounts, loading, onRefresh, api }: Acco
                   <p className="text-xs text-slate-500">{platform.description}</p>
                 </div>
 
-                {platform.available ? (
+                {(platform.available || providersStatus[platform.id]) ? (
                   <button
                     onClick={() => handleConnect(platform.id)}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-semibold transition-colors"
@@ -215,7 +223,7 @@ export default function AccountsView({ accounts, loading, onRefresh, api }: Acco
               </div>
 
               {/* Setup guide */}
-              {expandedSetup === platform.id && !platform.available && (
+              {expandedSetup === platform.id && !(platform.available || providersStatus[platform.id]) && (
                 <div className="px-5 pb-4 border-t border-white/5 pt-4 space-y-3">
                   <p className="text-xs text-slate-400 leading-relaxed">{platform.setupGuide}</p>
                   {platform.setupUrl && (
