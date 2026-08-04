@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { useSocialApi } from '@/hooks/useSocialApi';
 import {
   Send, Clock, FileEdit, Plus, X, Image, Link2, ChevronDown,
-  Linkedin, Twitter, Youtube, Facebook, Instagram, ExternalLink
+  Linkedin, Twitter, Youtube, Facebook, Instagram, ExternalLink, Video
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -33,7 +33,12 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
   const [linkUrl, setLinkUrl] = useState('');
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [mediaUrls, setMediaUrls] = useState<string[]>([]);
+  const [instagramType, setInstagramType] = useState<'POST' | 'REEL' | 'STORY'>('POST');
+  
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const toggleAccount = (id: string) => {
     setSelectedAccountIds(prev => {
@@ -43,6 +48,8 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
       return next;
     });
   };
+
+  const hasInstagramSelected = Array.from(selectedAccountIds).some(id => accounts.find(a => a.id === id)?.platform === 'instagram');
 
   const lowestCharLimit = Math.min(
     ...Array.from(selectedAccountIds)
@@ -54,17 +61,47 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
   const charCount = body.length;
   const isOverLimit = lowestCharLimit !== 99999 && charCount > lowestCharLimit;
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    if (mediaUrls.length + files.length > 10) {
+      return toast.error('You can only attach up to 10 media files');
+    }
+
+    setIsUploading(true);
+    try {
+      const urls = await api.uploadMedia(files);
+      setMediaUrls(prev => [...prev, ...urls]);
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const removeMedia = (index: number) => {
+    setMediaUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async (mode: 'draft' | 'schedule' | 'now') => {
-    if (!body.trim()) return toast.error('Write something first!');
+    if (!body.trim() && mediaUrls.length === 0) return toast.error('Write something or attach media first!');
     if (selectedAccountIds.size === 0) return toast.error('Select at least one account');
     if (mode === 'schedule' && !scheduledAt) return toast.error('Pick a date/time to schedule');
     if (isOverLimit) return toast.error(`Text exceeds character limit for one of your platforms`);
+    
+    if (hasInstagramSelected && mediaUrls.length === 0) {
+      return toast.error('Instagram requires at least one image or video');
+    }
 
     setIsSubmitting(true);
     try {
       const post = await api.createPost({
         body,
         link_url: linkUrl || undefined,
+        // We use link_title to pass the Instagram post type for the backend
+        link_title: hasInstagramSelected ? instagramType : undefined,
+        media_urls: mediaUrls.length > 0 ? mediaUrls : undefined,
         scheduled_at: mode === 'schedule' ? scheduledAt : undefined,
         account_ids: Array.from(selectedAccountIds),
         status: mode === 'draft' ? 'draft' : mode === 'now' ? 'scheduled' : 'scheduled',
@@ -83,6 +120,7 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
       setSelectedAccountIds(new Set());
       setScheduledAt('');
       setLinkUrl('');
+      setMediaUrls([]);
       onPostCreated();
     } catch (err: any) {
       toast.error(err.message);
@@ -154,6 +192,28 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
               </div>
             </div>
 
+            {hasInstagramSelected && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-3">
+                <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Instagram Post Type</p>
+                <div className="flex gap-2">
+                  {(['POST', 'REEL', 'STORY'] as const).map(type => (
+                    <button
+                      key={type}
+                      onClick={() => setInstagramType(type)}
+                      className={cn(
+                        "px-4 py-2 rounded-xl border text-sm font-semibold transition-colors",
+                        instagramType === type 
+                          ? "bg-pink-500/20 border-pink-500/40 text-pink-400" 
+                          : "bg-[#161b22] border-white/10 text-slate-400 hover:text-slate-300 hover:bg-white/5"
+                      )}
+                    >
+                      {type === 'POST' && mediaUrls.length > 1 ? 'Carousel' : type === 'POST' ? 'Feed Post' : type === 'REEL' ? 'Reel' : 'Story'}
+                    </button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
             {/* Composer */}
             <div className={cn(
               "rounded-2xl border overflow-hidden transition-all duration-200",
@@ -168,9 +228,50 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
                 className="w-full bg-[#161b22] text-white text-[15px] leading-relaxed p-5 resize-none outline-none placeholder:text-slate-600"
               />
               
+              {mediaUrls.length > 0 && (
+                <div className="px-5 pb-5 grid grid-cols-5 gap-2 bg-[#161b22]">
+                  {mediaUrls.map((url, i) => {
+                    const isVideo = url.match(/\.(mp4|mov)$/i);
+                    return (
+                      <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-white/10 group">
+                        {isVideo ? (
+                          <div className="w-full h-full bg-black/40 flex flex-col items-center justify-center gap-1">
+                             <Video className="size-6 text-white/50" />
+                             <span className="text-[10px] text-white/50 font-medium">VIDEO</span>
+                          </div>
+                        ) : (
+                          <img src={url} alt="" className="w-full h-full object-cover" />
+                        )}
+                        <button 
+                          onClick={() => removeMedia(i)}
+                          className="absolute top-1 right-1 p-1 bg-black/60 hover:bg-red-500 rounded text-white opacity-0 group-hover:opacity-100 transition-all"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               {/* Toolbar */}
               <div className="flex items-center justify-between px-4 py-3 bg-[#0d1117] border-t border-white/5">
                 <div className="flex items-center gap-1">
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,video/mp4,video/quicktime"
+                    className="hidden"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading || mediaUrls.length >= 10}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-300 hover:bg-white/5 disabled:opacity-50 transition-colors"
+                  >
+                    <Image className="size-3.5" /> {isUploading ? 'Uploading...' : 'Media'}
+                  </button>
                   <button
                     onClick={() => setShowLinkInput(v => !v)}
                     className={cn(

@@ -168,16 +168,25 @@ async function callSecureAIProxy(model: string, contents: any, config?: any, too
       headers,
       body: JSON.stringify({ model, contents, config, tools })
     });
-    
+    const contentType = response.headers.get("content-type") || "";
     if (!response.ok) {
-      const errorBody = await response.json().catch(() => ({}));
-      // Surface subscription-required errors with a specific message for UI handling
-      if (response.status === 403 && errorBody.code === 'SUBSCRIPTION_REQUIRED') {
-        throw new Error('⚠️ Tu suscripción no está activa. Actualiza tu plan para usar las funciones de IA.');
+      if (contentType.includes("application/json")) {
+        const errorBody = await response.json().catch(() => ({}));
+        if (response.status === 403 && errorBody.code === 'SUBSCRIPTION_REQUIRED') {
+          throw new Error('⚠️ Tu suscripción no está activa. Actualiza tu plan para usar las funciones de IA.');
+        }
+        throw new Error(errorBody.error || `Proxy request failed with status ${response.status}`);
+      } else {
+        const errorText = await response.text();
+        throw new Error(`Server Error (${response.status}): Expected JSON but got ${contentType}. Body: ${errorText.substring(0, 100)}...`);
       }
-      throw new Error(errorBody.error || `Proxy request failed with status ${response.status}`);
     }
     
+    if (!contentType.includes("application/json")) {
+      const errorText = await response.text();
+      throw new Error(`Expected JSON response but got ${contentType}. Body: ${errorText.substring(0, 100)}...`);
+    }
+
     return await response.json();
   } catch (error) {
     console.error("[callSecureAIProxy] Error:", error);

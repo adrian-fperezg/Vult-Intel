@@ -49,7 +49,26 @@ async function publishToFacebook(account: any, post: any): Promise<string> {
   const body: any = { message: post.body, access_token: token };
   if (post.link_url) body.link = post.link_url;
 
-  const res = await fetch(`https://graph.facebook.com/v19.0/${pageId}/feed`, {
+  // Support for media
+  let endpoint = `https://graph.facebook.com/v19.0/${pageId}/feed`;
+  
+  if (post.media_urls && post.media_urls.length > 0) {
+    // Basic single image support for FB
+    const url = post.media_urls[0];
+    if (url.match(/\\.(mp4|mov)$/i)) {
+      endpoint = `https://graph.facebook.com/v19.0/${pageId}/videos`;
+      body.file_url = url;
+      body.description = post.body;
+      delete body.message;
+    } else {
+      endpoint = `https://graph.facebook.com/v19.0/${pageId}/photos`;
+      body.url = url;
+      body.caption = post.body;
+      delete body.message;
+    }
+  }
+
+  const res = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -57,6 +76,137 @@ async function publishToFacebook(account: any, post: any): Promise<string> {
   const data = await res.json() as any;
   if (data.error) throw new Error(data.error.message);
   return data.id || 'fb_post';
+}
+
+async function checkIgMediaStatus(creationId: string, token: string): Promise<void> {
+  let attempts = 0;
+  while (attempts < 20) { // Try for ~100 seconds
+    const res = await fetch(`https://graph.facebook.com/v19.0/${creationId}?fields=status_code&access_token=${token}`);
+    const data = await res.json() as any;
+    if (data.status_code === 'FINISHED') return;
+    if (data.status_code === 'ERROR') throw new Error('Instagram media processing failed');
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    attempts++;
+  }
+  throw new Error('Instagram media processing timed out');
+}
+
+async function publishToInstagram(account: any, post: any): Promise<string> {
+  const token = decryptToken(account.access_token);
+  const igUserId = account.account_id; // the instagram_business_account id
+
+  // post.media_urls usually contains an array of URLs. 
+  // We'll read post.instagram_type (which might be passed in post.link_description or we infer it).
+  // Wait, I should add a metadata field to social_posts, or just pass it in payload.
+  // For now, let's infer or use post.link_title as the type if we don't have a dedicated column.
+  // We'll use post.link_title as the "post_type" for Instagram (POST, REEL, STORY).
+  const postType = (post.link_title || 'POST').toUpperCase();
+  const mediaUrls = post.media_urls || [];
+  
+  if (mediaUrls.length === 0) {
+    throw new Error('Instagram requires at least one image or video');
+  }
+
+  let creationId = '';
+
+  if (mediaUrls.length > 1 && postType === 'POST') {
+    // CAROUSEL
+    const childrenIds = [];
+    for (const url of mediaUrls.slice(0, 10)) {
+      const isVideo = url.match(/\\.(mp4|mov)$/i);
+      const childBody: any = {
+        access_token: token,
+        is_carousel_item: 'true'
+      };
+      if (isVideo) {
+        childBody.video_url = url;
+        childBody.media_type = 'VIDEO';
+      } else {
+        childBody.image_url = url;
+      }
+      
+      const res = await fetch(`https://graph.facebook.com/v19.0/${igUserId}/media`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(childBody),
+      });
+      const data = await res.json() as any;
+      if (data.error) throw new Error(data.error.message);
+      
+      if (isVideo) {
+        await checkIgMediaStatus(data.id, token);
+      }
+      childrenIds.push(data.id);
+    }
+
+    const carRes = await fetch(`https://graph.facebook.com/v19.0/${igUserId}/media`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        access_token: token,
+        media_type: 'CAROUSEL',
+        children: childrenIds.join(','),
+        caption: post.body
+      }),
+    });
+    const carData = await carRes.json() as any;
+    if (carData.error) throw new Error(carData.error.message);
+    creationId = carData.id;
+    
+  } else {
+    // SINGLE MEDIA
+    const url = mediaUrls[0];
+    const isVideo = url.match(/\\.(mp4|mov)$/i);
+    const body: any = { access_token: token };
+    
+    if (postType === 'STORY') {
+      body.media_type = 'STORIES';
+      if (isVideo) body.video_url = url;
+      else body.image_url = url;
+    } else if (postType === 'REEL') {
+      body.media_type = 'REELS';
+      body.video_url = url;
+      body.caption = post.body;
+      if (!isVideo) throw new Error('Reels must be videos');
+    } else {
+      // STANDARD POST
+      if (isVideo) {
+        body.media_type = 'REELS'; // All IG videos are now technically reels, or we use VIDEO for older standard
+        body.video_url = url;
+        body.caption = post.body;
+      } else {
+        body.image_url = url;
+        body.caption = post.body;
+      }
+    }
+
+    const res = await fetch(`https://graph.facebook.com/v19.0/${igUserId}/media`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json() as any;
+    if (data.error) throw new Error(data.error.message);
+    creationId = data.id;
+
+    if (isVideo) {
+      await checkIgMediaStatus(creationId, token);
+    }
+  }
+
+  // PUBLISH
+  const pubRes = await fetch(`https://graph.facebook.com/v19.0/${igUserId}/media_publish`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      access_token: token,
+      creation_id: creationId
+    }),
+  });
+  const pubData = await pubRes.json() as any;
+  if (pubData.error) throw new Error(pubData.error.message);
+  
+  return pubData.id;
 }
 
 async function publishToYouTube(account: any, post: any): Promise<string> {
@@ -97,7 +247,7 @@ async function publishToAccount(account: any, post: any): Promise<string> {
   switch (account.platform) {
     case 'linkedin':  return publishToLinkedIn(account, post);
     case 'facebook':  return publishToFacebook(account, post);
-    case 'instagram': return publishToFacebook(account, post); // Instagram via Graph API uses same endpoint via page
+    case 'instagram': return publishToInstagram(account, post);
     case 'youtube':   return publishToYouTube(account, post);
     case 'twitter':   return publishToTwitter(account, post);
     case 'tiktok':    return publishToTikTok(account, post);

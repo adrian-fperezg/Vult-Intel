@@ -80,6 +80,15 @@ const PLATFORMS: Record<string, {
     scopes: 'whatsapp_business_management,whatsapp_business_messaging',
     clientIdEnv: 'FACEBOOK_APP_ID',
     clientSecretEnv: 'FACEBOOK_APP_SECRET',
+  },
+  instagram: {
+    name: 'Instagram',
+    authUrl: 'https://www.facebook.com/v19.0/dialog/oauth',
+    tokenUrl: 'https://graph.facebook.com/v19.0/oauth/access_token',
+    userInfoUrl: 'https://graph.facebook.com/me?fields=id,name,picture',
+    scopes: 'instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement',
+    clientIdEnv: 'FACEBOOK_APP_ID',
+    clientSecretEnv: 'FACEBOOK_APP_SECRET',
   }
 };
 
@@ -188,11 +197,41 @@ router.get('/:platform/callback', async (req, res) => {
         username = userData.email || userData.sub;
         displayName = `${userData.given_name || ''} ${userData.family_name || ''}`.trim();
         avatarUrl = userData.picture || '';
-      } else if (platform === 'facebook' || platform === 'instagram_dm' || platform === 'whatsapp') {
+      } else if (platform === 'facebook' || platform === 'instagram_dm' || platform === 'whatsapp' || platform === 'instagram') {
         accountId = userData.id;
         username = userData.name;
         displayName = userData.name;
         avatarUrl = userData.picture?.data?.url || '';
+
+        // For Instagram publishing, we need the Instagram Business Account ID from the linked Facebook Page
+        if (platform === 'instagram') {
+          try {
+            const pagesRes = await fetch('https://graph.facebook.com/v19.0/me/accounts?fields=instagram_business_account,name,access_token', { headers });
+            const pagesData = await pagesRes.json() as any;
+            const validPage = pagesData.data?.find((p: any) => p.instagram_business_account);
+            if (validPage) {
+              accountId = validPage.instagram_business_account.id;
+              // We could also store validPage.id as page_id, but the query uses EXCLUDED.channel_id for extra IDs, let's store it there
+              channelId = validPage.id;
+              
+              // We should also fetch the IG user profile for a better username/avatar
+              try {
+                const igRes = await fetch(`https://graph.facebook.com/v19.0/${accountId}?fields=username,name,profile_picture_url&access_token=${tokenData.access_token}`);
+                const igData = await igRes.json() as any;
+                if (igData.username) username = igData.username;
+                if (igData.name) displayName = igData.name;
+                if (igData.profile_picture_url) avatarUrl = igData.profile_picture_url;
+              } catch (e) {
+                console.error('Failed fetching IG profile:', e);
+              }
+            } else {
+              throw new Error('No Instagram Business account found linked to your Facebook pages.');
+            }
+          } catch (e: any) {
+            console.error('Instagram Linking Error:', e.message);
+            throw new Error('Failed to find linked Instagram Business Account. Ensure it is connected to a Facebook Page.');
+          }
+        }
       } else if (platform === 'youtube') {
         accountId = userData.sub;
         username = userData.email;

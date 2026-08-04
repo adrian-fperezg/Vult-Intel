@@ -12,10 +12,13 @@ async function test() {
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: [{ role: 'user', parts: [{ text: 'Hello' }] }],
+      contents: [{ role: 'user', parts: [{ text: 'Return a simple JSON object like {"status": "ok"}' }] }],
+      config: { responseMimeType: 'application/json' }
     });
     
-    console.log("Type of response.text:", typeof response.text);
+    console.log("Response text:", response.text);
+    console.log("Usage Metadata:", response.usageMetadata);
+    console.log("Full Object keys:", Object.keys(response));
     if (typeof response.text === 'function') {
       console.log("It's a function!");
     } else {

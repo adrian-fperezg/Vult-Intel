@@ -149,6 +149,8 @@ app.use(cors({
   credentials: true
 }));
 
+app.use('/uploads/media', express.static(path.join(process.cwd(), 'uploads', 'media')));
+
 app.options(/(.*)/, cors());
 
 // Stripe Webhook handler (Must be BEFORE express.json() to get raw body)

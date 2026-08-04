@@ -54,7 +54,7 @@ const PLATFORMS = [
     activeBg: 'bg-pink-500/15 border-pink-500/40',
     description: 'Publish to Instagram via Facebook',
     envKey: 'FACEBOOK_APP_ID',
-    available: false,
+    available: true,
     setupUrl: 'https://developers.facebook.com/apps',
     setupGuide: 'Same as Facebook (uses Meta platform) → link your Instagram Business account to your Page',
   },

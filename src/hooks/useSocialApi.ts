@@ -97,5 +97,24 @@ export function useSocialApi() {
     return res.json();
   }, [headers, activeProjectId]);
 
-  return { getAccounts, deleteAccount, getPosts, createPost, updatePost, deletePost, publishNow, getConnectUrl, connectTokenAccount, activeProjectId };
+  const uploadMedia = useCallback(async (files: File[]) => {
+    const h = await headers();
+    // Remove content type so browser sets multipart/form-data boundary
+    const uploadHeaders = { ...h };
+    delete uploadHeaders['Content-Type'];
+
+    const formData = new FormData();
+    files.forEach(file => formData.append('files', file));
+
+    const res = await fetch(`${BASE_URL}/media`, {
+      method: 'POST',
+      headers: uploadHeaders,
+      body: formData,
+    });
+    if (!res.ok) throw new Error(`Failed to upload media: ${res.status}`);
+    const data = await res.json();
+    return data.urls as string[];
+  }, [headers]);
+
+  return { getAccounts, deleteAccount, getPosts, createPost, updatePost, deletePost, publishNow, getConnectUrl, connectTokenAccount, uploadMedia, activeProjectId };
 }
