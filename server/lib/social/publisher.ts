@@ -12,34 +12,94 @@ import FormData from 'form-data';
 
 async function publishToLinkedIn(account: any, post: any): Promise<string> {
   const token = decryptToken(account.access_token);
-  const body: any = {
-    author: `urn:li:person:${account.account_id}`,
-    lifecycleState: 'PUBLISHED',
-    specificContent: {
-      'com.linkedin.ugc.ShareContent': {
-        shareCommentary: { text: post.body },
-        shareMediaCategory: post.link_url ? 'ARTICLE' : 'NONE',
-        ...(post.link_url ? {
-          media: [{
-            status: 'READY',
-            originalUrl: post.link_url,
-            title: { text: post.link_title || post.link_url },
-            description: { text: post.link_description || '' },
-          }]
-        } : {})
-      }
-    },
-    visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' }
+  const authorUrn = `urn:li:person:${account.account_id}`;
+  const mediaUrls = post.media_urls || [];
+  
+  const headers = { 
+    Authorization: `Bearer ${token}`, 
+    'Content-Type': 'application/json',
+    'LinkedIn-Version': '2024-01'
   };
 
-  const res = await fetch('https://api.linkedin.com/v2/ugcPosts', {
+  let content: any = undefined;
+
+  if (mediaUrls.length > 0) {
+    const isVideo = mediaUrls[0].match(/\\.(mp4|mov)$/i);
+    const mediaUrns = [];
+
+    for (const url of mediaUrls.slice(0, 9)) {
+      // 1. Download file
+      const fileRes = await fetch(url);
+      const arrayBuffer = await fileRes.arrayBuffer();
+      
+      let initUrl = 'https://api.linkedin.com/rest/images?action=initializeUpload';
+      let initBody: any = { initializeUploadRequest: { owner: authorUrn } };
+      
+      if (isVideo) {
+        initUrl = 'https://api.linkedin.com/rest/videos?action=initializeUpload';
+        initBody.initializeUploadRequest.fileSizeBytes = arrayBuffer.byteLength;
+      }
+
+      // 2. Initialize Upload
+      const initReq = await fetch(initUrl, { method: 'POST', headers, body: JSON.stringify(initBody) });
+      const initData = await initReq.json() as any;
+      if (!initReq.ok) throw new Error(`LinkedIn init error: ${initData.message || JSON.stringify(initData)}`);
+      
+      const uploadUrl = initData.value.uploadUrl;
+      const mediaUrn = isVideo ? initData.value.video : initData.value.image;
+
+      // 3. Upload Binary
+      const uploadReq = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/octet-stream', 'Authorization': `Bearer ${token}` },
+        body: arrayBuffer
+      });
+      if (!uploadReq.ok) throw new Error('Failed to upload media to LinkedIn S3 bucket');
+      
+      mediaUrns.push(mediaUrn);
+    }
+
+    if (isVideo) {
+      content = { media: { id: mediaUrns[0] } };
+    } else if (mediaUrns.length > 1) {
+      content = { multiImage: { images: mediaUrns.map(id => ({ id })) } };
+    } else {
+      content = { media: { id: mediaUrns[0] } };
+    }
+  } else if (post.link_url) {
+    content = {
+      article: {
+        source: post.link_url,
+        title: post.link_title || post.link_url,
+        description: post.link_description || ''
+      }
+    };
+  }
+
+  const body: any = {
+    author: authorUrn,
+    commentary: post.body,
+    visibility: 'PUBLIC',
+    distribution: { feedDistribution: 'MAIN_FEED', targetEntities: [], thirdPartyDistributionChannels: [] },
+    lifecycleState: 'PUBLISHED',
+  };
+  
+  if (content) {
+    body.content = content;
+  }
+
+  const res = await fetch('https://api.linkedin.com/rest/posts', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'X-Restli-Protocol-Version': '2.0.0' },
+    headers,
     body: JSON.stringify(body),
   });
+  
   const data = await res.json() as any;
   if (!res.ok) throw new Error(data.message || JSON.stringify(data));
-  return data.id || 'linkedin_post';
+  
+  // LinkedIn uses x-restli-id for created resources sometimes, but data might have it.
+  const urn = res.headers.get('x-restli-id') || (data && data.id) || 'linkedin_post';
+  return urn;
 }
 
 async function publishToFacebook(account: any, post: any): Promise<string> {

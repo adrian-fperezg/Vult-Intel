@@ -41,7 +41,7 @@ const PLATFORMS = [
     activeBg: 'bg-blue-500/15 border-blue-500/40',
     description: 'Publish posts to your LinkedIn profile',
     envKey: 'LINKEDIN_CLIENT_ID',
-    available: false,
+    available: true,
     setupUrl: 'https://www.linkedin.com/developers/apps',
     setupGuide: 'Create a LinkedIn App → get Client ID & Secret → add to Railway vars as LINKEDIN_CLIENT_ID / LINKEDIN_CLIENT_SECRET',
   },
