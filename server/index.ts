@@ -8409,6 +8409,18 @@ app.post('/api/alerts/frontend-crash', async (req: any, res: any) => {
     res.status(500).json({ error: 'Failed to process alert' });
   }
 });
+// Serve frontend static files if dist folder exists (e.g. single-server production deployment)
+const distPath = path.join(process.cwd(), 'dist');
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/uploads') || req.path.startsWith('/auth')) {
+      return next();
+    }
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
+
 // Catch-all 404 handler (must be last)
 app.use((req, res) => {
   console.warn(`[404 NOT FOUND]: ${req.method} ${req.originalUrl}`);
