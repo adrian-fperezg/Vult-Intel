@@ -111,7 +111,7 @@ const PLATFORMS: Record<string, {
     authUrl: 'https://www.facebook.com/v19.0/dialog/oauth',
     tokenUrl: 'https://graph.facebook.com/v19.0/oauth/access_token',
     userInfoUrl: 'https://graph.facebook.com/me?fields=id,name,picture',
-    scopes: 'instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement',
+    scopes: 'instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,business_management',
     clientIdEnv: 'FACEBOOK_APP_ID',
     clientSecretEnv: 'FACEBOOK_APP_SECRET',
   },
@@ -327,6 +327,8 @@ router.get('/:platform/callback', async (req, res) => {
             const pagesRes = await fetch('https://graph.facebook.com/v19.0/me/accounts?fields=instagram_business_account,name,access_token', { headers });
             const pagesData = await pagesRes.json() as any;
             
+            console.log('[IG_DEBUG] Pages returned from FB:', JSON.stringify(pagesData, null, 2));
+
             const validPages = pagesData.data?.filter((p: any) => p.instagram_business_account) || [];
             
             if (validPages.length > 0) {
