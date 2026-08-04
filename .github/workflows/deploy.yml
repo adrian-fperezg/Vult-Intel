@@ -22,7 +22,6 @@ jobs:
       - name: Build the App for Production
         run: npm run build
         env:
-          VITE_API_URL: "https://vult-intel-backend-production.up.railway.app"
           VITE_OUTREACH_API_URL: ${{ secrets.VITE_OUTREACH_API_URL }}
           VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
