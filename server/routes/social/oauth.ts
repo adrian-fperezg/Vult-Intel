@@ -49,7 +49,7 @@ const PLATFORMS: Record<string, {
     authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
     tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
     userInfoUrl: 'https://api.linkedin.com/v2/userinfo',
-    scopes: 'openid profile email w_member_social w_organization_social',
+    scopes: 'openid profile email w_member_social',
     clientIdEnv: 'LINKEDIN_CLIENT_ID',
     clientSecretEnv: 'LINKEDIN_CLIENT_SECRET',
   },
