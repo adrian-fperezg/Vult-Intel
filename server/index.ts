@@ -121,6 +121,7 @@ import { encryptToken, decryptToken } from "./lib/outreach/encrypt.js";
 import { syncMailbox, setupGmailWatch, syncMailboxHistory } from "./lib/outreach/gmailSync.js";
 import hunterRoutes from "./routes/outreach/hunter.js";
 import roadmapRoutes from "./routes/admin/roadmap.js";
+import socialOAuthRoutes from "./routes/social/oauth.js";
 import socialRoutes from "./routes/social/index.js";
 import { getAccountInformation } from "./lib/outreach/hunter.js";
 import { getZeroBounceCredits } from "./lib/outreach/zerobounce.js";
@@ -7678,6 +7679,7 @@ app.delete("/api/outreach/icp", async (req: AuthRequest, res) => {
 app.use("/api/outreach/hunter", hunterRoutes);
 
 // ─── SOCIAL STUDIO ────────────────────────────────────────────────────────────
+app.use("/api/social/auth", socialOAuthRoutes);
 app.use("/api/social", verifyFirebaseToken, socialRoutes);
 
 // ─── ADMIN ROADMAP ────────────────────────────────────────────────────────────

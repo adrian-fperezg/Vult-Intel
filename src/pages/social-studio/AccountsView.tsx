@@ -125,7 +125,7 @@ export default function AccountsView({ accounts, loading, onRefresh, api }: Acco
   };
 
   const handleConnect = (platformId: string) => {
-    const url = `${BACKEND_URL}/api/social/auth/${platformId}?project_id=${api.activeProjectId}`;
+    const url = api.getConnectUrl(platformId);
     window.location.href = url;
   };
 
