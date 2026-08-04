@@ -36,6 +36,10 @@ export default function SocialStudioLayout() {
   const setTab = (tab: Tab) => setSearchParams({ tab });
 
   const loadAccounts = useCallback(async () => {
+    if (!api.activeProjectId) {
+      setLoadingAccounts(false);
+      return;
+    }
     try {
       setLoadingAccounts(true);
       const data = await api.getAccounts();
@@ -43,9 +47,13 @@ export default function SocialStudioLayout() {
     } catch (err: any) {
       toast.error(err.message);
     } finally { setLoadingAccounts(false); }
-  }, [api]);
+  }, [api, api.activeProjectId]);
 
   const loadPosts = useCallback(async () => {
+    if (!api.activeProjectId) {
+      setLoadingPosts(false);
+      return;
+    }
     try {
       setLoadingPosts(true);
       const data = await api.getPosts();
@@ -53,7 +61,7 @@ export default function SocialStudioLayout() {
     } catch (err: any) {
       console.error(err);
     } finally { setLoadingPosts(false); }
-  }, [api]);
+  }, [api, api.activeProjectId]);
 
   useEffect(() => {
     loadAccounts();
