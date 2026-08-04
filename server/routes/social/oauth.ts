@@ -397,7 +397,9 @@ router.get('/:platform/callback', async (req, res) => {
       );
     }
 
-    res.redirect(`${getRedirectBaseUrl()}&connected=${platform}`);
+    // Redirect exactly to the requested URL for success
+    const finalUrl = `https://vultintel.com/social-studio?tab=accounts&success=true&connected=${platform}`;
+    res.redirect(finalUrl);
   } catch (err: any) {
     console.error(`[SOCIAL_OAUTH] ${platform} error:`, err.message);
     res.redirect(`${getRedirectBaseUrl()}&error=${encodeURIComponent(err.message)}`);
