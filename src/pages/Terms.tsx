@@ -103,7 +103,7 @@ export default function Terms() {
     const t = language === 'es' ? content.es : content.en;
 
     return (
-        <div className={cn("min-h-screen transition-colors duration-300", theme === 'dark' ? "bg-[#171b23] text-slate-100" : "bg-[#ffffff] text-slate-900")}>
+        <div className={cn("h-screen w-screen overflow-y-auto custom-scrollbar transition-colors duration-300", theme === 'dark' ? "bg-[#171b23] text-slate-100" : "bg-[#ffffff] text-slate-900")}>
             <div className="max-w-4xl mx-auto px-6 py-12 md:py-20">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-16">
                     <div className="flex items-center gap-6">

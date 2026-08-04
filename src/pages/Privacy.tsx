@@ -101,7 +101,7 @@ const Privacy = () => {
 
     return (
         <div className={cn(
-            "min-h-screen transition-colors duration-500",
+            "h-screen w-screen overflow-y-auto custom-scrollbar transition-colors duration-500",
             theme === 'dark' ? "bg-[#171b23] text-slate-50" : "bg-[#ffffff] text-slate-900"
         )}>
             {/* Navigation */}
