@@ -154,6 +154,33 @@ app.use('/uploads/media', express.static(path.join(process.cwd(), 'uploads', 'me
 
 app.options(/(.*)/, cors());
 
+// Meta / Instagram Webhook handler (Must be public)
+app.get('/api/social/webhooks/instagram', (req, res) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  const VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN || process.env.INSTAGRAM_WEBHOOK_VERIFY_TOKEN || 'vult_intel_meta_webhook_secret';
+
+  if (mode === 'subscribe') {
+    if (token === VERIFY_TOKEN) {
+      console.log('✅ Meta Webhook Verified');
+      // Must return the challenge in plain text
+      return res.status(200).send(challenge);
+    } else {
+      console.error('❌ Meta Webhook Verification Failed. Expected token:', VERIFY_TOKEN, 'Received:', token);
+      return res.sendStatus(403);
+    }
+  }
+  return res.sendStatus(400);
+});
+
+app.post('/api/social/webhooks/instagram', express.json(), (req, res) => {
+  console.log('📩 Meta/Instagram Webhook Event Received:', JSON.stringify(req.body, null, 2));
+  // Acknowledge receipt of the event immediately as required by Meta
+  res.status(200).send('EVENT_RECEIVED');
+});
+
 // Stripe Webhook handler (Must be BEFORE express.json() to get raw body)
 app.post('/api/webhooks/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
