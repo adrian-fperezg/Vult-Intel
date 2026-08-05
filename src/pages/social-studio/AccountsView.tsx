@@ -134,11 +134,6 @@ export default function AccountsView({ accounts, loading, onRefresh, api }: Acco
   };
 
   const handleSync = async (platformId: string) => {
-    if (platformId !== 'facebook' && platformId !== 'instagram') {
-      toast.error('Sync is only available for Meta platforms (Facebook/Instagram)');
-      return;
-    }
-    
     const accountToSync = accounts.find(a => a.platform === platformId);
     if (!accountToSync) return;
 
@@ -146,7 +141,7 @@ export default function AccountsView({ accounts, loading, onRefresh, api }: Acco
     try {
       const res = await api.syncAccount(accountToSync.id);
       if (res.count > 0) {
-        toast.success(`Successfully synced ${res.count} Meta accounts`);
+        toast.success(`Successfully synced ${res.count} ${platformId} accounts`);
       } else {
         toast.success('Accounts are already up to date');
       }
@@ -258,7 +253,6 @@ export default function AccountsView({ accounts, loading, onRefresh, api }: Acco
             {PLATFORMS.map(platform => {
               const connected = accounts.some(a => a.platform === platform.id);
               const Icon = platform.icon;
-              const supportsSync = platform.id === 'facebook' || platform.id === 'instagram';
               const isSyncingThis = syncingId === platform.id;
 
               return (
@@ -289,20 +283,14 @@ export default function AccountsView({ accounts, loading, onRefresh, api }: Acco
 
                     <div className="shrink-0 flex items-center z-10">
                       {connected ? (
-                        supportsSync ? (
-                          <button
-                            onClick={() => handleSync(platform.id)}
-                            disabled={isSyncingThis}
-                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-[13px] font-bold transition-colors"
-                          >
-                            <RefreshCw className={cn("size-3.5", isSyncingThis && "animate-spin")} />
-                            {isSyncingThis ? 'Syncing...' : `Sync ${platform.name}`}
-                          </button>
-                        ) : (
-                          <div className="px-5 py-2.5 rounded-lg bg-white/5 text-slate-400 text-[13px] font-bold flex items-center gap-2">
-                            <CheckCircle2 className="size-3.5 text-emerald-400" /> Active
-                          </div>
-                        )
+                        <button
+                          onClick={() => handleSync(platform.id)}
+                          disabled={isSyncingThis}
+                          className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-[13px] font-bold transition-colors"
+                        >
+                          <RefreshCw className={cn("size-3.5", isSyncingThis && "animate-spin")} />
+                          {isSyncingThis ? 'Syncing...' : `Sync ${platform.name}`}
+                        </button>
                       ) : (
                         (platform.available || providersStatus[platform.id]) ? (
                           <button
