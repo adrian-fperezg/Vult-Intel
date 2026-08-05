@@ -49,7 +49,7 @@ export default function Layout() {
         <div className="lg:hidden h-14 md:h-16 w-full shrink-0" />
 
         {/* Page Content */}
-        <div className="flex-1 w-full overflow-y-auto relative z-0" key={activeProjectId || 'no-project'}>
+        <div className="flex-1 w-full h-full min-h-0 overflow-y-auto flex flex-col relative z-0" key={activeProjectId || 'no-project'}>
           <Outlet />
         </div>
       </main>

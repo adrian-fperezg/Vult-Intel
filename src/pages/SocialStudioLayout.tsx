@@ -82,7 +82,7 @@ export default function SocialStudioLayout() {
   }, [api.activeProjectId]);
 
   return (
-    <div className="flex flex-col h-full bg-[#0d1117] text-white overflow-hidden">
+    <div className="flex flex-col h-full min-h-0 bg-[#0d1117] text-white overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-8 pt-6 pb-0 shrink-0">
         <div className="flex items-center gap-3">
@@ -126,7 +126,7 @@ export default function SocialStudioLayout() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
@@ -134,7 +134,7 @@ export default function SocialStudioLayout() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.15 }}
-            className="h-full"
+            className="h-full min-h-0"
           >
             {activeTab === 'compose' && (
               <ComposeView
