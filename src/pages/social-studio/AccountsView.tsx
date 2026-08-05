@@ -27,7 +27,7 @@ const PLATFORMS = [
     bg: 'bg-white/[0.03] border-white/8',
     activeBg: 'bg-white/[0.05] border-white/12',
     description: 'Publish posts to your Threads account',
-    envKey: 'THREADS_CLIENT_ID',
+    envKey: 'THREADS_APP_ID',
     available: false,
     setupUrl: 'https://developers.facebook.com/apps',
     setupGuide: 'Create a Meta App → configure Threads App tokens → add to Railway variables',
