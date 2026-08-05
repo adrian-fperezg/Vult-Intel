@@ -946,7 +946,7 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="h-full min-h-0 flex overflow-hidden">
+    <div className="flex-1 min-h-0 flex overflow-hidden w-full">
 
       {/* ── Left: Composer ────────────────────────────────────────────── */}
       <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar flex flex-col gap-5 p-6 md:p-8 min-w-0">
@@ -1005,10 +1005,7 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
             </div>
 
             {/* Master composer */}
-            <div className="space-y-1.5">
-              {customizePerNetwork && (
-                <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-widest">Master text (shared by default)</p>
-              )}
+            <div className={cn("space-y-1.5", customizePerNetwork && "hidden")}>
               <div className={cn(
                 'rounded-xl border bg-white/[0.02] overflow-hidden transition-all',
                 masterOverLimit ? 'border-red-500/30' : 'border-white/8 focus-within:border-violet-500/25 focus-within:bg-white/[0.03]'
