@@ -951,31 +951,32 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
       {/* ── Left: Composer ────────────────────────────────────────────── */}
       <div className="flex-1 min-h-0 flex flex-col min-w-0">
         
-        {/* Scrollable Area */}
-        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar flex flex-col gap-5 p-6 md:p-8">
-
         {/* No accounts */}
         {!loadingAccounts && accounts.length === 0 && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center py-24 rounded-2xl border border-white/5 bg-white/[0.02] text-center"
-          >
-            <div className="size-14 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mb-5">
-              <Link2 className="size-6 text-violet-400" />
-            </div>
-            <h3 className="text-[15px] font-semibold text-white mb-2">Connect your first account</h3>
-            <p className="text-[13px] text-slate-500 max-w-xs mb-6 leading-relaxed">
-              Connect LinkedIn, YouTube, Facebook, Twitter, or TikTok to start publishing.
-            </p>
-            <button onClick={onNavigateToAccounts}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-500 hover:bg-violet-600 text-white font-semibold text-[13px] transition-colors"
+          <div className="flex-1 flex flex-col">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              className="m-auto flex flex-col items-center justify-center py-24 px-12 rounded-2xl border border-white/5 bg-white/[0.02] text-center"
             >
-              <Plus className="size-3.5" /> Connect Account
-            </button>
-          </motion.div>
+              <div className="size-14 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center mb-5">
+                <Link2 className="size-6 text-violet-400" />
+              </div>
+              <h3 className="text-[15px] font-semibold text-white mb-2">Connect your first account</h3>
+              <p className="text-[13px] text-slate-500 max-w-xs mb-6 leading-relaxed">
+                Connect LinkedIn, YouTube, Facebook, Twitter, or TikTok to start publishing.
+              </p>
+              <button onClick={onNavigateToAccounts}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-500 hover:bg-violet-600 text-white font-semibold text-[13px] transition-colors"
+              >
+                <Plus className="size-3.5" /> Connect Account
+              </button>
+            </motion.div>
+          </div>
         )}
 
         {accounts.length > 0 && (
           <>
+            {/* Top Static Content */}
+            <div className="shrink-0 flex flex-col gap-5 px-6 pt-6 md:px-8 md:pt-8">
             {/* Account selector */}
             <div className="space-y-2.5">
               <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-widest">Post to</p>
@@ -1125,9 +1126,12 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
                 <ChevronDown className={cn('size-3.5 transition-transform duration-200', customizePerNetwork && 'rotate-180')} />
               </button>
             )}
+            </div>
 
-            {/* Per-network cards */}
-            <AnimatePresence>
+            {/* Scrollable Network Cards */}
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-6 md:px-8 py-5">
+              {/* Per-network cards */}
+              <AnimatePresence>
               {customizePerNetwork && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
@@ -1160,10 +1164,13 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
                   </div>
                 </motion.div>
               )}
-            </AnimatePresence>
+              </AnimatePresence>
+            </div>
 
-            {/* Schedule picker */}
-            <div className="space-y-2">
+            {/* Bottom Static Content */}
+            <div className="shrink-0 flex flex-col gap-5 px-6 pb-6 md:px-8 md:pb-8 pt-1">
+              {/* Schedule picker */}
+              <div className="space-y-2">
               <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-widest">Schedule for (optional)</p>
               <input
                 type="datetime-local"
@@ -1172,10 +1179,10 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
                 min={format(new Date(), "yyyy-MM-dd'T'HH:mm")}
                 className="bg-white/[0.03] border border-white/8 rounded-lg px-3.5 py-2 text-[13px] text-slate-300 outline-none focus:border-violet-500/30 w-full md:w-auto [color-scheme:dark] transition-colors"
               />
+              </div>
             </div>
           </>
         )}
-        </div>
 
         {/* Fixed Actions Bar */}
         {accounts.length > 0 && (
