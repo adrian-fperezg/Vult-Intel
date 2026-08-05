@@ -244,7 +244,10 @@ router.get('/:platform/callback', async (req, res) => {
       }).toString(),
     });
     const tokenData = await tokenRes.json() as any;
-    if (!tokenData.access_token) throw new Error(tokenData.error_description || 'Failed to get access token');
+    if (!tokenData.access_token) {
+      console.error(`[SOCIAL_OAUTH] ${platform} token exchange failed. Status: ${tokenRes.status}, Body:`, JSON.stringify(tokenData, null, 2));
+      throw new Error(tokenData.error_message || tokenData.error_description || tokenData.error || 'Failed to get access token');
+    }
 
     // Get user info
     let accountsToInsert: any[] = [];
