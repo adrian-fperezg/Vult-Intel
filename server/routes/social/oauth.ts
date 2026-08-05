@@ -148,7 +148,7 @@ router.get('/:platform', async (req: AuthRequest, res) => {
   if (!config) return res.status(400).json({ error: `Unknown platform: ${platform}` });
   if (!userId) return res.status(401).json({ error: 'Auth required' });
 
-  const clientId = process.env[config.clientIdEnv];
+  const clientId = process.env[config.clientIdEnv]?.trim();
   if (!clientId) {
     return res.status(503).json({ 
       error: `${config.name} OAuth not configured yet.`,
@@ -218,8 +218,8 @@ router.get('/:platform/callback', async (req, res) => {
   const config = PLATFORMS[platform];
   if (!config) return res.status(400).send(`Unknown platform: ${platform}`);
 
-  const clientId = process.env[config.clientIdEnv];
-  const clientSecret = process.env[config.clientSecretEnv];
+  const clientId = process.env[config.clientIdEnv]?.trim();
+  const clientSecret = process.env[config.clientSecretEnv]?.trim();
   if (!clientId || !clientSecret) {
     return res.redirect(`${getRedirectBaseUrl()}&error=not_configured`);
   }
