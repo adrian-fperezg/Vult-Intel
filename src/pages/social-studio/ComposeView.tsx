@@ -98,6 +98,17 @@ interface NetworkState {
   threadsReplySettings: 'everyone' | 'following' | 'mentioned';
 }
 
+// ─── Media Mapping Types ─────────────────────────────────────────────────────
+
+interface MediaAssignment {
+  previewUrl: string;      // URL.createObjectURL — instant local preview
+  uploadedUrl: string | null; // becomes real URL after server upload
+  fileName: string;
+}
+
+// accountId → MediaAssignment
+type MediaMapping = Record<string, MediaAssignment>;
+
 const defaultNetworkState = (platform: string): NetworkState => ({
   customBody: undefined,
   firstComment: '',
@@ -465,6 +476,239 @@ function PlatformOptions({ platform, state, onChange }: {
   );
 }
 
+// ─── Media Mapper Component ──────────────────────────────────────────────────
+
+function MediaMapper({
+  selectedAccounts,
+  mediaMapping,
+  onAssign,
+  onRemove,
+  isUploading,
+}: {
+  selectedAccounts: any[];
+  mediaMapping: MediaMapping;
+  onAssign: (accountIds: string[], file: File) => Promise<void>;
+  onRemove: (accountId: string) => void;
+  isUploading: boolean;
+}) {
+  const [stagingFile, setStagingFile] = useState<File | null>(null);
+  const [stagingPreviewUrl, setStagingPreviewUrl] = useState<string>('');
+  const [stagingTargets, setStagingTargets] = useState<Set<string>>(new Set());
+  const [isAssigning, setIsAssigning] = useState(false);
+  const mapperInputRef = useRef<HTMLInputElement>(null);
+
+  // Accounts already assigned to another image
+  const assignedAccountIds = new Set(Object.keys(mediaMapping));
+
+  const handlePickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Revoke previous object URL to avoid memory leak
+    if (stagingPreviewUrl) URL.revokeObjectURL(stagingPreviewUrl);
+    const url = URL.createObjectURL(file);
+    setStagingFile(file);
+    setStagingPreviewUrl(url);
+    setStagingTargets(new Set());
+    if (mapperInputRef.current) mapperInputRef.current.value = '';
+  };
+
+  const toggleTarget = (id: string) => {
+    setStagingTargets(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleAssign = async () => {
+    if (!stagingFile || stagingTargets.size === 0) return;
+    setIsAssigning(true);
+    try {
+      await onAssign(Array.from(stagingTargets), stagingFile);
+      // Clear staging
+      if (stagingPreviewUrl) URL.revokeObjectURL(stagingPreviewUrl);
+      setStagingFile(null);
+      setStagingPreviewUrl('');
+      setStagingTargets(new Set());
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  const handleClearStaging = () => {
+    if (stagingPreviewUrl) URL.revokeObjectURL(stagingPreviewUrl);
+    setStagingFile(null);
+    setStagingPreviewUrl('');
+    setStagingTargets(new Set());
+  };
+
+  // Group assigned accounts by image (same uploadedUrl = same batch)
+  const assignedEntries = Object.entries(mediaMapping);
+
+  return (
+    <div className="space-y-3">
+      {/* Section header */}
+      <div className="flex items-center gap-2">
+        <div className="size-5 rounded-md bg-violet-500/15 border border-violet-500/25 flex items-center justify-center shrink-0">
+          <Image className="size-3 text-violet-400" />
+        </div>
+        <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-widest">Media per account</p>
+        <div className="flex-1 h-px bg-white/5" />
+      </div>
+
+      {/* Already-assigned summaries */}
+      {assignedEntries.length > 0 && (
+        <div className="space-y-1.5">
+          {assignedEntries.map(([accountId, assignment]) => {
+            const account = selectedAccounts.find(a => a.id === accountId);
+            if (!account) return null;
+            const meta = PLATFORM_META[account.platform];
+            const Icon = meta?.icon || ExternalLink;
+            const displayUrl = assignment.uploadedUrl || assignment.previewUrl;
+            return (
+              <div key={accountId} className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/15">
+                {/* Thumbnail */}
+                <div className="relative size-10 rounded-md overflow-hidden shrink-0 border border-white/10">
+                  <img src={displayUrl} alt="" className="w-full h-full object-cover" />
+                  {!assignment.uploadedUrl && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                      <RefreshCw className="size-3 text-white animate-spin" />
+                    </div>
+                  )}
+                </div>
+                {/* Account pill */}
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  <Icon className={cn('size-3 shrink-0', meta?.color || 'text-slate-400')} />
+                  <span className="text-[12px] text-slate-300 truncate font-medium">
+                    {account.display_name || account.username}
+                  </span>
+                  {assignment.uploadedUrl ? (
+                    <span className="text-[10px] text-emerald-400 shrink-0 flex items-center gap-0.5">
+                      <span>✓</span> Ready
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-amber-400 shrink-0">Uploading…</span>
+                  )}
+                </div>
+                {/* Remove */}
+                <button
+                  onClick={() => onRemove(accountId)}
+                  className="size-5 rounded flex items-center justify-center text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
+                  title="Remove assignment"
+                >
+                  <X className="size-3" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Staging area */}
+      {!stagingFile ? (
+        /* Upload trigger */
+        <button
+          onClick={() => mapperInputRef.current?.click()}
+          disabled={isUploading || isAssigning}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl border border-dashed border-white/12 bg-white/[0.02] hover:border-violet-500/30 hover:bg-violet-500/5 text-slate-500 hover:text-violet-400 text-[13px] font-medium transition-all duration-200 disabled:opacity-40 group"
+        >
+          <Plus className="size-4 transition-transform group-hover:scale-110" />
+          Assign image to specific accounts
+        </button>
+      ) : (
+        /* Staging: preview + account selector + confirm */
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-xl border border-violet-500/25 bg-violet-500/5 overflow-hidden"
+        >
+          {/* Image preview row */}
+          <div className="flex items-start gap-3 p-3 border-b border-white/5">
+            <div className="relative size-16 rounded-lg overflow-hidden shrink-0 border border-white/10">
+              <img src={stagingPreviewUrl} alt="" className="w-full h-full object-cover" />
+            </div>
+            <div className="flex-1 min-w-0 pt-0.5">
+              <p className="text-[12px] font-semibold text-white truncate">{stagingFile.name}</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">{(stagingFile.size / 1024).toFixed(0)} KB</p>
+              <p className="text-[11px] text-violet-400 mt-1">Select accounts to assign this image →</p>
+            </div>
+            <button onClick={handleClearStaging} className="text-slate-600 hover:text-slate-300 p-0.5 transition-colors">
+              <X className="size-3.5" />
+            </button>
+          </div>
+
+          {/* Account checkboxes */}
+          <div className="p-3 space-y-1.5">
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold mb-2">Apply to:</p>
+            {selectedAccounts.map(account => {
+              const meta = PLATFORM_META[account.platform];
+              const Icon = meta?.icon || ExternalLink;
+              const alreadyAssigned = assignedAccountIds.has(account.id);
+              const isChecked = stagingTargets.has(account.id);
+              return (
+                <button
+                  key={account.id}
+                  onClick={() => !alreadyAssigned && toggleTarget(account.id)}
+                  disabled={alreadyAssigned}
+                  className={cn(
+                    'w-full flex items-center gap-2.5 px-3 py-2 rounded-lg border text-left transition-all duration-150',
+                    alreadyAssigned
+                      ? 'border-white/5 bg-white/[0.01] opacity-40 cursor-not-allowed'
+                      : isChecked
+                      ? `${meta?.activeBg || 'bg-white/10 border-white/20'} ${meta?.color || 'text-white'}`
+                      : 'border-white/8 bg-white/[0.02] text-slate-400 hover:text-white hover:bg-white/5'
+                  )}
+                >
+                  {/* Checkbox visual */}
+                  <div className={cn(
+                    'size-4 rounded border flex items-center justify-center shrink-0 transition-all',
+                    alreadyAssigned ? 'border-white/10 bg-white/5' :
+                    isChecked ? 'border-current bg-current/20' : 'border-white/20 bg-transparent'
+                  )}>
+                    {isChecked && !alreadyAssigned && <span className="text-[8px] font-bold">✓</span>}
+                    {alreadyAssigned && <X className="size-2.5 opacity-50" />}
+                  </div>
+                  <Icon className={cn('size-3.5 shrink-0', meta?.color || 'text-slate-400')} />
+                  <span className="text-[12px] font-medium truncate">
+                    {account.display_name || account.username}
+                  </span>
+                  {alreadyAssigned && (
+                    <span className="ml-auto text-[10px] text-slate-600 shrink-0">already assigned</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Confirm button */}
+          <div className="px-3 pb-3">
+            <button
+              onClick={handleAssign}
+              disabled={stagingTargets.size === 0 || isAssigning}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-violet-500 hover:bg-violet-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-[13px] transition-colors shadow-md shadow-violet-500/20"
+            >
+              {isAssigning ? (
+                <><RefreshCw className="size-3.5 animate-spin" /> Uploading & Assigning…</>
+              ) : (
+                <><Image className="size-3.5" /> Assign to {stagingTargets.size > 0 ? `${stagingTargets.size} account${stagingTargets.size > 1 ? 's' : ''}` : 'selected accounts'}</>
+              )}
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      <input
+        ref={mapperInputRef}
+        type="file"
+        accept="image/*,video/mp4,video/quicktime"
+        className="hidden"
+        onChange={handlePickFile}
+      />
+    </div>
+  );
+}
+
 // ─── Platform Preview ─────────────────────────────────────────────────────────
 
 function PlatformPreview({ account, text, mediaUrls, linkUrl, firstComment, contentType }: {
@@ -751,6 +995,9 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
   const [customizePerNetwork, setCustomizePerNetwork] = useState(false);
   const [activeNetworkId, setActiveNetworkId] = useState<string | null>(null);
 
+  // ── Media mapping: accountId → uploaded image assignment
+  const [mediaMapping, setMediaMapping] = useState<MediaMapping>({});
+
   // Submission state
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -815,6 +1062,56 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
     ? previewNetworkState.customBody
     : body;
 
+  // Preview media: account-specific mapping takes full priority over master pool
+  const previewMediaUrls = previewAccount && mediaMapping[previewAccount.id]
+    ? (mediaMapping[previewAccount.id].uploadedUrl
+        ? [mediaMapping[previewAccount.id].uploadedUrl as string]
+        : [mediaMapping[previewAccount.id].previewUrl])
+    : mediaUrls;
+
+  // ── Media Mapping handlers ────────────────────────────────────────────────
+
+  const handleMediaAssign = useCallback(async (accountIds: string[], file: File) => {
+    // 1. Immediately register with local preview URL (optimistic)
+    const localPreviewUrl = URL.createObjectURL(file);
+    setMediaMapping(prev => {
+      const next = { ...prev };
+      for (const id of accountIds) {
+        next[id] = { previewUrl: localPreviewUrl, uploadedUrl: null, fileName: file.name };
+      }
+      return next;
+    });
+
+    // 2. Upload to server
+    try {
+      const urls = await api.uploadMedia([file]);
+      const uploadedUrl = urls[0];
+      setMediaMapping(prev => {
+        const next = { ...prev };
+        for (const id of accountIds) {
+          if (next[id]) next[id] = { ...next[id], uploadedUrl };
+        }
+        return next;
+      });
+    } catch (err: any) {
+      // Rollback on failure
+      setMediaMapping(prev => {
+        const next = { ...prev };
+        for (const id of accountIds) delete next[id];
+        return next;
+      });
+      toast.error(`Upload failed: ${err.message}`);
+    }
+  }, [api]);
+
+  const handleMediaRemove = useCallback((accountId: string) => {
+    setMediaMapping(prev => {
+      const next = { ...prev };
+      delete next[accountId];
+      return next;
+    });
+  }, []);
+
   // ── Media upload ─────────────────────────────────────────────────────────
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -853,7 +1150,7 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
       if (acct.platform === 'tiktok' && mediaUrls.length === 0) {
         return toast.error('TikTok requires at least one video');
       }
-      if (acct.platform === 'instagram' && mediaUrls.length === 0) {
+      if (acct.platform === 'instagram' && mediaUrls.length === 0 && !mediaMapping[id]) {
         return toast.error('Instagram requires at least one image or video');
       }
     }
@@ -902,7 +1199,23 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
         if (acct.platform === 'threads') {
           opts.replySettings = ns.threadsReplySettings;
         }
+        // Per-account media override: replaces master pool completely for this account
+        const accountMedia = mediaMapping[id];
+        if (accountMedia?.uploadedUrl) {
+          opts.mediaUrls = [accountMedia.uploadedUrl];
+        } else if (mediaUrls.length > 0 && !accountMedia) {
+          // No specific assignment: use master pool (handled by backend default)
+        }
         network_options[id] = opts;
+      }
+
+      // Build per-account media_urls map so backend can override correctly
+      const network_media_urls: Record<string, string[]> = {};
+      for (const id of Array.from(selectedAccountIds)) {
+        const accountMedia = mediaMapping[id];
+        if (accountMedia?.uploadedUrl) {
+          network_media_urls[id] = [accountMedia.uploadedUrl];
+        }
       }
 
       const post = await api.createPost({
@@ -915,6 +1228,7 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
         custom_bodies: Object.keys(custom_bodies).length > 0 ? custom_bodies : undefined,
         network_first_comments: Object.keys(network_first_comments).length > 0 ? network_first_comments : undefined,
         network_options: Object.keys(network_options).length > 0 ? network_options : undefined,
+        network_media_urls: Object.keys(network_media_urls).length > 0 ? network_media_urls : undefined,
       });
 
       if (mode === 'now') {
@@ -935,6 +1249,7 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
       setNetworkStates({});
       setCustomizePerNetwork(false);
       setActiveNetworkId(null);
+      setMediaMapping({});
       onPostCreated();
     } catch (err: any) {
       toast.error(err.message);
@@ -1130,7 +1445,6 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
 
             {/* Scrollable Network Cards */}
             <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-6 md:px-8 py-5">
-              {/* Per-network cards */}
               <AnimatePresence>
               {customizePerNetwork && (
                 <motion.div
@@ -1138,27 +1452,61 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
+                  className="overflow-hidden space-y-5"
                 >
+                  {/* ── Media Mapper ──────────────────────────────────── */}
+                  <MediaMapper
+                    selectedAccounts={Array.from(selectedAccountIds).map(id => accounts.find(a => a.id === id)).filter(Boolean)}
+                    mediaMapping={mediaMapping}
+                    onAssign={handleMediaAssign}
+                    onRemove={handleMediaRemove}
+                    isUploading={isUploading}
+                  />
+
+                  {/* Divider */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-px bg-white/5" />
+                    <span className="text-[10px] text-slate-600 uppercase tracking-widest font-semibold">Text per account</span>
+                    <div className="flex-1 h-px bg-white/5" />
+                  </div>
+
+                  {/* ── Per-network cards ─────────────────────────────── */}
                   <div className="space-y-2.5">
                     {Array.from(selectedAccountIds).map(id => {
                       const account = accounts.find(a => a.id === id);
                       if (!account) return null;
                       const ns = getNetworkState(id, account.platform);
+                      const assignedMedia = mediaMapping[id];
                       return (
-                        <NetworkCard
-                          key={id}
-                          account={account}
-                          state={ns}
-                          masterBody={body}
-                          mediaUrls={mediaUrls}
-                          isActive={activeNetworkId === id}
-                          onActivate={() => setActiveNetworkId(id)}
-                          onChange={(patch) => updateNetworkState(id, patch)}
-                          fileInputRef={fileInputRef}
-                          onUpload={() => fileInputRef.current?.click()}
-                          isUploading={isUploading}
-                        />
+                        <div key={id} className="relative">
+                          {/* Media thumbnail badge on card */}
+                          {assignedMedia && (
+                            <div className="absolute -top-1.5 right-3 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/25">
+                              <div className="size-3.5 rounded overflow-hidden border border-white/20 shrink-0">
+                                <img
+                                  src={assignedMedia.uploadedUrl || assignedMedia.previewUrl}
+                                  alt=""
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <span className="text-[9px] text-emerald-400 font-semibold">
+                                {assignedMedia.uploadedUrl ? 'Image assigned' : 'Uploading…'}
+                              </span>
+                            </div>
+                          )}
+                          <NetworkCard
+                            account={account}
+                            state={ns}
+                            masterBody={body}
+                            mediaUrls={assignedMedia?.uploadedUrl ? [assignedMedia.uploadedUrl] : mediaUrls}
+                            isActive={activeNetworkId === id}
+                            onActivate={() => setActiveNetworkId(id)}
+                            onChange={(patch) => updateNetworkState(id, patch)}
+                            fileInputRef={fileInputRef}
+                            onUpload={() => fileInputRef.current?.click()}
+                            isUploading={isUploading}
+                          />
+                        </div>
                       );
                     })}
                   </div>
@@ -1267,7 +1615,7 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
               <PlatformPreview
                 account={previewAccount}
                 text={previewText}
-                mediaUrls={mediaUrls}
+                mediaUrls={previewMediaUrls}
                 linkUrl={linkUrl}
                 firstComment={previewNetworkState?.firstComment || ''}
                 contentType={previewNetworkState?.contentType || PLATFORM_META[previewAccount.platform]?.contentTypes[0] || 'Post'}
