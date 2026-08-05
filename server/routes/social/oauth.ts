@@ -119,7 +119,7 @@ const PLATFORMS: Record<string, {
     name: 'Threads',
     authUrl: 'https://threads.net/oauth/authorize',
     tokenUrl: 'https://graph.threads.net/oauth/access_token',
-    userInfoUrl: 'https://graph.threads.net/v1.0/me',
+    userInfoUrl: 'https://graph.threads.net/v1.0/me?fields=id,username,name,threads_profile_picture_url',
     scopes: 'threads_basic,threads_content_publish',
     clientIdEnv: 'THREADS_APP_ID',
     clientSecretEnv: 'THREADS_APP_SECRET',
@@ -394,6 +394,14 @@ router.get('/:platform/callback', async (req, res) => {
           username: username,
           displayName: username,
           avatarUrl: userData.data?.user?.avatar_url || '',
+          channelId: ''
+        });
+      } else if (platform === 'threads') {
+        accountsToInsert.push({
+          accountId: userData.id,
+          username: `@${userData.username}`,
+          displayName: userData.name || userData.username,
+          avatarUrl: userData.threads_profile_picture_url || '',
           channelId: ''
         });
       }
