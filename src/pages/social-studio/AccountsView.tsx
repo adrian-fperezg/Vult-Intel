@@ -179,7 +179,6 @@ export default function AccountsView({ accounts, loading, onRefresh, api }: Acco
                 const Icon = platform?.icon || ExternalLink;
                 const isSyncingThis = syncingId === account.id;
                 const isDeletingThis = deletingId === account.id;
-                const supportsSync = account.platform === 'facebook' || account.platform === 'instagram';
 
                 return (
                   <motion.div
