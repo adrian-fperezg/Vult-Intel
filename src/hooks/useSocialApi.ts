@@ -116,5 +116,15 @@ export function useSocialApi() {
     return data.urls as string[];
   }, [headers]);
 
-  return { getAccounts, deleteAccount, getPosts, createPost, updatePost, deletePost, publishNow, getConnectUrl, connectTokenAccount, uploadMedia, activeProjectId };
+  const syncAccount = useCallback(async (id: string) => {
+    const h = await headers();
+    const res = await fetch(`${BASE_URL}/accounts/sync/${id}`, { method: 'POST', headers: h });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Failed to sync account: ${res.status}`);
+    }
+    return res.json();
+  }, [headers]);
+
+  return { getAccounts, deleteAccount, syncAccount, getPosts, createPost, updatePost, deletePost, publishNow, getConnectUrl, connectTokenAccount, uploadMedia, activeProjectId };
 }
