@@ -82,7 +82,7 @@ export default function SocialStudioLayout() {
   }, [api.activeProjectId]);
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-[#0d1117] text-white overflow-hidden">
+    <div className="absolute inset-0 flex flex-col min-h-0 bg-[#0d1117] text-white overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-8 pt-6 pb-0 shrink-0">
         <div className="flex items-center gap-3">
