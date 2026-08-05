@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { BarChart2, TrendingUp, CheckCircle2, AlertCircle, Clock, FileEdit } from 'lucide-react';
 
 interface AnalyticsViewProps {
@@ -30,46 +31,53 @@ export default function AnalyticsView({ posts, loading }: AnalyticsViewProps) {
   }, [posts]);
 
   const statCards = [
-    { label: 'Total Posts', value: stats.total, icon: BarChart2, color: 'text-violet-400', bg: 'bg-violet-500/10' },
-    { label: 'Published', value: stats.published, icon: CheckCircle2, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-    { label: 'Scheduled', value: stats.scheduled, icon: Clock, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-    { label: 'Failed', value: stats.failed, icon: AlertCircle, color: 'text-red-400', bg: 'bg-red-500/10' },
-    { label: 'Drafts', value: stats.drafts, icon: FileEdit, color: 'text-slate-400', bg: 'bg-slate-500/10' },
-    { label: 'Success Rate', value: `${stats.successRate}%`, icon: TrendingUp, color: 'text-teal-400', bg: 'bg-teal-500/10' },
+    { label: 'Total Posts',   value: stats.total,            icon: BarChart2,    accent: 'bg-violet-500/10 border-violet-500/15', iconColor: 'text-violet-400' },
+    { label: 'Published',     value: stats.published,        icon: CheckCircle2, accent: 'bg-emerald-500/10 border-emerald-500/15', iconColor: 'text-emerald-400' },
+    { label: 'Scheduled',     value: stats.scheduled,        icon: Clock,        accent: 'bg-blue-500/10 border-blue-500/15',    iconColor: 'text-blue-400' },
+    { label: 'Failed',        value: stats.failed,           icon: AlertCircle,  accent: 'bg-red-500/10 border-red-500/15',      iconColor: 'text-red-400' },
+    { label: 'Drafts',        value: stats.drafts,           icon: FileEdit,     accent: 'bg-slate-500/10 border-slate-500/15',  iconColor: 'text-slate-400' },
+    { label: 'Success Rate',  value: `${stats.successRate}%`, icon: TrendingUp,  accent: 'bg-teal-500/10 border-teal-500/15',    iconColor: 'text-teal-400' },
   ];
 
   return (
     <div className="h-full overflow-y-auto custom-scrollbar">
-      <div className="max-w-5xl mx-auto p-8 space-y-8">
+      <div className="max-w-4xl mx-auto p-6 md:p-8 space-y-6">
+
         {/* Stats grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {statCards.map(card => (
-            <div key={card.label} className="rounded-2xl bg-[#161b22] border border-white/5 p-5">
-              <div className={`size-9 rounded-xl ${card.bg} flex items-center justify-center mb-3`}>
-                <card.icon className={`size-4 ${card.color}`} />
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {statCards.map((card, i) => (
+            <motion.div
+              key={card.label}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+              className="rounded-xl bg-white/[0.03] border border-white/5 p-4 hover:bg-white/[0.05] transition-colors"
+            >
+              <div className={`size-8 rounded-lg border ${card.accent} flex items-center justify-center mb-3`}>
+                <card.icon className={`size-3.5 ${card.iconColor}`} />
               </div>
-              <p className="text-2xl font-bold text-white tabular-nums">{card.value}</p>
-              <p className="text-xs text-slate-500 mt-0.5">{card.label}</p>
-            </div>
+              <p className="text-2xl font-bold text-white tabular-nums tracking-tight">{card.value}</p>
+              <p className="text-[11px] text-slate-600 mt-0.5 font-medium">{card.label}</p>
+            </motion.div>
           ))}
         </div>
 
         {/* Platform breakdown */}
         {Object.keys(stats.byPlatform).length > 0 && (
-          <div className="rounded-2xl bg-[#161b22] border border-white/5 p-6">
-            <h3 className="text-sm font-semibold text-slate-300 mb-4">By Platform</h3>
-            <div className="space-y-4">
+          <div className="rounded-xl bg-white/[0.03] border border-white/5 p-5">
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-4">By Platform</p>
+            <div className="space-y-3.5">
               {Object.entries(stats.byPlatform).map(([platform, data]) => {
                 const pct = data.total > 0 ? Math.round((data.published / data.total) * 100) : 0;
                 return (
                   <div key={platform}>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-sm text-slate-300 capitalize">{platform}</span>
-                      <span className="text-xs text-slate-500">{data.published}/{data.total} published</span>
+                      <span className="text-[13px] text-slate-300 capitalize font-medium">{platform}</span>
+                      <span className="text-[11px] text-slate-600">{data.published}/{data.total} published</span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                    <div className="h-1 rounded-full bg-white/5 overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-500 transition-all duration-700"
+                        className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-400 transition-all duration-700"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -82,8 +90,10 @@ export default function AnalyticsView({ posts, loading }: AnalyticsViewProps) {
 
         {posts.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <BarChart2 className="size-12 text-slate-700 mb-4" />
-            <p className="text-slate-500 text-sm">No data yet. Start publishing to see analytics.</p>
+            <div className="size-14 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center mb-4">
+              <BarChart2 className="size-6 text-slate-700" />
+            </div>
+            <p className="text-[13px] text-slate-600">No data yet. Start publishing to see analytics.</p>
           </div>
         )}
       </div>

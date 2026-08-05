@@ -11,7 +11,7 @@ import AnalyticsView from './social-studio/AnalyticsView';
 import AccountsView from './social-studio/AccountsView';
 import {
   PenSquare, CalendarDays, BarChart2, Link2,
-  Layers, Share2, Zap
+  Layers, Share2
 } from 'lucide-react';
 
 const TABS = [
@@ -84,26 +84,26 @@ export default function SocialStudioLayout() {
   return (
     <div className="flex flex-col h-full bg-[#0d1117] text-white overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-8 pt-8 pb-4 border-b border-white/5 shrink-0">
+      <div className="flex items-center justify-between px-8 pt-6 pb-0 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="size-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
-            <Share2 className="size-5 text-white" />
+          <div className="size-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/25">
+            <Share2 className="size-4 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Social Studio</h1>
-            <p className="text-xs text-slate-500 font-medium">Schedule & publish to all your social platforms</p>
+            <h1 className="text-[15px] font-bold text-white tracking-tight leading-none">Social Studio</h1>
+            <p className="text-[11px] text-slate-500 mt-0.5">Schedule & publish to all your social platforms</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20">
-          <Zap className="size-3 text-violet-400" />
-          <span className="text-xs text-violet-300 font-semibold">
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+          <div className="size-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+          <span className="text-[11px] text-emerald-300 font-semibold tabular-nums">
             {accounts.length} account{accounts.length !== 1 ? 's' : ''} connected
           </span>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 px-8 py-3 border-b border-white/5 shrink-0">
+      <div className="flex items-end gap-0 px-8 pt-5 shrink-0">
         {TABS.map(tab => {
           const isActive = activeTab === tab.id;
           return (
@@ -111,17 +111,18 @@ export default function SocialStudioLayout() {
               key={tab.id}
               onClick={() => setTab(tab.id)}
               className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+                "relative flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium transition-all duration-150 border-b-2",
                 isActive
-                  ? "bg-violet-500/15 border border-violet-500/30 text-violet-300"
-                  : "text-slate-500 hover:text-slate-300 hover:bg-white/5"
+                  ? "border-violet-400 text-white"
+                  : "border-transparent text-slate-500 hover:text-slate-300"
               )}
             >
-              <tab.icon className="size-4" />
+              <tab.icon className={cn("size-3.5", isActive ? "text-violet-400" : "")} />
               {tab.label}
             </button>
           );
         })}
+        <div className="flex-1 border-b-2 border-white/5" />
       </div>
 
       {/* Content */}
@@ -129,10 +130,10 @@ export default function SocialStudioLayout() {
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.18 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.15 }}
             className="h-full"
           >
             {activeTab === 'compose' && (
