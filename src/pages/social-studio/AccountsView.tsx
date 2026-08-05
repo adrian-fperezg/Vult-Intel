@@ -133,15 +133,18 @@ export default function AccountsView({ accounts, loading, onRefresh, api }: Acco
     } finally { setDeletingId(null); }
   };
 
-  const handleSync = async (id: string, platform: string) => {
-    if (platform !== 'facebook' && platform !== 'instagram') {
+  const handleSync = async (platformId: string) => {
+    if (platformId !== 'facebook' && platformId !== 'instagram') {
       toast.error('Sync is only available for Meta platforms (Facebook/Instagram)');
       return;
     }
     
-    setSyncingId(id);
+    const accountToSync = accounts.find(a => a.platform === platformId);
+    if (!accountToSync) return;
+
+    setSyncingId(platformId);
     try {
-      const res = await api.syncAccount(id);
+      const res = await api.syncAccount(accountToSync.id);
       if (res.count > 0) {
         toast.success(`Successfully synced ${res.count} Meta accounts`);
       } else {
@@ -228,27 +231,12 @@ export default function AccountsView({ accounts, loading, onRefresh, api }: Acco
                       </div>
 
                       <div className="flex items-center gap-2 pt-4 border-t border-white/5">
-                        {supportsSync && (
-                          <button
-                            onClick={() => handleSync(account.id, account.platform)}
-                            disabled={isSyncingThis || isDeletingThis}
-                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-colors text-[12px] font-semibold"
-                          >
-                            {isSyncingThis ? (
-                              <><RefreshCw className="size-3.5 animate-spin" /> Syncing…</>
-                            ) : (
-                              <><RefreshCw className="size-3.5" /> Sync Meta</>
-                            )}
-                          </button>
-                        )}
-                        
                         <button
                           onClick={() => handleDisconnect(account.id, account.display_name || account.username)}
-                          disabled={isSyncingThis || isDeletingThis}
-                          className="flex items-center justify-center p-2 rounded-lg bg-white/5 hover:bg-red-500/10 text-slate-500 hover:text-red-400 transition-colors"
-                          title="Disconnect Account"
+                          disabled={isDeletingThis}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors text-[12px] font-semibold"
                         >
-                          <Trash2 className="size-4" />
+                          <Trash2 className="size-3.5" /> Disconnect
                         </button>
                       </div>
                     </div>
@@ -268,43 +256,69 @@ export default function AccountsView({ accounts, loading, onRefresh, api }: Acco
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {PLATFORMS.map(platform => {
-              const connected = accounts.find(a => a.platform === platform.id);
-              if (connected) return null;
+              const connected = accounts.some(a => a.platform === platform.id);
               const Icon = platform.icon;
+              const supportsSync = platform.id === 'facebook' || platform.id === 'instagram';
+              const isSyncingThis = syncingId === platform.id;
 
               return (
                 <motion.div
                   key={platform.id}
                   initial={{ opacity: 0, y: 4 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className={cn("rounded-2xl border overflow-hidden transition-colors", platform.bg)}
+                  className={cn("rounded-2xl border overflow-hidden transition-colors", platform.bg, isSyncingThis && "opacity-80 pointer-events-none border-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.15)]")}
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-5">
-                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-5 relative">
+                    {/* Shimmer loading effect */}
+                    {isSyncingThis && (
+                      <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-blue-500/10 to-transparent z-0 pointer-events-none" />
+                    )}
+                    
+                    <div className="flex items-center gap-4 flex-1 min-w-0 z-10">
                       <div className="size-11 rounded-xl bg-black/20 flex items-center justify-center shrink-0 border border-white/5">
                         <Icon className={cn("size-5", platform.color)} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[14px] font-bold text-white">{platform.name}</p>
+                        <p className="text-[14px] font-bold text-white flex items-center gap-2">
+                          {platform.name}
+                          {connected && <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[10px] uppercase font-bold tracking-wider">Connected</span>}
+                        </p>
                         <p className="text-[12px] text-slate-500 mt-0.5">{platform.description}</p>
                       </div>
                     </div>
 
-                    <div className="shrink-0 flex items-center">
-                      {(platform.available || providersStatus[platform.id]) ? (
-                        <button
-                          onClick={() => handleConnect(platform.id)}
-                          className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-white/10 hover:bg-white/15 border border-white/10 text-white text-[13px] font-bold transition-colors"
-                        >
-                          <Link2 className="size-3.5" /> Connect
-                        </button>
+                    <div className="shrink-0 flex items-center z-10">
+                      {connected ? (
+                        supportsSync ? (
+                          <button
+                            onClick={() => handleSync(platform.id)}
+                            disabled={isSyncingThis}
+                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-[13px] font-bold transition-colors"
+                          >
+                            <RefreshCw className={cn("size-3.5", isSyncingThis && "animate-spin")} />
+                            {isSyncingThis ? 'Syncing...' : `Sync ${platform.name}`}
+                          </button>
+                        ) : (
+                          <div className="px-5 py-2.5 rounded-lg bg-white/5 text-slate-400 text-[13px] font-bold flex items-center gap-2">
+                            <CheckCircle2 className="size-3.5 text-emerald-400" /> Active
+                          </div>
+                        )
                       ) : (
-                        <button
-                          onClick={() => setExpandedSetup(expandedSetup === platform.id ? null : platform.id)}
-                          className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-white/10 text-slate-500 hover:text-slate-300 text-[12px] font-semibold transition-colors"
-                        >
-                          <Lock className="size-3" /> Setup Required
-                        </button>
+                        (platform.available || providersStatus[platform.id]) ? (
+                          <button
+                            onClick={() => handleConnect(platform.id)}
+                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-white/10 hover:bg-white/15 border border-white/10 text-white text-[13px] font-bold transition-colors"
+                          >
+                            <Link2 className="size-3.5" /> Connect
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setExpandedSetup(expandedSetup === platform.id ? null : platform.id)}
+                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-white/10 text-slate-500 hover:text-slate-300 text-[12px] font-semibold transition-colors"
+                          >
+                            <Lock className="size-3" /> Setup Required
+                          </button>
+                        )
                       )}
                     </div>
                   </div>
