@@ -949,7 +949,10 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
     <div className="flex-1 min-h-0 flex overflow-hidden w-full">
 
       {/* ── Left: Composer ────────────────────────────────────────────── */}
-      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar flex flex-col gap-5 p-6 md:p-8 min-w-0">
+      <div className="flex-1 min-h-0 flex flex-col min-w-0">
+        
+        {/* Scrollable Area */}
+        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar flex flex-col gap-5 p-6 md:p-8">
 
         {/* No accounts */}
         {!loadingAccounts && accounts.length === 0 && (
@@ -1170,35 +1173,38 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
                 className="bg-white/[0.03] border border-white/8 rounded-lg px-3.5 py-2 text-[13px] text-slate-300 outline-none focus:border-violet-500/30 w-full md:w-auto [color-scheme:dark] transition-colors"
               />
             </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-2 pb-4">
-              <button
-                onClick={() => handleSubmit('now')}
-                disabled={isSubmitting || masterOverLimit}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-violet-500 hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-[13px] transition-colors shadow-md shadow-violet-500/20"
-              >
-                <Send className="size-3.5" />
-                {isSubmitting ? 'Publishing...' : 'Post Now'}
-              </button>
-              {scheduledAt && (
-                <button
-                  onClick={() => handleSubmit('schedule')}
-                  disabled={isSubmitting}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white/5 hover:bg-white/8 border border-white/10 text-slate-300 font-semibold text-[13px] transition-colors"
-                >
-                  <Clock className="size-3.5" /> Schedule
-                </button>
-              )}
-              <button
-                onClick={() => handleSubmit('draft')}
-                disabled={isSubmitting}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-slate-600 hover:text-slate-300 text-[13px] transition-colors"
-              >
-                <FileEdit className="size-3.5" /> Save Draft
-              </button>
-            </div>
           </>
+        )}
+        </div>
+
+        {/* Fixed Actions Bar */}
+        {accounts.length > 0 && (
+          <div className="shrink-0 flex items-center gap-2 px-6 md:px-8 py-4 border-t border-white/5 bg-[#0d1117] relative z-20 shadow-[0_-10px_20px_rgba(0,0,0,0.3)]">
+            <button
+              onClick={() => handleSubmit('now')}
+              disabled={isSubmitting || masterOverLimit}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-violet-500 hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-[13px] transition-colors shadow-md shadow-violet-500/20"
+            >
+              <Send className="size-3.5" />
+              {isSubmitting ? 'Publishing...' : 'Post Now'}
+            </button>
+            {scheduledAt && (
+              <button
+                onClick={() => handleSubmit('schedule')}
+                disabled={isSubmitting}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white/5 hover:bg-white/8 border border-white/10 text-slate-300 font-semibold text-[13px] transition-colors"
+              >
+                <Clock className="size-3.5" /> Schedule
+              </button>
+            )}
+            <button
+              onClick={() => handleSubmit('draft')}
+              disabled={isSubmitting}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-slate-600 hover:text-slate-300 text-[13px] transition-colors"
+            >
+              <FileEdit className="size-3.5" /> Save Draft
+            </button>
+          </div>
         )}
       </div>
 
