@@ -50,8 +50,22 @@ router.post('/', async (req: AuthRequest, res) => {
   const pId = (req.headers['x-project-id'] as string) || req.body.project_id;
   const { body, media_urls, link_url, link_title, link_description, link_image, first_comment, scheduled_at, account_ids, status, custom_bodies, network_first_comments, network_options } = req.body;
   if (!userId || !pId) return res.status(400).json({ error: 'project_id required' });
-  if (!body?.trim()) return res.status(400).json({ error: 'body is required' });
   if (!account_ids?.length) return res.status(400).json({ error: 'Select at least one account' });
+
+  let allHaveCustom = true;
+  for (const acctId of account_ids) {
+    if (!custom_bodies?.[acctId]?.trim() && !network_options?.[acctId]?.media_urls?.length && !media_urls?.length) {
+      // If no custom body and no network media, and no master media, we check master body
+      if (!body?.trim() && !media_urls?.length) {
+        allHaveCustom = false;
+        break;
+      }
+    }
+  }
+
+  if (!allHaveCustom && !body?.trim() && !media_urls?.length) {
+    return res.status(400).json({ error: 'Body or media is required for all accounts' });
+  }
 
   try {
     const postId = uuidv4();
@@ -60,7 +74,7 @@ router.post('/', async (req: AuthRequest, res) => {
     await db.run(`
       INSERT INTO social_posts (id, project_id, user_id, body, media_urls, link_url, link_title, link_description, link_image, first_comment, status, scheduled_at)
       VALUES (?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?)
-    `, postId, pId, userId, body, JSON.stringify(media_urls || []), link_url || null, link_title || null, link_description || null, link_image || null, first_comment || null, postStatus, scheduled_at || null);
+    `, postId, pId, userId, body || '', JSON.stringify(media_urls || []), link_url || null, link_title || null, link_description || null, link_image || null, first_comment || null, postStatus, scheduled_at || null);
 
     // Create targets for each account
     for (const accountId of account_ids) {

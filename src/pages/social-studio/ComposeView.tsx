@@ -63,7 +63,7 @@ const PLATFORM_META: Record<string, {
   threads: {
     icon: Hash, color: 'text-slate-300', bg: 'bg-white/[0.03] border-white/8',
     activeBg: 'bg-white/[0.08] border-white/20', label: 'Threads', charLimit: 500,
-    supportsFirstComment: false,
+    supportsFirstComment: true,
     contentTypes: ['Thread'],
     features: ['reply_settings'],
   },
@@ -258,6 +258,55 @@ function PlatformOptions({ platform, state, onChange }: {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Twitter thread */}
+      {platform === 'twitter' && state.contentType === 'Thread' && (
+        <div className="space-y-3 pt-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-slate-500 font-semibold uppercase tracking-widest">Thread Tweets</span>
+          </div>
+          {state.twitterThread.map((tweet, i) => (
+            <div key={i} className="relative">
+              <textarea
+                value={tweet}
+                onChange={e => {
+                  const newThread = [...state.twitterThread];
+                  newThread[i] = e.target.value;
+                  onChange({ twitterThread: newThread });
+                }}
+                placeholder={`Tweet ${i + 2}...`}
+                rows={3}
+                className="w-full bg-white/[0.03] border border-white/8 rounded-lg px-3 py-2 text-[13px] text-white placeholder:text-slate-700 outline-none focus:border-sky-500/30 resize-none pr-8 transition-colors"
+              />
+              <button
+                onClick={() => {
+                  const newThread = state.twitterThread.filter((_, idx) => idx !== i);
+                  onChange({ twitterThread: newThread });
+                }}
+                className="absolute top-2 right-2 p-1 text-slate-600 hover:text-red-400 bg-black/40 hover:bg-black/60 rounded-md transition-colors"
+              >
+                <X className="size-3" />
+              </button>
+              <div className="flex justify-between items-center mt-1 px-1">
+                {tweet.length > 280 ? (
+                  <p className="text-[10px] text-red-400">
+                    ⚠ Exceeds limit by {tweet.length - 280} characters
+                  </p>
+                ) : <span />}
+                <span className={cn('text-[10px] tabular-nums', tweet.length > 280 ? 'text-red-400' : 'text-slate-500')}>
+                  {tweet.length} / 280
+                </span>
+              </div>
+            </div>
+          ))}
+          <button
+            onClick={() => onChange({ twitterThread: [...state.twitterThread, ''] })}
+            className="text-[11px] text-slate-600 hover:text-slate-400 flex items-center gap-1 transition-colors"
+          >
+            <Plus className="size-3" /> Add another tweet
+          </button>
         </div>
       )}
 
@@ -1133,8 +1182,21 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
   // ── Submit ────────────────────────────────────────────────────────────────
 
   const handleSubmit = async (mode: 'draft' | 'schedule' | 'now') => {
-    if (!body.trim() && mediaUrls.length === 0) return toast.error('Write something or attach media first!');
     if (selectedAccountIds.size === 0) return toast.error('Select at least one account');
+    
+    // Check if every selected account has content (either from Master or Custom)
+    for (const id of Array.from(selectedAccountIds)) {
+      const acct = accounts.find(a => a.id === id);
+      if (!acct) continue;
+      const ns = getNetworkState(id, acct.platform);
+      const text = ns.customBody !== undefined ? ns.customBody : body;
+      const mUrls = ns.customMedia !== undefined ? ns.customMedia : mediaUrls;
+      
+      if (!text.trim() && mUrls.length === 0) {
+         return toast.error(`Account ${acct.displayName || acct.platform} has no content or media.`);
+      }
+    }
+
     if (mode === 'schedule' && !scheduledAt) return toast.error('Pick a date/time to schedule');
 
     // Validate per-platform
@@ -1176,6 +1238,9 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
         if (acct.platform === 'twitter') {
           opts.replySettings = ns.twitterReplySettings;
           if (ns.twitterPoll) opts.poll = ns.twitterPoll;
+          if (ns.contentType === 'Thread' && ns.twitterThread?.length > 0) {
+            opts.thread = ns.twitterThread.filter(t => t.trim().length > 0);
+          }
         }
         if (acct.platform === 'linkedin') {
           opts.visibility = ns.linkedinVisibility;

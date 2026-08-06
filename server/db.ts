@@ -757,6 +757,7 @@ export const initDb = async () => {
         sequence_id TEXT,
         step_id TEXT,
         campaign_id TEXT,
+        email_id TEXT,
         type TEXT,
         metadata TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -768,7 +769,8 @@ export const initDb = async () => {
       { name: 'project_id', type: 'TEXT' },
       { name: 'sequence_id', type: 'TEXT' },
       { name: 'step_id', type: 'TEXT' },
-      { name: 'campaign_id', type: 'TEXT' }
+      { name: 'campaign_id', type: 'TEXT' },
+      { name: 'email_id', type: 'TEXT' }
     ];
 
     for (const col of newTrackCols) {
