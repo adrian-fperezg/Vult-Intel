@@ -4,6 +4,8 @@ import db from '../../db.js';
 import { encryptToken } from '../../lib/outreach/encrypt.js';
 import fetch from 'node-fetch';
 import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
+import redis from '../../redis.js';
 
 const router = Router();
 
@@ -157,7 +159,18 @@ router.get('/:platform', async (req: AuthRequest, res) => {
     });
   }
 
-  const state = Buffer.from(JSON.stringify({ pId, userId, platform, source })).toString('base64url');
+  const authSessionId = uuidv4();
+  let codeChallenge: string | undefined;
+  let codeChallengeMethod: string | undefined;
+
+  if (platform === 'twitter') {
+    const codeVerifier = crypto.randomBytes(32).toString('base64url');
+    codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
+    codeChallengeMethod = 'S256';
+    await redis.setex(`oauth:twitter:${authSessionId}`, 600, codeVerifier);
+  }
+
+  const state = Buffer.from(JSON.stringify({ pId, userId, platform, source, authSessionId })).toString('base64url');
   const redirectUri = `${getBackendUrl()}/api/social/auth/${platform}/callback`;
 
   const params = new URLSearchParams({
@@ -167,7 +180,7 @@ router.get('/:platform', async (req: AuthRequest, res) => {
     scope: config.scopes,
     state,
     ...(platform === 'youtube' ? { access_type: 'offline', prompt: 'consent' } : {}),
-    ...(platform === 'twitter' ? { code_challenge_method: 'plain', code_challenge: 'challenge' } : {}),
+    ...(platform === 'twitter' ? { code_challenge_method: codeChallengeMethod!, code_challenge: codeChallenge! } : {}),
   });
 
   res.redirect(`${config.authUrl}?${params.toString()}`);
@@ -195,7 +208,7 @@ router.get('/:platform/callback', async (req, res) => {
   }
 
   // Otherwise proceed with normal OAuth callback
-  let stateData: { pId: string; userId: string; platform: string; source?: string } = { pId: '', userId: '', platform: '', source: 'social-studio' };
+  let stateData: { pId: string; userId: string; platform: string; source?: string; authSessionId?: string } = { pId: '', userId: '', platform: '', source: 'social-studio' };
   try {
     if (state) {
       stateData = JSON.parse(Buffer.from(state, 'base64url').toString());
@@ -240,7 +253,7 @@ router.get('/:platform/callback', async (req, res) => {
         redirect_uri: redirectUri,
         client_id: clientId,
         client_secret: clientSecret,
-        ...(platform === 'twitter' ? { code_verifier: 'challenge' } : {}),
+        ...(platform === 'twitter' ? { code_verifier: (await redis.get(`oauth:twitter:${stateData.authSessionId}`)) || '' } : {}),
       }).toString(),
     });
     const tokenData = await tokenRes.json() as any;
