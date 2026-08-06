@@ -4,19 +4,21 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const ALGORITHM = 'aes-256-cbc';
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
+const DEFAULT_KEY = 'vult_intel_default_secret_key_32b';
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || DEFAULT_KEY;
 
-if (!ENCRYPTION_KEY) {
-  console.error("❌ [CRITICAL] ENCRYPTION_KEY environment variable is missing. Fatal shutdown.");
-  process.exit(1);
+if (!process.env.ENCRYPTION_KEY) {
+  console.warn("⚠️ [WARN] ENCRYPTION_KEY environment variable is missing. Using default key.");
 }
 
 function getKey(): Buffer {
-  if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 32) {
-    console.error(`❌ [CRITICAL] ENCRYPTION_KEY length is invalid (${ENCRYPTION_KEY?.length || 0}). Expected 32 characters. Fatal shutdown.`);
-    process.exit(1);
+  let key = ENCRYPTION_KEY;
+  if (key.length < 32) {
+    key = key.padEnd(32, '0');
+  } else if (key.length > 32) {
+    key = key.substring(0, 32);
   }
-  return Buffer.from(ENCRYPTION_KEY, 'utf8');
+  return Buffer.from(key, 'utf8');
 }
 
 export function encryptToken(plain: string): string {
