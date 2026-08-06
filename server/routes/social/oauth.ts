@@ -394,7 +394,8 @@ router.get('/:platform/callback', async (req, res) => {
           channelId = chData.items?.[0]?.id || '';
           if (!displayName) displayName = chData.items?.[0]?.snippet?.title || userData.email;
         } catch { /* channel lookup non-critical */ }
-        accountsToInsert.push({ accountId: userData.sub, username: userData.email, displayName, avatarUrl: userData.picture || '', channelId });
+        const finalUsername = userData.email || displayName || 'YouTube Account';
+        accountsToInsert.push({ accountId: userData.sub, username: finalUsername, displayName, avatarUrl: userData.picture || '', channelId });
       } else if (platform === 'twitter') {
         accountsToInsert.push({
           accountId: userData.data?.id || userData.id,
