@@ -164,13 +164,13 @@ router.get('/:platform', async (req: AuthRequest, res) => {
   let codeChallengeMethod: string | undefined;
 
   if (platform === 'twitter') {
-    const codeVerifier = crypto.randomBytes(32).toString('base64url');
-    codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
+    const codeVerifier = crypto.randomBytes(32).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
     codeChallengeMethod = 'S256';
     await redis.setex(`oauth:twitter:${authSessionId}`, 600, codeVerifier);
   }
 
-  const state = Buffer.from(JSON.stringify({ pId, userId, platform, source, authSessionId })).toString('base64url');
+  const state = Buffer.from(JSON.stringify({ pId, userId, platform, source, authSessionId })).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   const redirectUri = `${getBackendUrl()}/api/social/auth/${platform}/callback`;
 
   const params = new URLSearchParams({
