@@ -86,6 +86,7 @@ const PLATFORMS: Record<string, {
     name: 'TikTok',
     authUrl: 'https://www.tiktok.com/v2/auth/authorize',
     tokenUrl: 'https://open.tiktokapis.com/v2/oauth/token/',
+    userInfoUrl: 'https://open.tiktokapis.com/v2/user/info/?fields=open_id,union_id,avatar_url,display_name',
     scopes: 'user.info.basic,video.publish,video.upload',
     clientIdEnv: 'TIKTOK_CLIENT_KEY',
     clientSecretEnv: 'TIKTOK_CLIENT_SECRET',
@@ -183,6 +184,10 @@ router.get('/:platform', async (req: AuthRequest, res) => {
     ...(platform === 'twitter' ? { code_challenge_method: codeChallengeMethod!, code_challenge: codeChallenge! } : {}),
   });
 
+  if (platform === 'tiktok') {
+    params.set('client_key', clientId);
+  }
+
   res.redirect(`${config.authUrl}?${params.toString()}`);
 });
 
@@ -252,6 +257,7 @@ router.get('/:platform/callback', async (req, res) => {
         code,
         redirect_uri: redirectUri,
         client_id: clientId,
+        client_key: clientId,
         client_secret: clientSecret,
         ...(platform === 'twitter' ? { code_verifier: (await redis.get(`oauth:twitter:${stateData.authSessionId}`)) || '' } : {}),
       }).toString(),
