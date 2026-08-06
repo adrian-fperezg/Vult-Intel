@@ -1190,7 +1190,7 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
       if (!acct) continue;
       const ns = getNetworkState(id, acct.platform);
       const text = ns.customBody !== undefined ? ns.customBody : body;
-      const mUrls = ns.customMedia !== undefined ? ns.customMedia : mediaUrls;
+      const mUrls = mediaMapping[id] ? [mediaMapping[id]] : mediaUrls;
       
       if (!text.trim() && mUrls.length === 0) {
          return toast.error(`Account ${acct.displayName || acct.platform} has no content or media.`);
