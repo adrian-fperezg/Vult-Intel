@@ -1,0 +1,1000 @@
+      errno: -111,
+      errno: -111,
+    Error: connect ECONNREFUSED ::1:6379
+      code: 'ECONNREFUSED',
+      code: 'ECONNREFUSED',
+        at createConnectionError (node:net:1679:14)
+      syscall: 'connect',
+      syscall: 'connect',
+        at afterConnectMultiple (node:net:1709:16) {
+      address: '127.0.0.1',
+      address: '::1',
+      errno: -111,
+      port: 6379
+      port: 6379
+    },
+    }
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+  ]
+        at createConnectionError (node:net:1679:14)
+}
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+  ]
+      syscall: 'connect',
+      port: 6379
+}
+      address: '::1',
+AggregateError [ECONNREFUSED]: 
+    },
+    at internalConnectMultiple (node:net:1135:18)
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+      port: 6379
+        at createConnectionError (node:net:1679:14)
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+      code: 'ECONNREFUSED',
+        at createConnectionError (node:net:1679:14)
+      syscall: 'connect',
+      address: '127.0.0.1',
+        at afterConnectMultiple (node:net:1709:16) {
+      port: 6379
+      errno: -111,
+      code: 'ECONNREFUSED',
+    }
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1679:14)
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+  code: 'ECONNREFUSED',
+      code: 'ECONNREFUSED',
+  [errors]: [
+      syscall: 'connect',
+    Error: connect ECONNREFUSED ::1:6379
+      address: '127.0.0.1',
+      port: 6379
+    }
+  ]
+}
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+Railway rate limit reached for deployment, update your application to reduce the logging rate. Messages dropped: 92
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 6379
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+    }
+  ]
+}
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+      code: 'ECONNREFUSED',
+      port: 6379
+    },
+      syscall: 'connect',
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+      address: '::1',
+        at createConnectionError (node:net:1679:14)
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+        at afterConnectMultiple (node:net:1709:16) {
+      code: 'ECONNREFUSED',
+      errno: -111,
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+    }
+  ]
+}
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 6379
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+    }
+  ]
+}
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+}
+      code: 'ECONNREFUSED',
+Redis connection error: AggregateError [ECONNREFUSED]: 
+      syscall: 'connect',
+      address: '::1',
+    at internalConnectMultiple (node:net:1135:18)
+      address: '::1',
+      port: 6379
+      port: 6379
+    at afterConnectMultiple (node:net:1716:7) {
+    },
+  code: 'ECONNREFUSED',
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    },
+  [errors]: [
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+    Error: connect ECONNREFUSED ::1:6379
+      errno: -111,
+        at createConnectionError (node:net:1679:14)
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+        at afterConnectMultiple (node:net:1709:16) {
+      address: '127.0.0.1',
+      errno: -111,
+      port: 6379
+    }
+  ]
+      syscall: 'connect',
+        at createConnectionError (node:net:1679:14)
+      address: '::1',
+      port: 6379
+        at afterConnectMultiple (node:net:1709:16) {
+    },
+      errno: -111,
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+      code: 'ECONNREFUSED',
+        at createConnectionError (node:net:1679:14)
+      syscall: 'connect',
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      address: '127.0.0.1',
+      port: 6379
+    }
+  ]
+}
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      code: 'ECONNREFUSED',
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      address: '::1',
+      port: 6379
+      port: 6379
+    }
+    },
+  ]
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+}
+        at createConnectionError (node:net:1679:14)
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+        at afterConnectMultiple (node:net:1709:16) {
+    at afterConnectMultiple (node:net:1716:7) {
+      errno: -111,
+  code: 'ECONNREFUSED',
+      code: 'ECONNREFUSED',
+  [errors]: [
+      syscall: 'connect',
+    Error: connect ECONNREFUSED ::1:6379
+      address: '127.0.0.1',
+        at createConnectionError (node:net:1679:14)
+      port: 6379
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+    at internalConnectMultiple (node:net:1135:18)
+    }
+  ]
+  ]
+}
+      code: 'ECONNREFUSED',
+}
+AggregateError [ECONNREFUSED]: 
+AggregateError [ECONNREFUSED]: 
+      syscall: 'connect',
+    at internalConnectMultiple (node:net:1135:18)
+      address: '::1',
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    at afterConnectMultiple (node:net:1716:7) {
+      port: 6379
+  code: 'ECONNREFUSED',
+        at createConnectionError (node:net:1679:14)
+    },
+        at afterConnectMultiple (node:net:1709:16) {
+  [errors]: [
+      errno: -111,
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1679:14)
+      code: 'ECONNREFUSED',
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+    }
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+        at afterConnectMultiple (node:net:1709:16) {
+  [errors]: [
+      address: '127.0.0.1',
+      errno: -111,
+      errno: -111,
+    }
+      port: 6379
+    Error: connect ECONNREFUSED ::1:6379
+      code: 'ECONNREFUSED',
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      syscall: 'connect',
+AggregateError [ECONNREFUSED]: 
+  ]
+}
+    at internalConnectMultiple (node:net:1135:18)
+      address: '::1',
+      port: 6379
+    at afterConnectMultiple (node:net:1716:7) {
+    },
+  code: 'ECONNREFUSED',
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1679:14)
+    }
+  ]
+        at createConnectionError (node:net:1679:14)
+}
+        at afterConnectMultiple (node:net:1709:16) {
+AggregateError [ECONNREFUSED]: 
+      errno: -111,
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+      code: 'ECONNREFUSED',
+  code: 'ECONNREFUSED',
+      syscall: 'connect',
+  [errors]: [
+      address: '::1',
+    Error: connect ECONNREFUSED ::1:6379
+      port: 6379
+        at createConnectionError (node:net:1679:14)
+    },
+        at afterConnectMultiple (node:net:1709:16) {
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+      errno: -111,
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+      code: 'ECONNREFUSED',
+      port: 6379
+      address: '127.0.0.1',
+      syscall: 'connect',
+  code: 'ECONNREFUSED',
+      address: '::1',
+      address: '::1',
+      port: 6379
+      port: 6379
+  [errors]: [
+        at createConnectionError (node:net:1679:14)
+    }
+    },
+      errno: -111,
+        at afterConnectMultiple (node:net:1709:16) {
+  ]
+    Error: connect ECONNREFUSED ::1:6379
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+      code: 'ECONNREFUSED',
+}
+      syscall: 'connect',
+        at createConnectionError (node:net:1679:14)
+AggregateError [ECONNREFUSED]: 
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+    }
+  ]
+}
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+Railway rate limit reached for deployment, update your application to reduce the logging rate. Messages dropped: 91
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+        at createConnectionError (node:net:1679:14)
+    at afterConnectMultiple (node:net:1716:7) {
+        at afterConnectMultiple (node:net:1709:16) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+      errno: -111,
+    Error: connect ECONNREFUSED ::1:6379
+      code: 'ECONNREFUSED',
+        at createConnectionError (node:net:1679:14)
+      syscall: 'connect',
+        at afterConnectMultiple (node:net:1709:16) {
+      address: '127.0.0.1',
+      errno: -111,
+      port: 6379
+      code: 'ECONNREFUSED',
+    }
+      syscall: 'connect',
+      address: '::1',
+  ]
+      port: 6379
+}
+    },
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1679:14)
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+    }
+  ]
+  code: 'ECONNREFUSED',
+}
+AggregateError [ECONNREFUSED]: 
+  [errors]: [
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+    Error: connect ECONNREFUSED ::1:6379
+  code: 'ECONNREFUSED',
+        at createConnectionError (node:net:1679:14)
+  [errors]: [
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 6379
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+        at afterConnectMultiple (node:net:1709:16) {
+}
+      errno: -111,
+AggregateError [ECONNREFUSED]: 
+        at createConnectionError (node:net:1679:14)
+      code: 'ECONNREFUSED',
+        at afterConnectMultiple (node:net:1709:16) {
+      syscall: 'connect',
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+    at internalConnectMultiple (node:net:1135:18)
+      address: '127.0.0.1',
+      port: 6379
+    at afterConnectMultiple (node:net:1716:7) {
+    }
+        at afterConnectMultiple (node:net:1709:16) {
+  ]
+  code: 'ECONNREFUSED',
+    Error: connect ECONNREFUSED ::1:6379
+      errno: -111,
+        at createConnectionError (node:net:1679:14)
+      code: 'ECONNREFUSED',
+  [errors]: [
+      syscall: 'connect',
+      address: '::1',
+      port: 6379
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+      address: '::1',
+    Error: connect ECONNREFUSED ::1:6379
+    at internalConnectMultiple (node:net:1135:18)
+      syscall: 'connect',
+      port: 6379
+        at createConnectionError (node:net:1679:14)
+    at afterConnectMultiple (node:net:1716:7) {
+      address: '::1',
+    },
+        at afterConnectMultiple (node:net:1709:16) {
+  code: 'ECONNREFUSED',
+      port: 6379
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+  [errors]: [
+      errno: -111,
+        at createConnectionError (node:net:1679:14)
+      code: 'ECONNREFUSED',
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+    }
+  ]
+}
+AggregateError [ECONNREFUSED]: 
+        at createConnectionError (node:net:1679:14)
+        at createConnectionError (node:net:1679:14)
+  [errors]: [
+        at afterConnectMultiple (node:net:1709:16) {
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+    Error: connect ECONNREFUSED ::1:6379
+      code: 'ECONNREFUSED',
+      errno: -111,
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      syscall: 'connect',
+      address: '127.0.0.1',
+      errno: -111,
+      port: 6379
+      code: 'ECONNREFUSED',
+    }
+      syscall: 'connect',
+  ]
+      address: '::1',
+}
+      port: 6379
+Redis connection error: AggregateError [ECONNREFUSED]: 
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+    }
+  ]
+}
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 6379
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+        at afterConnectMultiple (node:net:1709:16) {
+      code: 'ECONNREFUSED',
+    at internalConnectMultiple (node:net:1135:18)
+      errno: -111,
+      code: 'ECONNREFUSED',
+      port: 6379
+      syscall: 'connect',
+      syscall: 'connect',
+    }
+    },
+      address: '127.0.0.1',
+      address: '::1',
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+  ]
+      port: 6379
+        at createConnectionError (node:net:1679:14)
+}
+AggregateError [ECONNREFUSED]: 
+    }
+  ]
+}
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      address: '127.0.0.1',
+      port: 6379
+    }
+  ]
+}
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 6379
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 6379
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+    }
+  ]
+}
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1679:14)
+        at createConnectionError (node:net:1679:14)
+      address: '::1',
+      code: 'ECONNREFUSED',
+        at afterConnectMultiple (node:net:1709:16) {
+      syscall: 'connect',
+      errno: -111,
+      port: 6379
+      address: '::1',
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      port: 6379
+}
+    },
+AggregateError [ECONNREFUSED]: 
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1679:14)
+    at internalConnectMultiple (node:net:1135:18)
+        at afterConnectMultiple (node:net:1709:16) {
+    at afterConnectMultiple (node:net:1716:7) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+  code: 'ECONNREFUSED',
+      syscall: 'connect',
+  [errors]: [
+      address: '127.0.0.1',
+      port: 6379
+    Error: connect ECONNREFUSED ::1:6379
+    }
+  ]
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1679:14)
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+        at afterConnectMultiple (node:net:1709:16) {
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      errno: -111,
+      port: 6379
+    }
+  ]
+}
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+Railway rate limit reached for deployment, update your application to reduce the logging rate. Messages dropped: 91
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+  code: 'ECONNREFUSED',
+      address: '::1',
+  [errors]: [
+      port: 6379
+    },
+    Error: connect ECONNREFUSED ::1:6379
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1679:14)
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+        at afterConnectMultiple (node:net:1709:16) {
+      code: 'ECONNREFUSED',
+      errno: -111,
+      syscall: 'connect',
+      address: '127.0.0.1',
+      code: 'ECONNREFUSED',
+      port: 6379
+    }
+      syscall: 'connect',
+  ]
+}
+      address: '::1',
+AggregateError [ECONNREFUSED]: 
+      port: 6379
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+    }
+  ]
+}
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1679:14)
+      syscall: 'connect',
+      address: '::1',
+        at afterConnectMultiple (node:net:1709:16) {
+      port: 6379
+      code: 'ECONNREFUSED',
+      errno: -111,
+}
+    },
+      port: 6379
+      code: 'ECONNREFUSED',
+    Error: connect ECONNREFUSED ::1:6379
+  ]
+        at afterConnectMultiple (node:net:1709:16) {
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    }
+      errno: -111,
+        at createConnectionError (node:net:1679:14)
+  code: 'ECONNREFUSED',
+Redis connection error: AggregateError [ECONNREFUSED]: 
+      code: 'ECONNREFUSED',
+        at createConnectionError (node:net:1679:14)
+  [errors]: [
+        at afterConnectMultiple (node:net:1709:16) {
+    at internalConnectMultiple (node:net:1135:18)
+      syscall: 'connect',
+      errno: -111,
+    at afterConnectMultiple (node:net:1716:7) {
+      address: '127.0.0.1',
+}
+      syscall: 'connect',
+      port: 6379
+    }
+      address: '127.0.0.1',
+  ]
+      address: '::1',
+      errno: -111,
+      code: 'ECONNREFUSED',
+      port: 6379
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1679:14)
+AggregateError [ECONNREFUSED]: 
+        at afterConnectMultiple (node:net:1709:16) {
+      syscall: 'connect',
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 6379
+    },
+}
+AggregateError [ECONNREFUSED]: 
+        at afterConnectMultiple (node:net:1709:16) {
+    at internalConnectMultiple (node:net:1135:18)
+      address: '::1',
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+    },
+    at afterConnectMultiple (node:net:1716:7) {
+      port: 6379
+        at createConnectionError (node:net:1679:14)
+  [errors]: [
+  code: 'ECONNREFUSED',
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+      code: 'ECONNREFUSED',
+    Error: connect ECONNREFUSED ::1:6379
+        at afterConnectMultiple (node:net:1709:16) {
+        at createConnectionError (node:net:1679:14)
+      syscall: 'connect',
+        at createConnectionError (node:net:1679:14)
+      errno: -111,
+        at afterConnectMultiple (node:net:1709:16) {
+      code: 'ECONNREFUSED',
+      errno: -111,
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+    }
+  ]
+      address: '::1',
+      port: 6379
+      errno: -111,
+    },
+      code: 'ECONNREFUSED',
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1679:14)
+      syscall: 'connect',
+        at afterConnectMultiple (node:net:1709:16) {
+      address: '127.0.0.1',
+      errno: -111,
+      port: 6379
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+    }
+      address: '127.0.0.1',
+  ]
+}
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+    }
+  ]
+}
+      port: 6379
+AggregateError [ECONNREFUSED]: 
+    }
+  ]
+}
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 6379
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+    at internalConnectMultiple (node:net:1135:18)
+  code: 'ECONNREFUSED',
+    at afterConnectMultiple (node:net:1716:7) {
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+  code: 'ECONNREFUSED',
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+        at createConnectionError (node:net:1679:14)
+      code: 'ECONNREFUSED',
+        at afterConnectMultiple (node:net:1709:16) {
+      syscall: 'connect',
+      errno: -111,
+      address: '::1',
+      code: 'ECONNREFUSED',
+      port: 6379
+    },
+      syscall: 'connect',
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+      address: '127.0.0.1',
+      port: 6379
+    }
+  ]
+}
+AggregateError [ECONNREFUSED]: 
+  [errors]: [
+      errno: -111,
+    Error: connect ECONNREFUSED ::1:6379
+      code: 'ECONNREFUSED',
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      syscall: 'connect',
+      errno: -111,
+      address: '127.0.0.1',
+      code: 'ECONNREFUSED',
+      port: 6379
+      syscall: 'connect',
+      address: '::1',
+    }
+      port: 6379
+    },
+  ]
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+}
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 6379
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+    }
+  ]
+}
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 6379
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:6379
+        at createConnectionError (node:net:1679:14)
+        at afterConnectMultiple (node:net:1709:16) {
+      errno: -111,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 6379
+    }
+  ]
+}
+AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1135:18)
+    at afterConnectMultiple (node:net:1716:7) {
+  code: 'ECONNREFUSED',
+  [errors]: [
+Railway rate limit reached for deployment, update your application to reduce the logging rate. Messages dropped: 95

@@ -17,8 +17,7 @@ export class DbWrapper {
     this.isPostgres = true; // Always Postgres after driver cleanup
     const connectionString = process.env.DATABASE_URL;
     this.pgPool = pgPool || new pg.Pool({
-      connectionString,
-      ssl: connectionString && connectionString.includes('railway') ? { rejectUnauthorized: false } : false,
+      connectionString
     });
   }
 
