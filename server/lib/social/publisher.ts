@@ -9,6 +9,7 @@ import fetch from 'node-fetch';
 import FormData from 'form-data';
 import axios from 'axios';
 import admin from '../../lib/firebase.js';
+import { TwitterApi } from 'twitter-api-v2';
 
 // ─── PLATFORM PUBLISHERS ──────────────────────────────────────────────────────
 
@@ -428,36 +429,23 @@ async function publishToTwitter(account: any, post: any): Promise<string> {
   const mediaUrls = post.media_urls || [];
   const mediaIds: string[] = [];
 
+  const twitterClient = new TwitterApi(token);
+
   if (mediaUrls.length > 0) {
     for (const url of mediaUrls.slice(0, 4)) {
       try {
         const fileRes = await axios.get(url, { responseType: 'arraybuffer' });
-        const arrayBuf = fileRes.data;
-        const form = new FormData();
-        const filename = url.split('/').pop() || 'media.jpg';
-        form.append('media', Buffer.from(arrayBuf), { filename });
-        const upRes = await fetch('https://upload.twitter.com/1.1/media/upload.json', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, ...form.getHeaders() },
-          body: form as any
-        });
-
-        if (!upRes.ok) {
-          const rawText = await upRes.text();
-          console.error('[PUBLISHER] Twitter media upload raw error:', rawText);
-          throw new Error('Twitter API rejected media upload: ' + rawText);
-        }
         
-        const upData = await upRes.json() as any;
-        if (upData.media_id_string) {
-          mediaIds.push(upData.media_id_string);
-        } else if (upData.errors || upData.error) {
-          console.error('[PUBLISHER] Twitter media upload error:', upData);
-          throw new Error(upData.errors?.[0]?.message || upData.error || 'Twitter media upload failed');
-        }
-      } catch (e: any) {
-        console.error('[PUBLISHER] Failed to upload media to Twitter:', e.message);
-        throw e;
+        let mimeType = 'image/jpeg';
+        if (url.toLowerCase().includes('.png')) mimeType = 'image/png';
+        else if (url.toLowerCase().includes('.gif')) mimeType = 'image/gif';
+        else if (url.toLowerCase().includes('.mp4')) mimeType = 'video/mp4';
+
+        const mediaId = await twitterClient.v1.uploadMedia(Buffer.from(fileRes.data), { mimeType });
+        mediaIds.push(mediaId);
+      } catch (err: any) {
+        console.error('[PUBLISHER] Failed to upload media to Twitter:', err.message || err);
+        throw new Error('Twitter API rejected media upload: ' + (err.message || err));
       }
     }
   }
@@ -467,25 +455,20 @@ async function publishToTwitter(account: any, post: any): Promise<string> {
     tweetBody.media = { media_ids: mediaIds };
   }
 
-  const res = await fetch('https://api.twitter.com/2/tweets', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(tweetBody),
-  });
-  const data = await res.json() as any;
-  if (data.errors || data.error) throw new Error(data.errors?.[0]?.message || data.detail || 'Twitter error');
-  
-  const tweetId = data.data?.id || 'tweet';
+  let tweetId = 'tweet';
+  try {
+    const { data } = await twitterClient.v2.tweet(tweetBody);
+    tweetId = data.id;
+  } catch (err: any) {
+    console.error('[PUBLISHER] Failed to post tweet:', err.message || err);
+    throw new Error('Twitter API rejected tweet: ' + (err.message || err));
+  }
 
-  if (post.first_comment && data.data?.id) {
+  if (post.first_comment && tweetId !== 'tweet') {
     try {
-      await fetch('https://api.twitter.com/2/tweets', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          text: post.first_comment.slice(0, 280),
-          reply: { in_reply_to_tweet_id: data.data.id }
-        }),
+      await twitterClient.v2.tweet({
+        text: post.first_comment.slice(0, 280),
+        reply: { in_reply_to_tweet_id: tweetId }
       });
     } catch (e: any) {
       console.error('[PUBLISHER] Twitter first comment failed', e.message);
