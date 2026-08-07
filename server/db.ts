@@ -16,8 +16,12 @@ export class DbWrapper {
   constructor(pgPool?: pg.Pool) {
     this.isPostgres = true; // Always Postgres after driver cleanup
     const connectionString = process.env.DATABASE_URL;
+    // Railway internal network (railway.internal) does NOT use SSL.
+    // External/proxy URLs (proxy.rlwy.net, localhost) may need SSL disabled.
+    // Setting ssl: false ensures no SSL handshake attempt on any connection.
     this.pgPool = pgPool || new pg.Pool({
-      connectionString
+      connectionString,
+      ssl: false,
     });
   }
 
