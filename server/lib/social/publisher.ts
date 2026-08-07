@@ -673,37 +673,26 @@ export async function publishPost(postId: string): Promise<void> {
   if (allPublished) {
     await db.run(`UPDATE social_posts SET status = 'published', published_at = NOW(), error_message = NULL, error_code = NULL WHERE id = ?`, postId);
     
-    // Auto-delete media from Firebase Storage if completely published
+    // Auto-delete media from local disk if completely published
     try {
       if (Array.isArray(post.media_urls)) {
-        const bucket = admin.storage().bucket();
         for (const url of post.media_urls) {
-          if (url.includes('firebasestorage.googleapis.com')) {
+          if (url.includes('/uploads/media/')) {
             const urlObj = new URL(url);
-            const pathParts = urlObj.pathname.split('/o/');
-            if (pathParts.length > 1) {
-              const filePath = pathParts[1]; // e.g., media%2Fsocial_123.jpg
-              if (filePath) {
-                await bucket.file(decodeURIComponent(filePath)).delete().catch((e: any) => {
-                  console.warn(`[FIREBASE_CLEANUP] Could not delete ${filePath}:`, e.message);
-                });
-              }
-            }
-          } else if (url.includes('storage.googleapis.com')) {
-            // Fallback for older URLs
-            const urlObj = new URL(url);
-            const pathParts = urlObj.pathname.split('/');
-            const filePath = pathParts.slice(2).join('/');
-            if (filePath) {
-              await bucket.file(decodeURIComponent(filePath)).delete().catch((e: any) => {
-                console.warn(`[FIREBASE_CLEANUP] Could not delete ${filePath}:`, e.message);
+            const fileName = urlObj.pathname.split('/').pop();
+            if (fileName) {
+              const filePath = require('path').join(process.cwd(), 'uploads', 'media', fileName);
+              require('fs').unlink(filePath, (err: any) => {
+                if (err && err.code !== 'ENOENT') {
+                  console.warn(`[DISK_CLEANUP] Could not delete ${filePath}:`, err.message);
+                }
               });
             }
           }
         }
       }
     } catch (e: any) {
-      console.error('[FIREBASE_CLEANUP] Error:', e.message);
+      console.error('[DISK_CLEANUP] Error:', e.message);
     }
   } else {
     await db.run(`
