@@ -438,6 +438,13 @@ async function publishToTwitter(account: any, post: any): Promise<string> {
           headers: { Authorization: `Bearer ${token}`, ...form.getHeaders() },
           body: form as any
         });
+
+        if (!upRes.ok) {
+          const rawText = await upRes.text();
+          console.error('[PUBLISHER] Twitter media upload raw error:', rawText);
+          throw new Error('Twitter API rejected media upload: ' + rawText);
+        }
+        
         const upData = await upRes.json() as any;
         if (upData.media_id_string) {
           mediaIds.push(upData.media_id_string);
@@ -502,7 +509,7 @@ async function publishToThreads(account: any, post: any): Promise<string> {
   if (mediaUrls.length > 1) {
     const itemIds = [];
     for (const url of mediaUrls.slice(0, 10)) {
-      const isItemVideo = url.match(/\.(mp4|mov)$/i);
+      const isItemVideo = !!url.match(/\.(mp4|mov)$/i);
       if (isItemVideo) isVideo = true;
       const res = await fetch(`https://graph.threads.net/v1.0/${threadsUserId}/threads`, {
         method: 'POST',
@@ -541,7 +548,7 @@ async function publishToThreads(account: any, post: any): Promise<string> {
 
   } else if (mediaUrls.length === 1) {
     const url = mediaUrls[0];
-    isVideo = !!url.match(/\\.(mp4|mov)$/i);
+    isVideo = !!url.match(/\.(mp4|mov)$/i);
     const res = await fetch(`https://graph.threads.net/v1.0/${threadsUserId}/threads`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
