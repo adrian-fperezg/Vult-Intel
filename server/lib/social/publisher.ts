@@ -201,7 +201,7 @@ async function publishToFacebook(account: any, post: any): Promise<string> {
         body.description = post.body;
       } else {
         body.url = url;
-        body.caption = post.body;
+        body.message = post.body; // Changed from caption to message for /photos
       }
       
       const res = await fetch(endpoint, {
@@ -416,10 +416,43 @@ async function publishToYouTube(account: any, post: any): Promise<string> {
 
 async function publishToTwitter(account: any, post: any): Promise<string> {
   const token = decryptToken(account.access_token);
+  const mediaUrls = post.media_urls || [];
+  const mediaIds: string[] = [];
+
+  if (mediaUrls.length > 0) {
+    for (const url of mediaUrls.slice(0, 4)) {
+      try {
+        const mediaBuf = await fetch(url).then(r => r.arrayBuffer());
+        const form = new FormData();
+        form.append('media', new Blob([mediaBuf]));
+        const upRes = await fetch('https://upload.twitter.com/1.1/media/upload.json', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: form
+        });
+        const upData = await upRes.json() as any;
+        if (upData.media_id_string) {
+          mediaIds.push(upData.media_id_string);
+        } else if (upData.errors || upData.error) {
+          console.error('[PUBLISHER] Twitter media upload error:', upData);
+          throw new Error(upData.errors?.[0]?.message || upData.error || 'Twitter media upload failed');
+        }
+      } catch (e: any) {
+        console.error('[PUBLISHER] Failed to upload media to Twitter:', e.message);
+        throw e;
+      }
+    }
+  }
+
+  const tweetBody: any = { text: post.body.slice(0, 280) };
+  if (mediaIds.length > 0) {
+    tweetBody.media = { media_ids: mediaIds };
+  }
+
   const res = await fetch('https://api.twitter.com/2/tweets', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text: post.body.slice(0, 280) }),
+    body: JSON.stringify(tweetBody),
   });
   const data = await res.json() as any;
   if (data.errors || data.error) throw new Error(data.errors?.[0]?.message || data.detail || 'Twitter error');
@@ -452,6 +485,7 @@ async function publishToTikTok(account: any, post: any): Promise<string> {
 
 async function publishToThreads(account: any, post: any): Promise<string> {
   const token = decryptToken(account.access_token);
+  const threadsUserId = account.account_id;
   const mediaUrls = post.media_urls || [];
   
   let creationId: string;
@@ -460,9 +494,9 @@ async function publishToThreads(account: any, post: any): Promise<string> {
   if (mediaUrls.length > 1) {
     const itemIds = [];
     for (const url of mediaUrls.slice(0, 10)) {
-      const isItemVideo = url.match(/\\.(mp4|mov)$/i);
+      const isItemVideo = url.match(/\.(mp4|mov)$/i);
       if (isItemVideo) isVideo = true;
-      const res = await fetch(`https://graph.threads.net/v1.0/me/threads`, {
+      const res = await fetch(`https://graph.threads.net/v1.0/${threadsUserId}/threads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -477,7 +511,7 @@ async function publishToThreads(account: any, post: any): Promise<string> {
       itemIds.push(data.id);
     }
     
-    const carouselRes = await fetch(`https://graph.threads.net/v1.0/me/threads`, {
+    const carouselRes = await fetch(`https://graph.threads.net/v1.0/${threadsUserId}/threads`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -494,7 +528,7 @@ async function publishToThreads(account: any, post: any): Promise<string> {
   } else if (mediaUrls.length === 1) {
     const url = mediaUrls[0];
     isVideo = !!url.match(/\\.(mp4|mov)$/i);
-    const res = await fetch(`https://graph.threads.net/v1.0/me/threads`, {
+    const res = await fetch(`https://graph.threads.net/v1.0/${threadsUserId}/threads`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -509,7 +543,7 @@ async function publishToThreads(account: any, post: any): Promise<string> {
     creationId = data.id;
 
   } else {
-    const res = await fetch(`https://graph.threads.net/v1.0/me/threads`, {
+    const res = await fetch(`https://graph.threads.net/v1.0/${threadsUserId}/threads`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -536,7 +570,7 @@ async function publishToThreads(account: any, post: any): Promise<string> {
     if (attempts >= 15) throw new Error('Timeout waiting for Threads video processing');
   }
 
-  const pubRes = await fetch(`https://graph.threads.net/v1.0/me/threads_publish`, {
+  const pubRes = await fetch(`https://graph.threads.net/v1.0/${threadsUserId}/threads_publish`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -551,9 +585,15 @@ async function publishToThreads(account: any, post: any): Promise<string> {
 
 // ─── PLATFORM DISPATCH ────────────────────────────────────────────────────────
 async function publishToAccount(account: any, post: any): Promise<string> {
+  let platformOptions: any = {};
+  try {
+    platformOptions = account.platform_options ? JSON.parse(account.platform_options) : {};
+  } catch (e) {}
+
   const postForAccount = {
     ...post,
-    body: account.custom_body || post.body
+    body: account.custom_body || post.body,
+    media_urls: platformOptions.media_urls?.length ? platformOptions.media_urls : post.media_urls
   };
   
   switch (account.platform) {
