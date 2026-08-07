@@ -67,6 +67,12 @@ router.post('/', async (req: AuthRequest, res) => {
     return res.status(400).json({ error: 'Body or media is required for all accounts' });
   }
 
+  console.log('[SOCIAL_POSTS] CREATE Payload received:', {
+    media_urls,
+    network_options: network_options ? JSON.stringify(network_options) : null,
+    account_ids
+  });
+
   try {
     const postId = uuidv4();
     const postStatus = scheduled_at ? 'scheduled' : (status || 'draft');
@@ -106,6 +112,12 @@ router.patch('/:id', async (req: AuthRequest, res) => {
   try {
     const post = await db.get<any>(`SELECT * FROM social_posts WHERE id = ? AND user_id = ?`, id, userId);
     if (!post) return res.status(404).json({ error: 'Post not found' });
+
+    console.log('[SOCIAL_POSTS] UPDATE Payload received:', {
+      media_urls,
+      network_options: network_options ? JSON.stringify(network_options) : null,
+      account_ids
+    });
 
     await db.run(`
       UPDATE social_posts SET

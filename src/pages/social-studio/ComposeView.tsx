@@ -1267,7 +1267,7 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
         // Per-account media override: replaces master pool completely for this account
         const accountMedia = mediaMapping[id];
         if (accountMedia?.uploadedUrl) {
-          opts.mediaUrls = [accountMedia.uploadedUrl];
+          opts.media_urls = [accountMedia.uploadedUrl];
         } else if (mediaUrls.length > 0 && !accountMedia) {
           // No specific assignment: use master pool (handled by backend default)
         }
