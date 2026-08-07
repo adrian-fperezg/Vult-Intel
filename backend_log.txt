@@ -1,0 +1,686 @@
+
+> react-example@0.0.0 start
+> tsx server/index.ts
+
+◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injected env (0) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injected env (0) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+[FIREBASE] Initialized with local VITE_FIREBASE_PROJECT_ID (Bypassing JSON credentials)
+◇ injected env (0) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ⌘ override existing { override: true }
+◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injected env (0) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+[STARTUP] Nodemailer loaded
+[STARTUP] imap-simple loaded
+[VEO] Veo Studio Pack routes registered
+✅ AI configured: Gemini 
+[Persistence] Checking Redis for persistent mailboxes...
+[STARTUP] Initializing database...
+Connected to Redis for persistence
+[BACKFILL] Failed during startup: Error: There was an error establishing an SSL connection
+    at /Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async DbWrapper.get (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/server/db.ts:56:17)
+    at async <anonymous> (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/server/index.ts:45:24)
+[CRITICAL STARTUP ERROR] Initialization failed, but proceeding anyway: Error: There was an error establishing an SSL connection
+    at /Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async DbWrapper.run (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/server/db.ts:49:17)
+    at async initDb (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/server/db.ts:178:3)
+    at async startServices (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/server/index.ts:311:5)
+    at async startServer (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/server/index.ts:8461:3)
+🚀 Outreach API running at http://localhost:8080
+Redis connection error: ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+[Persistence] Sync from Redis failed: WRONGPASS invalid username-password pair or user is disabled.
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+Connected to Redis for persistence
+DB_CHECK: Total mailboxes in DB is: 0
+Redis connection error: ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+Connected to Redis for persistence
+Redis connection error: ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+Connected to Redis for persistence
+Redis connection error: ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+Connected to Redis for persistence
+Redis connection error: ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+Connected to Redis for persistence
+Redis connection error: ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+Connected to Redis for persistence
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+Redis connection error: ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+Connected to Redis for persistence
+Redis connection error: ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+ReplyError: WRONGPASS invalid username-password pair or user is disabled.
+    at parseError (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:179:12)
+    at parseType (/Users/adrianfranciscoperezgomez/Desktop/Personal Apps/vult-intel/node_modules/redis-parser/lib/parser.js:302:14) {
+  command: { name: 'auth', args: [ 'IVB0VPnPl0urvQrpSKkbXLdEZBUfSHaP' ] }
+}
+[AUTH ERROR] No Bearer token provided in Authorization header

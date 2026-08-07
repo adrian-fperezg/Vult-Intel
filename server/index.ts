@@ -282,27 +282,31 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-// Initialize session handling with Redis for persistence across deployments
-const redisStore = new RedisStore({
-  client: redis as any,
-  prefix: "vult-session:",
-});
+const hasRedis = !!(process.env.REDIS_URL || process.env.REDIS_PRIVATE_URL || process.env.REDISPROXYURL);
 
-app.use(
-  session({
-    store: redisStore,
-    name: "vult-session",
-    secret: process.env.SESSION_SECRET || "vult-intel-default-secret",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      sameSite: "none",
-      secure: true, // Required for SameSite: none
-      httpOnly: true,
-    },
-  }),
-);
+const sessionConfig: any = {
+  name: "vult-session",
+  secret: process.env.SESSION_SECRET || "vult-intel-default-secret",
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: "none",
+    secure: true, // Required for SameSite: none
+    httpOnly: true,
+  },
+};
+
+if (hasRedis) {
+  sessionConfig.store = new RedisStore({
+    client: redis as any,
+    prefix: "vult-session:",
+  });
+} else {
+  console.warn("⚠️ [WARN] No Redis URL provided. Falling back to MemoryStore for sessions.");
+}
+
+app.use(session(sessionConfig));
 
 // Initialize DB schema on startup
 const startServices = async () => {
