@@ -265,7 +265,7 @@ router.get('/:platform/callback', async (req, res) => {
     const tokenData = await tokenRes.json() as any;
     if (!tokenData.access_token) {
       console.error(`[SOCIAL_OAUTH] ${platform} token exchange failed. Status: ${tokenRes.status}, Body:`, JSON.stringify(tokenData, null, 2));
-      throw new Error(tokenData.error_message || tokenData.error_description || tokenData.error || 'Failed to get access token');
+      throw new Error(tokenData.error_message || tokenData.error_description || tokenData.error?.message || tokenData.error || 'Failed to get access token');
     }
 
     // Get user info
@@ -275,6 +275,9 @@ router.get('/:platform/callback', async (req, res) => {
       const headers: Record<string, string> = { Authorization: `Bearer ${tokenData.access_token}` };
       const userRes = await fetch(config.userInfoUrl, { headers });
       const userData = await userRes.json() as any;
+      if (!userRes.ok || userData.error) {
+        console.error(`[SOCIAL_OAUTH] ${platform} userInfo failed. Status: ${userRes.status}, Body:`, JSON.stringify(userData, null, 2));
+      }
 
       if (platform === 'linkedin') {
         accountsToInsert.push({
@@ -420,11 +423,13 @@ router.get('/:platform/callback', async (req, res) => {
           channelId: ''
         });
       } else if (platform === 'threads') {
+        const tId = userData.id || userData.data?.id || tokenData.user_id;
+        if (!tId) throw new Error('Could not resolve Threads account ID');
         accountsToInsert.push({
-          accountId: userData.id,
-          username: `@${userData.username}`,
-          displayName: userData.name || userData.username,
-          avatarUrl: userData.threads_profile_picture_url || '',
+          accountId: tId,
+          username: `@${userData.username || userData.data?.username || 'unknown'}`,
+          displayName: userData.name || userData.data?.name || userData.username || 'Threads User',
+          avatarUrl: userData.threads_profile_picture_url || userData.data?.threads_profile_picture_url || '',
           channelId: ''
         });
       }
