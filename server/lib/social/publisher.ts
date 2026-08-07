@@ -587,9 +587,15 @@ async function publishToThreads(account: any, post: any): Promise<string> {
 // ─── PLATFORM DISPATCH ────────────────────────────────────────────────────────
 async function publishToAccount(account: any, post: any): Promise<string> {
   let platformOptions: any = {};
-  try {
-    platformOptions = account.platform_options ? JSON.parse(account.platform_options) : {};
-  } catch (e) {}
+  if (account.platform_options) {
+    if (typeof account.platform_options === 'object') {
+      platformOptions = account.platform_options;
+    } else {
+      try {
+        platformOptions = JSON.parse(account.platform_options);
+      } catch (e) {}
+    }
+  }
 
   const postForAccount = {
     ...post,
