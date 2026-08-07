@@ -779,7 +779,9 @@ export const initDb = async () => {
       { name: 'email_id', type: 'TEXT' },
       { name: 'ip_address', type: 'TEXT' },
       { name: 'user_agent', type: 'TEXT' },
-      { name: 'link_url', type: 'TEXT' }
+      { name: 'link_url', type: 'TEXT' },
+      { name: 'clicked_at', type: 'TIMESTAMP' },
+      { name: 'event_type', type: 'TEXT' }
     ];
 
     for (const col of newTrackCols) {

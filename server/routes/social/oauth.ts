@@ -60,7 +60,7 @@ const PLATFORMS: Record<string, {
     authUrl: 'https://www.facebook.com/v19.0/dialog/oauth',
     tokenUrl: 'https://graph.facebook.com/v19.0/oauth/access_token',
     userInfoUrl: 'https://graph.facebook.com/me?fields=id,name,picture',
-    scopes: 'pages_show_list,pages_read_engagement,pages_manage_posts,public_profile',
+    scopes: 'pages_show_list,pages_read_engagement,pages_manage_metadata,pages_read_user_content,pages_manage_ads,pages_messaging,pages_manage_posts,public_profile',
     clientIdEnv: 'FACEBOOK_APP_ID',
     clientSecretEnv: 'FACEBOOK_APP_SECRET',
   },

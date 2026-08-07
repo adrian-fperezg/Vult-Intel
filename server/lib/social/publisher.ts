@@ -473,7 +473,7 @@ async function publishToThreads(account: any, post: any): Promise<string> {
         })
       });
       const data = await res.json() as any;
-      if (data.error) throw new Error(data.error.message);
+      if (data.error || !res.ok) throw new Error(data.error?.message || JSON.stringify(data));
       itemIds.push(data.id);
     }
     
@@ -488,7 +488,7 @@ async function publishToThreads(account: any, post: any): Promise<string> {
       })
     });
     const carouselData = await carouselRes.json() as any;
-    if (carouselData.error) throw new Error(carouselData.error.message);
+    if (carouselData.error || !carouselRes.ok) throw new Error(carouselData.error?.message || JSON.stringify(carouselData));
     creationId = carouselData.id;
 
   } else if (mediaUrls.length === 1) {
@@ -505,7 +505,7 @@ async function publishToThreads(account: any, post: any): Promise<string> {
       })
     });
     const data = await res.json() as any;
-    if (data.error) throw new Error(data.error.message);
+    if (data.error || !res.ok) throw new Error(data.error?.message || JSON.stringify(data));
     creationId = data.id;
 
   } else {
@@ -519,7 +519,7 @@ async function publishToThreads(account: any, post: any): Promise<string> {
       })
     });
     const data = await res.json() as any;
-    if (data.error) throw new Error(data.error.message);
+    if (data.error || !res.ok) throw new Error(data.error?.message || JSON.stringify(data));
     creationId = data.id;
   }
 
@@ -529,7 +529,7 @@ async function publishToThreads(account: any, post: any): Promise<string> {
       const statusRes = await fetch(`https://graph.threads.net/v1.0/${creationId}?fields=status,error_message&access_token=${token}`);
       const statusData = await statusRes.json() as any;
       if (statusData.status === 'FINISHED') break;
-      if (statusData.status === 'ERROR') throw new Error(`Threads video processing failed: ${statusData.error_message}`);
+      if (statusData.status === 'ERROR') throw new Error(`Threads video processing failed: ${statusData.error_message || JSON.stringify(statusData)}`);
       attempts++;
       await new Promise(r => setTimeout(r, 5000));
     }
@@ -545,7 +545,7 @@ async function publishToThreads(account: any, post: any): Promise<string> {
     })
   });
   const pubData = await pubRes.json() as any;
-  if (pubData.error) throw new Error(pubData.error.message);
+  if (pubData.error || !pubRes.ok) throw new Error(pubData.error?.message || JSON.stringify(pubData));
   return pubData.id;
 }
 
@@ -572,6 +572,15 @@ async function publishToAccount(account: any, post: any): Promise<string> {
 export async function publishPost(postId: string): Promise<void> {
   const post = await db.get<any>(`SELECT * FROM social_posts WHERE id = ?`, postId);
   if (!post) return;
+
+  if (!Array.isArray(post.media_urls)) {
+    try {
+      post.media_urls = post.media_urls ? JSON.parse(post.media_urls) : [];
+      if (!Array.isArray(post.media_urls)) post.media_urls = [];
+    } catch(e) {
+      post.media_urls = [];
+    }
+  }
 
   const targets = await db.all<any>(`
     SELECT t.*, a.access_token, a.refresh_token, a.account_id, a.page_id, a.channel_id, a.username
