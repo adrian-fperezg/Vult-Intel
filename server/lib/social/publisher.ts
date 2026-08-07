@@ -7,6 +7,8 @@ import db from '../../db.js';
 import { decryptToken } from '../outreach/encrypt.js';
 import fetch from 'node-fetch';
 import FormData from 'form-data';
+import axios from 'axios';
+import admin from '../../lib/firebase.js';
 
 // ─── PLATFORM PUBLISHERS ──────────────────────────────────────────────────────
 
@@ -429,10 +431,11 @@ async function publishToTwitter(account: any, post: any): Promise<string> {
   if (mediaUrls.length > 0) {
     for (const url of mediaUrls.slice(0, 4)) {
       try {
-        const fileRes = await fetch(url);
-        const arrayBuf = await fileRes.arrayBuffer();
+        const fileRes = await axios.get(url, { responseType: 'arraybuffer' });
+        const arrayBuf = fileRes.data;
         const form = new FormData();
-        form.append('media', Buffer.from(arrayBuf), { filename: 'media.jpg' });
+        const filename = url.split('/').pop() || 'media.jpg';
+        form.append('media', Buffer.from(arrayBuf), { filename });
         const upRes = await fetch('https://upload.twitter.com/1.1/media/upload.json', {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}`, ...form.getHeaders() },
@@ -686,6 +689,30 @@ export async function publishPost(postId: string): Promise<void> {
   const newStatus = allPublished ? 'published' : 'failed';
   if (allPublished) {
     await db.run(`UPDATE social_posts SET status = 'published', published_at = NOW(), error_message = NULL, error_code = NULL WHERE id = ?`, postId);
+    
+    // Auto-delete media from Firebase Storage if completely published
+    try {
+      if (Array.isArray(post.media_urls)) {
+        const bucket = admin.storage().bucket();
+        for (const url of post.media_urls) {
+          if (url.includes('storage.googleapis.com')) {
+            const urlObj = new URL(url);
+            const pathParts = urlObj.pathname.split('/');
+            // https://storage.googleapis.com/<bucket>/media/social_...
+            // pathParts: ['', '<bucket>', 'media', 'social_...']
+            // So we slice from index 2 onwards to get the file path
+            const filePath = pathParts.slice(2).join('/');
+            if (filePath) {
+              await bucket.file(decodeURIComponent(filePath)).delete().catch((e: any) => {
+                console.warn(`[FIREBASE_CLEANUP] Could not delete ${filePath}:`, e.message);
+              });
+            }
+          }
+        }
+      }
+    } catch (e: any) {
+      console.error('[FIREBASE_CLEANUP] Error:', e.message);
+    }
   } else {
     await db.run(`
       UPDATE social_posts SET status = ?, error_message = ?, error_code = ? WHERE id = ?
