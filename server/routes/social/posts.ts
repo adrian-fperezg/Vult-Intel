@@ -67,11 +67,7 @@ router.post('/', async (req: AuthRequest, res) => {
     return res.status(400).json({ error: 'Body or media is required for all accounts' });
   }
 
-  console.log('[SOCIAL_POSTS] CREATE Payload received:', {
-    media_urls,
-    network_options: network_options ? JSON.stringify(network_options) : null,
-    account_ids
-  });
+  console.log("[DEBUG] PAYLOAD RECIBIDO:", JSON.stringify(req.body, null, 2));
 
   try {
     const postId = uuidv4();

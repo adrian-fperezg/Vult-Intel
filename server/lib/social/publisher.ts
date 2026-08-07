@@ -270,6 +270,7 @@ async function checkIgMediaStatus(creationId: string, token: string): Promise<vo
 }
 
 async function publishToInstagram(account: any, post: any): Promise<string> {
+  console.log("[DEBUG] DATOS PARA IG:", JSON.stringify(post, null, 2));
   const token = decryptToken(account.access_token);
   const igUserId = account.account_id; // the instagram_business_account id
 
