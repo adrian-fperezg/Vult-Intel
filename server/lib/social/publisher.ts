@@ -310,7 +310,10 @@ async function publishToInstagram(account: any, post: any): Promise<string> {
         body: JSON.stringify(childBody),
       });
       const data = await res.json() as any;
-      if (data.error) throw new Error(data.error.message);
+      if (data.error || !data.id) {
+        console.error('[IG CAROUSEL_ITEM ERROR]:', data);
+        throw new Error(data.error?.message || 'Instagram media creation failed: missing ID');
+      }
       
       if (isVideo) {
         await checkIgMediaStatus(data.id, token);
@@ -365,7 +368,10 @@ async function publishToInstagram(account: any, post: any): Promise<string> {
       body: JSON.stringify(body),
     });
     const data = await res.json() as any;
-    if (data.error) throw new Error(data.error.message);
+    if (data.error || !data.id) {
+      console.error('[IG MEDIA ERROR]:', data);
+      throw new Error(data.error?.message || 'Instagram media creation failed: missing ID');
+    }
     creationId = data.id;
 
     if (isVideo) {
@@ -423,13 +429,14 @@ async function publishToTwitter(account: any, post: any): Promise<string> {
   if (mediaUrls.length > 0) {
     for (const url of mediaUrls.slice(0, 4)) {
       try {
-        const mediaBuf = await fetch(url).then(r => r.arrayBuffer());
+        const fileRes = await fetch(url);
+        const arrayBuf = await fileRes.arrayBuffer();
         const form = new FormData();
-        form.append('media', new Blob([mediaBuf]));
+        form.append('media', Buffer.from(arrayBuf), { filename: 'media.jpg' });
         const upRes = await fetch('https://upload.twitter.com/1.1/media/upload.json', {
           method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: form
+          headers: { Authorization: `Bearer ${token}`, ...form.getHeaders() },
+          body: form as any
         });
         const upData = await upRes.json() as any;
         if (upData.media_id_string) {
@@ -508,7 +515,10 @@ async function publishToThreads(account: any, post: any): Promise<string> {
         })
       });
       const data = await res.json() as any;
-      if (data.error || !res.ok) throw new Error(data.error?.message || JSON.stringify(data));
+      if (data.error || !res.ok || !data.id) {
+        console.error('[THREADS CAROUSEL_ITEM ERROR]:', data);
+        throw new Error(data.error?.message || JSON.stringify(data));
+      }
       itemIds.push(data.id);
     }
     
@@ -523,7 +533,10 @@ async function publishToThreads(account: any, post: any): Promise<string> {
       })
     });
     const carouselData = await carouselRes.json() as any;
-    if (carouselData.error || !carouselRes.ok) throw new Error(carouselData.error?.message || JSON.stringify(carouselData));
+    if (carouselData.error || !carouselRes.ok || !carouselData.id) {
+      console.error('[THREADS CAROUSEL ERROR]:', carouselData);
+      throw new Error(carouselData.error?.message || JSON.stringify(carouselData));
+    }
     creationId = carouselData.id;
 
   } else if (mediaUrls.length === 1) {
@@ -540,7 +553,10 @@ async function publishToThreads(account: any, post: any): Promise<string> {
       })
     });
     const data = await res.json() as any;
-    if (data.error || !res.ok) throw new Error(data.error?.message || JSON.stringify(data));
+    if (data.error || !res.ok || !data.id) {
+      console.error('[THREADS MEDIA ERROR]:', data);
+      throw new Error(data.error?.message || JSON.stringify(data));
+    }
     creationId = data.id;
 
   } else {
