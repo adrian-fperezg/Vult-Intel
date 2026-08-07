@@ -20,11 +20,13 @@ export function initializeFirebase() {
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
         projectId: serviceAccount.project_id || projectId,
+        storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || `${serviceAccount.project_id || projectId}.appspot.com`,
       });
       console.log('[FIREBASE] Successfully initialized with GOOGLE_APPLICATION_CREDENTIALS_JSON');
     } else {
       admin.initializeApp({
         projectId: projectId,
+        storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || `${projectId}.appspot.com`,
       });
       console.log('[FIREBASE] Initialized with local VITE_FIREBASE_PROJECT_ID (Bypassing JSON credentials)');
     }
