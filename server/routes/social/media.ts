@@ -30,12 +30,14 @@ router.post('/', verifyFirebaseToken, upload.array('files', 10), async (req: Aut
       await fileUpload.save(file.buffer, {
         metadata: {
           contentType: file.mimetype,
-        },
-        public: true // Make file publicly accessible
+        }
       });
 
-      const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filename}`;
-      urls.push(publicUrl);
+      const [signedUrl] = await fileUpload.getSignedUrl({
+        action: 'read',
+        expires: '03-01-2500' // Far future expiration
+      });
+      urls.push(signedUrl);
     }
 
     res.json({ urls });
