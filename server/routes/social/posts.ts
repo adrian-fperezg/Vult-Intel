@@ -48,7 +48,22 @@ router.get('/', async (req: AuthRequest, res) => {
 router.post('/', async (req: AuthRequest, res) => {
   const userId = req.user?.uid;
   const pId = (req.headers['x-project-id'] as string) || req.body.project_id;
-  const { body, media_urls, link_url, link_title, link_description, link_image, first_comment, scheduled_at, account_ids, status, custom_bodies, network_first_comments, network_options } = req.body;
+  const { 
+    body, 
+    media_urls, 
+    link_url, 
+    link_title, 
+    link_description, 
+    link_image, 
+    first_comment, 
+    scheduled_at, 
+    account_ids, 
+    status, 
+    custom_bodies, 
+    network_first_comments, 
+    network_options,
+    network_media_urls 
+  } = req.body;
   if (!userId || !pId) return res.status(400).json({ error: 'project_id required' });
   if (!account_ids?.length) return res.status(400).json({ error: 'Select at least one account' });
 
@@ -84,11 +99,17 @@ router.post('/', async (req: AuthRequest, res) => {
       if (account) {
         const customBody = custom_bodies?.[accountId] || null;
         const targetFirstComment = network_first_comments?.[accountId] || null;
-        const platformOptions = network_options?.[accountId] ? JSON.stringify(network_options[accountId]) : null;
+        
+        let mergedPlatformOptions = network_options?.[accountId] || {};
+        if (network_media_urls && network_media_urls[accountId]) {
+          mergedPlatformOptions.media_urls = network_media_urls[accountId];
+        }
+        const platformOptionsStr = Object.keys(mergedPlatformOptions).length > 0 ? JSON.stringify(mergedPlatformOptions) : '{}';
+
         await db.run(`
           INSERT INTO social_post_targets (id, post_id, account_id, platform, status, custom_body, first_comment, platform_options)
           VALUES (?, ?, ?, ?, 'pending', ?, ?, ?::jsonb)
-        `, uuidv4(), postId, accountId, account.platform, customBody, targetFirstComment, platformOptions || '{}');
+        `, uuidv4(), postId, accountId, account.platform, customBody, targetFirstComment, platformOptionsStr);
       }
     }
 
@@ -104,7 +125,7 @@ router.post('/', async (req: AuthRequest, res) => {
 router.patch('/:id', async (req: AuthRequest, res) => {
   const userId = req.user?.uid;
   const { id } = req.params;
-  const { body, media_urls, link_url, first_comment, scheduled_at, account_ids, status, custom_bodies, network_first_comments, network_options } = req.body;
+  const { body, media_urls, link_url, first_comment, scheduled_at, account_ids, status, custom_bodies, network_first_comments, network_options, network_media_urls } = req.body;
   try {
     const post = await db.get<any>(`SELECT * FROM social_posts WHERE id = ? AND user_id = ?`, id, userId);
     if (!post) return res.status(404).json({ error: 'Post not found' });
@@ -134,12 +155,18 @@ router.patch('/:id', async (req: AuthRequest, res) => {
         if (account) {
           const customBody = custom_bodies?.[accountId] || null;
           const targetFirstComment = network_first_comments?.[accountId] || null;
-          const platformOptions = network_options?.[accountId] ? JSON.stringify(network_options[accountId]) : null;
+          
+          let mergedPlatformOptions = network_options?.[accountId] || {};
+          if (network_media_urls && network_media_urls[accountId]) {
+            mergedPlatformOptions.media_urls = network_media_urls[accountId];
+          }
+          const platformOptionsStr = Object.keys(mergedPlatformOptions).length > 0 ? JSON.stringify(mergedPlatformOptions) : '{}';
+
           await db.run(`
             INSERT INTO social_post_targets (id, post_id, account_id, platform, status, custom_body, first_comment, platform_options)
             VALUES (?, ?, ?, ?, 'pending', ?, ?, ?::jsonb)
             ON CONFLICT DO NOTHING
-          `, uuidv4(), id, accountId, account.platform, customBody, targetFirstComment, platformOptions || '{}');
+          `, uuidv4(), id, accountId, account.platform, customBody, targetFirstComment, platformOptionsStr);
         }
       }
     }
