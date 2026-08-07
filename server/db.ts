@@ -766,6 +766,8 @@ export const initDb = async () => {
         ip_address TEXT,
         user_agent TEXT,
         link_url TEXT,
+        clicked_at TIMESTAMP,
+        event_type TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
