@@ -1358,7 +1358,7 @@ app.get("/api/track/open/:emailId", async (req, res) => {
     const email = await db.prepare("SELECT id, contact_id, project_id, sequence_id, step_id, campaign_id FROM outreach_individual_emails WHERE id = ?").get(emailId) as any;
     if (email) {
       await db.prepare(`
-        INSERT INTO outreach_individual_email_events (id, email_id, event_type, ip_address, user_agent)
+        INSERT INTO outreach_individual_email_events (id, email_id, type, ip_address, user_agent)
         VALUES (?, ?, 'open', ?, ?)
       `).run(uuidv4(), emailId, String(ip), String(userAgent));
 
@@ -1408,7 +1408,7 @@ app.get("/api/track/click/:emailId", async (req, res) => {
     const email = await db.prepare("SELECT id, contact_id, project_id, sequence_id, step_id, campaign_id FROM outreach_individual_emails WHERE id = ?").get(emailId) as any;
     if (email) {
       await db.prepare(`
-        INSERT INTO outreach_individual_email_events (id, email_id, event_type, ip_address, user_agent, link_url)
+        INSERT INTO outreach_individual_email_events (id, email_id, type, ip_address, user_agent, link_url)
         VALUES (?, ?, 'click', ?, ?, ?)
       `).run(uuidv4(), emailId, String(ip), String(userAgent), targetUrl);
 

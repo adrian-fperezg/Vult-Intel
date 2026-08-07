@@ -763,6 +763,9 @@ export const initDb = async () => {
         email_id TEXT,
         type TEXT,
         metadata TEXT,
+        ip_address TEXT,
+        user_agent TEXT,
+        link_url TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -773,7 +776,10 @@ export const initDb = async () => {
       { name: 'sequence_id', type: 'TEXT' },
       { name: 'step_id', type: 'TEXT' },
       { name: 'campaign_id', type: 'TEXT' },
-      { name: 'email_id', type: 'TEXT' }
+      { name: 'email_id', type: 'TEXT' },
+      { name: 'ip_address', type: 'TEXT' },
+      { name: 'user_agent', type: 'TEXT' },
+      { name: 'link_url', type: 'TEXT' }
     ];
 
     for (const col of newTrackCols) {
