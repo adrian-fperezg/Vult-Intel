@@ -1149,6 +1149,31 @@ export const initDb = async () => {
       console.warn(`[DB] PG Migration for social_posts.first_comment or custom_body failed:`, (err as Error).message);
     }
 
+    // Migrations for Queue pause/resume/retry + error tracking
+    const socialPostCols = [
+      { name: 'error_message', type: 'TEXT' },
+      { name: 'error_code',    type: 'TEXT' },
+      { name: 'paused_at',     type: 'TIMESTAMP' },
+    ];
+    for (const col of socialPostCols) {
+      try {
+        await db.run(`ALTER TABLE social_posts ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`);
+      } catch (err) {
+        console.warn(`[DB] PG Migration for social_posts.${col.name} failed:`, (err as Error).message);
+      }
+    }
+
+    const socialTargetCols = [
+      { name: 'error_code', type: 'TEXT' },
+    ];
+    for (const col of socialTargetCols) {
+      try {
+        await db.run(`ALTER TABLE social_post_targets ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`);
+      } catch (err) {
+        console.warn(`[DB] PG Migration for social_post_targets.${col.name} failed:`, (err as Error).message);
+      }
+    }
+
     await applyTrigger('radar_schedules');
     await applyTrigger('radar_social_posts');
 

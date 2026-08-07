@@ -186,4 +186,58 @@ router.post('/:id/publish', async (req: AuthRequest, res) => {
   }
 });
 
+// POST /api/social/posts/:id/pause
+router.post('/:id/pause', async (req: AuthRequest, res) => {
+  const userId = req.user?.uid;
+  const { id } = req.params;
+  if (!userId) return res.status(401).json({ error: 'Auth required' });
+  try {
+    const post = await db.get<any>(`SELECT * FROM social_posts WHERE id = ? AND user_id = ?`, id, userId);
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+    if (post.status === 'published') return res.status(400).json({ error: 'Cannot pause a published post' });
+    await db.run(`UPDATE social_posts SET status = 'paused', paused_at = NOW(), updated_at = NOW() WHERE id = ?`, id);
+    const updated = await db.get<any>(`SELECT * FROM social_posts WHERE id = ?`, id);
+    res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/social/posts/:id/resume
+router.post('/:id/resume', async (req: AuthRequest, res) => {
+  const userId = req.user?.uid;
+  const { id } = req.params;
+  if (!userId) return res.status(401).json({ error: 'Auth required' });
+  try {
+    const post = await db.get<any>(`SELECT * FROM social_posts WHERE id = ? AND user_id = ?`, id, userId);
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+    if (post.status !== 'paused') return res.status(400).json({ error: 'Post is not paused' });
+    await db.run(`UPDATE social_posts SET status = 'scheduled', paused_at = NULL, updated_at = NOW() WHERE id = ?`, id);
+    const updated = await db.get<any>(`SELECT * FROM social_posts WHERE id = ?`, id);
+    res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/social/posts/:id/retry
+router.post('/:id/retry', async (req: AuthRequest, res) => {
+  const userId = req.user?.uid;
+  const { id } = req.params;
+  if (!userId) return res.status(401).json({ error: 'Auth required' });
+  try {
+    const post = await db.get<any>(`SELECT * FROM social_posts WHERE id = ? AND user_id = ?`, id, userId);
+    if (!post) return res.status(404).json({ error: 'Post not found' });
+    if (post.status !== 'failed') return res.status(400).json({ error: 'Only failed posts can be retried' });
+    // Reset failed targets back to pending so publisher picks them up again
+    await db.run(`UPDATE social_post_targets SET status = 'pending', error_message = NULL, error_code = NULL WHERE post_id = ? AND status = 'failed'`, id);
+    // Put post back in scheduled queue
+    await db.run(`UPDATE social_posts SET status = 'scheduled', error_message = NULL, error_code = NULL, updated_at = NOW() WHERE id = ?`, id);
+    const updated = await db.get<any>(`SELECT * FROM social_posts WHERE id = ?`, id);
+    res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;

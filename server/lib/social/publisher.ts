@@ -588,6 +588,7 @@ export async function publishPost(postId: string): Promise<void> {
   await db.run(`UPDATE social_posts SET status = 'publishing' WHERE id = ?`, postId);
 
   let allPublished = true;
+  let firstError: { message: string; code: string } | null = null;
   for (const target of targets) {
     try {
       const platformPostId = await publishToAccount(target, post);
@@ -596,15 +597,21 @@ export async function publishPost(postId: string): Promise<void> {
       `, platformPostId, target.id);
     } catch (err: any) {
       console.error(`[SOCIAL_PUBLISHER] ${target.platform} failed:`, err.message);
-      await db.run(`UPDATE social_post_targets SET status = 'failed', error_message = ? WHERE id = ?`, err.message, target.id);
+      const errCode = JSON.stringify({ message: err.message, stack: err.stack?.slice(0, 600), response: err.response?.data ?? null });
+      await db.run(`UPDATE social_post_targets SET status = 'failed', error_message = ?, error_code = ? WHERE id = ?`, err.message, errCode, target.id);
+      if (!firstError) firstError = { message: err.message, code: errCode };
       allPublished = false;
     }
   }
 
   const newStatus = allPublished ? 'published' : 'failed';
-  await db.run(`
-    UPDATE social_posts SET status = ?, published_at = ${allPublished ? 'NOW()' : 'NULL'} WHERE id = ?
-  `, newStatus, postId);
+  if (allPublished) {
+    await db.run(`UPDATE social_posts SET status = 'published', published_at = NOW(), error_message = NULL, error_code = NULL WHERE id = ?`, postId);
+  } else {
+    await db.run(`
+      UPDATE social_posts SET status = ?, error_message = ?, error_code = ? WHERE id = ?
+    `, newStatus, firstError?.message ?? null, firstError?.code ?? null, postId);
+  }
 }
 
 // ─── CRON SCHEDULER ───────────────────────────────────────────────────────────

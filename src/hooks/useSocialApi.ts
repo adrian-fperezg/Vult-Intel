@@ -126,5 +126,40 @@ export function useSocialApi() {
     return res.json();
   }, [headers]);
 
-  return { getAccounts, deleteAccount, syncAccount, getPosts, createPost, updatePost, deletePost, publishNow, getConnectUrl, connectTokenAccount, uploadMedia, activeProjectId };
+  const pausePost = useCallback(async (id: string) => {
+    const h = await headers();
+    const res = await fetch(`${BASE_URL}/posts/${id}/pause`, { method: 'POST', headers: h });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Failed to pause post: ${res.status}`);
+    }
+    return res.json();
+  }, [headers]);
+
+  const resumePost = useCallback(async (id: string) => {
+    const h = await headers();
+    const res = await fetch(`${BASE_URL}/posts/${id}/resume`, { method: 'POST', headers: h });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Failed to resume post: ${res.status}`);
+    }
+    return res.json();
+  }, [headers]);
+
+  const retryPost = useCallback(async (id: string) => {
+    const h = await headers();
+    const res = await fetch(`${BASE_URL}/posts/${id}/retry`, { method: 'POST', headers: h });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Failed to retry post: ${res.status}`);
+    }
+    return res.json();
+  }, [headers]);
+
+  return { 
+    getAccounts, deleteAccount, syncAccount, 
+    getPosts, createPost, updatePost, deletePost, publishNow, 
+    pausePost, resumePost, retryPost,
+    getConnectUrl, connectTokenAccount, uploadMedia, activeProjectId 
+  };
 }
