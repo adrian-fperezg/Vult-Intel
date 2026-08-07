@@ -582,11 +582,11 @@ async function publishToThreads(account: any, post: any): Promise<string> {
 
   const pubRes = await fetch(`https://graph.threads.net/v1.0/${threadsUserId}/threads_publish`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
       creation_id: creationId,
       access_token: token
-    })
+    }).toString()
   });
   const pubData = await pubRes.json() as any;
   if (pubData.error || !pubRes.ok) throw new Error(pubData.error?.message || JSON.stringify(pubData));
@@ -672,32 +672,32 @@ export async function publishPost(postId: string): Promise<void> {
   const newStatus = allPublished ? 'published' : 'failed';
   if (allPublished) {
     await db.run(`UPDATE social_posts SET status = 'published', published_at = NOW(), error_message = NULL, error_code = NULL WHERE id = ?`, postId);
-    
-    // Auto-delete media from local disk if completely published
-    try {
-      if (Array.isArray(post.media_urls)) {
-        for (const url of post.media_urls) {
-          if (url.includes('/uploads/media/')) {
-            const urlObj = new URL(url);
-            const fileName = urlObj.pathname.split('/').pop();
-            if (fileName) {
-              const filePath = require('path').join(process.cwd(), 'uploads', 'media', fileName);
-              require('fs').unlink(filePath, (err: any) => {
-                if (err && err.code !== 'ENOENT') {
-                  console.warn(`[DISK_CLEANUP] Could not delete ${filePath}:`, err.message);
-                }
-              });
-            }
-          }
-        }
-      }
-    } catch (e: any) {
-      console.error('[DISK_CLEANUP] Error:', e.message);
-    }
   } else {
     await db.run(`
       UPDATE social_posts SET status = ?, error_message = ?, error_code = ? WHERE id = ?
     `, newStatus, firstError?.message ?? null, firstError?.code ?? null, postId);
+  }
+
+  // ALWAYS Auto-delete media from local disk after processing
+  try {
+    if (Array.isArray(post.media_urls)) {
+      for (const url of post.media_urls) {
+        if (url.includes('/uploads/media/')) {
+          const urlObj = new URL(url);
+          const fileName = urlObj.pathname.split('/').pop();
+          if (fileName) {
+            const filePath = require('path').join(process.cwd(), 'uploads', 'media', fileName);
+            require('fs').unlink(filePath, (err: any) => {
+              if (err && err.code !== 'ENOENT') {
+                console.warn(`[DISK_CLEANUP] Could not delete ${filePath}:`, err.message);
+              }
+            });
+          }
+        }
+      }
+    }
+  } catch (e: any) {
+    console.error('[DISK_CLEANUP] Error:', e.message);
   }
 }
 
