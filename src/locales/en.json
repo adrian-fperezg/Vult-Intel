@@ -1617,5 +1617,9 @@
     "visualStyle": "Visual Style",
     "workflow_ai_generated": "Workflow Ai Generated",
     "workflow_created": "Workflow Created",
-    "{{signature}}": "{{Signature}}"
+    "{{signature}}": "{{Signature}}",
+    "calendar": {
+        "today": "Today",
+        "more": "more"
+    }
 }

@@ -1616,5 +1616,9 @@
     "visualStyle": "Estilo Visual",
     "workflow_ai_generated": "Flujo Generado por IA",
     "workflow_created": "Flujo Creado",
-    "{{signature}}": "{{Firma}}"
+    "{{signature}}": "{{Firma}}",
+    "calendar": {
+        "today": "Hoy",
+        "more": "más"
+    }
 }

@@ -1,17 +1,17 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-  BarChart2, TrendingUp, TrendingDown, Users, Eye, Heart,
-  MessageSquare, Share2, RefreshCw, AlertCircle, ExternalLink,
+  BarChart2, Users, Eye, Heart,
+  MessageSquare, Share2, RefreshCw, AlertCircle,
   ChevronUp, ChevronDown, Instagram, Facebook, Linkedin,
-  Youtube, Twitter, Globe, Image, Calendar, ArrowUpRight,
-  ArrowDownRight, Minus, BarChart, FileText, Zap, Hash
+  Youtube, Twitter, Globe, Image, ArrowUpRight,
+  ArrowDownRight, Minus, BarChart, FileText, Zap, Hash, X
 } from 'lucide-react';
 import {
-  ResponsiveContainer, LineChart, Line, BarChart as ReBarChart, Bar,
+  ResponsiveContainer, BarChart as ReBarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, AreaChart, Area
 } from 'recharts';
-import { format, parseISO } from 'date-fns';
+import { safeFormatDate } from '@/utils/socialParsers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProject } from '@/contexts/ProjectContext';
 
@@ -125,14 +125,6 @@ function GrowthBadge({ pct }: { pct: number }) {
   );
 }
 
-const PLATFORM_ICON_COMPONENTS: Record<string, any> = {
-  instagram: Instagram,
-  facebook: Facebook,
-  linkedin: Linkedin,
-  youtube: Youtube,
-  twitter: Twitter,
-  threads: Hash,
-};
 
 const DEFAULT_META = { label: 'Social', color: 'text-slate-400', chartColor: '#94a3b8', icon: Globe, bg: 'bg-white/10 border-white/15' };
 
@@ -174,15 +166,36 @@ const DATE_PRESETS = [
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
-interface AnalyticsViewProps {
-  posts: any[];
-  loading: boolean;
-}
+// P2.8: AnalyticsView is fully autonomous; it does not use parent posts/loading props.
+// The parent (SocialStudioLayout) still passes them for compatibility but we remove
+// them from the interface so there is no confusion.
 
 type SortKey = 'publishedAt' | 'platform' | 'impressions' | 'engagements' | 'engagementRate';
 type SortDir = 'asc' | 'desc';
 
-export default function AnalyticsView({ posts: _posts, loading: _loading }: AnalyticsViewProps) {
+// P2.7: SortHeader defined outside the component to avoid remounting on every render.
+function SortHeader({ label, sKey, sortKey, sortDir, onSort }: {
+  label: string;
+  sKey: SortKey;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (key: SortKey) => void;
+}) {
+  const active = sortKey === sKey;
+  return (
+    <button
+      className={`flex items-center gap-1 text-[11px] font-semibold uppercase tracking-widest transition-colors ${
+        active ? 'text-violet-400' : 'text-slate-500 hover:text-slate-300'
+      }`}
+      onClick={() => onSort(sKey)}
+    >
+      {label}
+      {active ? (sortDir === 'asc' ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />) : <ChevronDown className="size-3 opacity-30" />}
+    </button>
+  );
+}
+
+export default function AnalyticsView() {
   const { currentUser } = useAuth();
   const { activeProjectId } = useProject();
 
@@ -201,13 +214,20 @@ export default function AnalyticsView({ posts: _posts, loading: _loading }: Anal
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedAccounts, setSelectedAccounts] = useState<Set<string>>(new Set());
+  // P0.5: reference list of all accounts that persists across filtered fetches
+  const [allAccountsRef, setAllAccountsRef] = useState<AccountAnalytics[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>('publishedAt');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 10;
 
   const fetchAnalytics = useCallback(async () => {
-    if (!activeProjectId) return;
+    // P0.6: don't hang in skeleton state when there's no project
+    if (!activeProjectId) {
+      setLoading(false);
+      setError('Selecciona un proyecto para ver analytics');
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -220,6 +240,10 @@ export default function AnalyticsView({ posts: _posts, loading: _loading }: Anal
       if (!res.ok) throw new Error(await res.text());
       const json = await res.json();
       setData(json);
+      // P0.5: only update reference list when showing all accounts (no filter)
+      if (selectedAccounts.size === 0) {
+        setAllAccountsRef(json.byAccount || []);
+      }
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -236,17 +260,19 @@ export default function AnalyticsView({ posts: _posts, loading: _loading }: Anal
       else next.add(id);
       return next;
     });
+    setPage(1); // P2.6: reset pagination when filter changes
   };
 
-  // All accounts from data for filter bar
+  // All accounts from data — respects the current filter (used for By Account sections)
   const allAccounts = data?.byAccount || [];
 
   // Top posts: merge from all accounts, sort by engagements
+  // P2.6: guard against missing topPosts / dailySeries fields
   const allTopPosts = useMemo(() => {
     if (!data) return [];
     const posts: (TopPost & { platform: string; accountName: string })[] = [];
     for (const acc of data.byAccount) {
-      for (const p of acc.topPosts) {
+      for (const p of acc.topPosts ?? []) {
         posts.push({ ...p, platform: acc.platform, accountName: acc.displayName });
       }
     }
@@ -279,20 +305,20 @@ export default function AnalyticsView({ posts: _posts, loading: _loading }: Anal
   // Chart data: add labels
   const chartData = (data?.dailyAggregated || []).map(d => ({
     ...d,
-    label: format(parseISO(d.date), 'MMM d'),
+    label: safeFormatDate(d.date, 'MMM d', '—'),
   }));
 
-  // Per-account chart data
+  // Per-account chart data — P2.6: guard against missing dailySeries
   const perAccountChartData = useMemo(() => {
     if (!data) return [];
     const allDates = new Set<string>();
     for (const acc of data.byAccount) {
-      for (const d of acc.dailySeries) allDates.add(d.date);
+      for (const d of acc.dailySeries ?? []) allDates.add(d.date);
     }
     return Array.from(allDates).sort().map(date => {
-      const point: Record<string, any> = { date, label: format(parseISO(date), 'MMM d') };
+      const point: Record<string, any> = { date, label: safeFormatDate(date, 'MMM d', '—') };
       for (const acc of data.byAccount) {
-        const day = acc.dailySeries.find(d => d.date === date);
+        const day = (acc.dailySeries ?? []).find(d => d.date === date);
         point[`${acc.platform}_${acc.accountId.slice(-4)}_imp`] = day?.impressions || 0;
         point[`${acc.platform}_${acc.accountId.slice(-4)}_eng`] = day?.engagements || 0;
       }
@@ -355,20 +381,6 @@ export default function AnalyticsView({ posts: _posts, loading: _loading }: Anal
     },
   ];
 
-  // ── TABLE HEADER
-  function SortHeader({ label, sKey }: { label: string; sKey: SortKey }) {
-    const active = sortKey === sKey;
-    return (
-      <button
-        className={`flex items-center gap-1 text-[11px] font-semibold uppercase tracking-widest transition-colors ${active ? 'text-violet-400' : 'text-slate-500 hover:text-slate-300'}`}
-        onClick={() => handleSort(sKey)}
-      >
-        {label}
-        {active ? (sortDir === 'asc' ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />) : <ChevronDown className="size-3 opacity-30" />}
-      </button>
-    );
-  }
-
   return (
     <div className="h-full overflow-y-auto custom-scrollbar">
       <div className="max-w-7xl mx-auto p-6 md:p-8 space-y-8">
@@ -404,10 +416,10 @@ export default function AnalyticsView({ posts: _posts, loading: _loading }: Anal
           </div>
         </div>
 
-        {/* ── Account Filter Pills ──────────────────────────────────────── */}
-        {allAccounts.length > 1 && (
+        {/* ── Account Filter Pills — P0.5: use allAccountsRef so pills persist after filtering */}
+        {allAccountsRef.length > 1 && (
           <div className="flex flex-wrap gap-1.5">
-            {allAccounts.map(acc => {
+            {allAccountsRef.map(acc => {
               const meta = PLATFORM_META[acc.platform];
               const Icon = meta?.icon || Globe;
               const isSelected = selectedAccounts.has(acc.accountId);
@@ -426,6 +438,15 @@ export default function AnalyticsView({ posts: _posts, loading: _loading }: Anal
                 </button>
               );
             })}
+            {/* Clear filter button when a filter is active */}
+            {selectedAccounts.size > 0 && (
+              <button
+                onClick={() => { setSelectedAccounts(new Set()); setPage(1); }}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-white/8 bg-white/[0.02] text-[12px] font-medium text-slate-500 hover:text-slate-300 transition-colors"
+              >
+                <X className="size-3" /> Limpiar filtro
+              </button>
+            )}
           </div>
         )}
 
@@ -518,17 +539,26 @@ export default function AnalyticsView({ posts: _posts, loading: _loading }: Anal
             </div>
             {loading ? (
               <Skeleton className="h-52 w-full" />
-            ) : allAccounts.length === 0 ? (
+            ) : perAccountChartData.length === 0 ? (
               <div className="h-52 flex items-center justify-center text-slate-600 text-[13px]">No accounts connected</div>
             ) : (
+              // P1.2: use perAccountChartData and render one Bar per account
               <ResponsiveContainer width="100%" height={200}>
-                <ReBarChart data={chartData} barSize={6}>
+                <ReBarChart data={perAccountChartData} barSize={6}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
                   <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} tickFormatter={fmtNum} />
                   <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="impressions" name="Impressions" fill="#818cf8" radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="reach" name="Reach" fill="#34d399" radius={[3, 3, 0, 0]} />
+                  <Legend wrapperStyle={{ fontSize: 11, color: '#94a3b8' }} />
+                  {allAccounts.map(acc => (
+                    <Bar
+                      key={acc.accountId}
+                      dataKey={`${acc.platform}_${acc.accountId.slice(-4)}_imp`}
+                      name={acc.displayName}
+                      fill={getPlatformMeta(acc.platform).chartColor}
+                      radius={[3, 3, 0, 0]}
+                    />
+                  ))}
                 </ReBarChart>
               </ResponsiveContainer>
             )}
@@ -653,7 +683,7 @@ export default function AnalyticsView({ posts: _posts, loading: _loading }: Anal
                     <div className="p-3 space-y-2">
                       <p className="text-[12px] text-slate-300 leading-relaxed line-clamp-2">{post.text || '(No text)'}</p>
                       <div className="flex items-center justify-between text-[11px] text-slate-500">
-                        <span>{format(parseISO(post.date), 'MMM d, yyyy')}</span>
+                        <span>{safeFormatDate(post.date, 'MMM d, yyyy')}</span>
                       </div>
                       <div className="flex items-center gap-3 text-[11px]">
                         <span className="flex items-center gap-1 text-pink-400"><Heart className="size-3" /> {fmtNum(post.likes)}</span>
@@ -692,19 +722,19 @@ export default function AnalyticsView({ posts: _posts, loading: _loading }: Anal
                           <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">Post</span>
                         </th>
                         <th className="px-4 py-3 text-left">
-                          <SortHeader label="Date" sKey="publishedAt" />
+                          <SortHeader label="Date" sKey="publishedAt" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                         </th>
                         <th className="px-4 py-3 text-left">
-                          <SortHeader label="Platform" sKey="platform" />
+                          <SortHeader label="Platform" sKey="platform" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                         </th>
                         <th className="px-4 py-3 text-right">
-                          <SortHeader label="Impressions" sKey="impressions" />
+                          <SortHeader label="Impressions" sKey="impressions" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                         </th>
                         <th className="px-4 py-3 text-right">
-                          <SortHeader label="Engagements" sKey="engagements" />
+                          <SortHeader label="Engagements" sKey="engagements" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                         </th>
                         <th className="px-4 py-3 text-right">
-                          <SortHeader label="Eng.Rate" sKey="engagementRate" />
+                          <SortHeader label="Eng.Rate" sKey="engagementRate" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                         </th>
                       </tr>
                     </thead>
@@ -727,7 +757,7 @@ export default function AnalyticsView({ posts: _posts, loading: _loading }: Anal
                               </div>
                             </td>
                             <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
-                              {post.publishedAt ? format(parseISO(post.publishedAt), 'MMM d, HH:mm') : '—'}
+                              {post.publishedAt ? safeFormatDate(post.publishedAt, 'MMM d, HH:mm') : '—'}
                             </td>
                             <td className="px-4 py-3">
                               <span className={`flex items-center gap-1.5 ${meta.color || 'text-slate-400'} font-medium`}>

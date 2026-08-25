@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
     "server": "tsx server/index.ts",
     "start": "tsx server/index.ts",
     "dev:all": "concurrently -n \"frontend,backend\" -c \"cyan,green\" \"npm run dev\" \"npm run server\"",

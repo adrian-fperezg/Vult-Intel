@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Link2, Trash2, ExternalLink, CheckCircle2, Lock,
   Linkedin, Twitter, Youtube, Facebook, Instagram, Hash, RefreshCw
@@ -108,18 +109,29 @@ interface AccountsViewProps {
   api: any;
 }
 
-export default function AccountsView({ accounts, loading, onRefresh, api }: AccountsViewProps) {
+export default function AccountsView({ accounts, loading: _loading, onRefresh, api }: AccountsViewProps) {
+  const { currentUser } = useAuth();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [expandedSetup, setExpandedSetup] = useState<string | null>(null);
   const [providersStatus, setProvidersStatus] = useState<Record<string, boolean>>({});
 
+  // P1.4: send auth token so the protected endpoint returns real provider status
   useEffect(() => {
-    fetch(`${BACKEND_URL}/api/social/auth/providers/status`)
-      .then(res => res.json())
-      .then(data => setProvidersStatus(data))
-      .catch(console.error);
-  }, []);
+    if (!currentUser) return;
+    currentUser.getIdToken().then(token => {
+      return fetch(`${BACKEND_URL}/api/social/auth/providers/status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    }).then(res => {
+      if (!res.ok) throw new Error(`providers/status: ${res.status}`);
+      return res.json();
+    }).then(data => setProvidersStatus(data))
+      .catch(err => {
+        console.error('[AccountsView] providers/status error:', err);
+        setProvidersStatus({});
+      });
+  }, [currentUser]);
 
   const handleDisconnect = async (id: string, name: string) => {
     if (!confirm(`Disconnect ${name}?`)) return;
@@ -177,7 +189,8 @@ export default function AccountsView({ accounts, loading, onRefresh, api }: Acco
               {accounts.map(account => {
                 const platform = PLATFORMS.find(p => p.id === account.platform);
                 const Icon = platform?.icon || ExternalLink;
-                const isSyncingThis = syncingId === account.id;
+                // P1.3: handleSync stores the platform id in syncingId, so compare against platform
+                const isSyncingThis = syncingId === account.platform;
                 const isDeletingThis = deletingId === account.id;
 
                 return (

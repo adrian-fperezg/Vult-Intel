@@ -7,7 +7,7 @@ import {
   Send, Clock, FileEdit, Plus, X, Image, Link2,
   Linkedin, Twitter, Youtube, Facebook, Instagram, ExternalLink, Video, Hash,
   MessageSquare, ChevronDown, ChevronUp, Settings2, RefreshCw, RotateCcw,
-  Globe, Users, Lock, Eye, AlignLeft, BookOpen, FileText
+  Globe, Users, Lock, Eye
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -17,6 +17,7 @@ const PLATFORM_META: Record<string, {
   icon: any; color: string; bg: string; activeBg: string; label: string;
   charLimit: number; supportsFirstComment: boolean; contentTypes: string[];
   features: string[];
+  focusBorder: string; // P2.9: literal class — Tailwind cannot build dynamic class strings at runtime
 }> = {
   linkedin: {
     icon: Linkedin, color: 'text-blue-400', bg: 'bg-blue-500/8 border-blue-500/15',
@@ -24,6 +25,7 @@ const PLATFORM_META: Record<string, {
     supportsFirstComment: true,
     contentTypes: ['Post', 'Article', 'Document'],
     features: ['visibility', 'poll'],
+    focusBorder: 'focus-within:border-blue-500/30',
   },
   facebook: {
     icon: Facebook, color: 'text-blue-500', bg: 'bg-blue-600/8 border-blue-600/15',
@@ -31,6 +33,7 @@ const PLATFORM_META: Record<string, {
     supportsFirstComment: true,
     contentTypes: ['Post', 'Reel', 'Story'],
     features: ['link_preview'],
+    focusBorder: 'focus-within:border-blue-600/30',
   },
   instagram: {
     icon: Instagram, color: 'text-pink-400', bg: 'bg-pink-500/8 border-pink-500/15',
@@ -38,6 +41,7 @@ const PLATFORM_META: Record<string, {
     supportsFirstComment: true,
     contentTypes: ['Post', 'Reel', 'Story', 'Carousel'],
     features: ['alt_text', 'location', 'collab'],
+    focusBorder: 'focus-within:border-pink-500/30',
   },
   youtube: {
     icon: Youtube, color: 'text-red-400', bg: 'bg-red-500/8 border-red-500/15',
@@ -45,6 +49,7 @@ const PLATFORM_META: Record<string, {
     supportsFirstComment: false,
     contentTypes: ['Community Post'],
     features: ['visibility', 'poll'],
+    focusBorder: 'focus-within:border-red-500/30',
   },
   twitter: {
     icon: Twitter, color: 'text-sky-400', bg: 'bg-sky-500/8 border-sky-500/15',
@@ -52,6 +57,7 @@ const PLATFORM_META: Record<string, {
     supportsFirstComment: false,
     contentTypes: ['Tweet', 'Thread'],
     features: ['reply_settings', 'poll'],
+    focusBorder: 'focus-within:border-sky-500/30',
   },
   tiktok: {
     icon: ExternalLink, color: 'text-white', bg: 'bg-white/[0.03] border-white/8',
@@ -59,6 +65,7 @@ const PLATFORM_META: Record<string, {
     supportsFirstComment: false,
     contentTypes: ['Video Post'],
     features: ['privacy', 'allow_comments', 'allow_duet', 'allow_stitch'],
+    focusBorder: 'focus-within:border-white/20',
   },
   threads: {
     icon: Hash, color: 'text-slate-300', bg: 'bg-white/[0.03] border-white/8',
@@ -66,6 +73,7 @@ const PLATFORM_META: Record<string, {
     supportsFirstComment: true,
     contentTypes: ['Thread'],
     features: ['reply_settings'],
+    focusBorder: 'focus-within:border-white/20',
   },
 };
 
@@ -180,18 +188,21 @@ function PlatformOptions({ platform, state, onChange }: {
         </div>
       )}
 
-      {/* Twitter reply settings */}
+      {/* Twitter/Threads reply settings — P2.3: derive correct options per platform */}
       {meta.features.includes('reply_settings') && (
         <div className="flex items-center gap-2">
           <span className="text-[11px] text-slate-500 w-24 shrink-0">Who can reply</span>
           <div className="flex gap-1">
-            {(['everyone', 'followers', 'mentioned'] as const).map(opt => {
-              const Icon = opt === 'everyone' ? Globe : opt === 'followers' ? Users : MessageSquare;
+            {(platform === 'twitter'
+              ? (['everyone', 'followers', 'mentioned'] as const)
+              : (['everyone', 'following', 'mentioned'] as const)
+            ).map(opt => {
+              const Icon = opt === 'everyone' ? Globe : opt === 'followers' || opt === 'following' ? Users : MessageSquare;
               return (
                 <button key={opt} onClick={() =>
                   platform === 'twitter'
-                    ? onChange({ twitterReplySettings: opt })
-                    : onChange({ threadsReplySettings: opt as any })
+                    ? onChange({ twitterReplySettings: opt as 'everyone' | 'followers' | 'mentioned' })
+                    : onChange({ threadsReplySettings: opt as 'everyone' | 'following' | 'mentioned' })
                 }
                   className={cn(
                     'flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors border capitalize',
@@ -891,17 +902,15 @@ function PlatformPreview({ account, text, mediaUrls, linkUrl, firstComment, cont
 
 // ─── Network Card ─────────────────────────────────────────────────────────────
 
-function NetworkCard({ account, state, masterBody, mediaUrls, isActive, onActivate, onChange, fileInputRef, onUpload, isUploading }: {
+// P0.3: NetworkCard does NOT receive fileInputRef/onUpload/isUploading.
+// Media upload in the customize-per-network panel is handled exclusively by MediaMapper.
+function NetworkCard({ account, state, masterBody, isActive, onActivate, onChange }: {
   account: any;
   state: NetworkState;
   masterBody: string;
-  mediaUrls: string[];
   isActive: boolean;
   onActivate: () => void;
   onChange: (patch: Partial<NetworkState>) => void;
-  fileInputRef: React.RefObject<HTMLInputElement>;
-  onUpload: () => void;
-  isUploading: boolean;
 }) {
   const platform = account.platform;
   const meta = PLATFORM_META[platform];
@@ -969,8 +978,9 @@ function NetworkCard({ account, state, masterBody, mediaUrls, isActive, onActiva
               {/* Custom text area */}
               <div className={cn(
                 'rounded-lg border overflow-hidden transition-all',
-                isOverLimit ? 'border-red-500/30' : 'border-white/8 focus-within:border-current',
-                `focus-within:${meta?.color?.replace('text-', 'border-').replace('-400', '-500/30') || 'border-violet-500/30'}`
+                isOverLimit
+                  ? 'border-red-500/30'
+                  : cn('border-white/8', meta?.focusBorder || 'focus-within:border-violet-500/30')
               )}>
                 <div className="flex items-center justify-between px-3 pt-2 pb-0">
                   <span className="text-[10px] text-slate-600 font-medium">
@@ -1059,10 +1069,11 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
     return networkStates[accountId] || defaultNetworkState(platform);
   }, [networkStates]);
 
-  const updateNetworkState = useCallback((accountId: string, patch: Partial<NetworkState>) => {
+  // P2.2: updateNetworkState receives platform to produce a correct defaultNetworkState
+  const updateNetworkState = useCallback((accountId: string, platform: string, patch: Partial<NetworkState>) => {
     setNetworkStates(prev => ({
       ...prev,
-      [accountId]: { ...(prev[accountId] || defaultNetworkState('')), ...patch }
+      [accountId]: { ...(prev[accountId] || defaultNetworkState(platform)), ...patch }
     }));
   }, []);
 
@@ -1126,6 +1137,13 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
     setMediaMapping(prev => {
       const next = { ...prev };
       for (const id of accountIds) {
+        // P2.4: revoke old blob URL before replacing it
+        if (next[id]?.previewUrl && next[id].previewUrl !== next[id].uploadedUrl) {
+          const stillUsedElsewhere = Object.values(next).some(
+            (v, _) => v !== next[id] && v.previewUrl === next[id].previewUrl
+          );
+          if (!stillUsedElsewhere) URL.revokeObjectURL(next[id].previewUrl);
+        }
         next[id] = { previewUrl: localPreviewUrl, uploadedUrl: null, fileName: file.name };
       }
       return next;
@@ -1138,15 +1156,24 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
       setMediaMapping(prev => {
         const next = { ...prev };
         for (const id of accountIds) {
-          if (next[id]) next[id] = { ...next[id], uploadedUrl };
+          if (next[id]) {
+            // Replace previewUrl with uploadedUrl so the blob is no longer referenced
+            next[id] = { ...next[id], uploadedUrl, previewUrl: uploadedUrl };
+          }
         }
+        // F3: revoke the local blob once — after the loop, when no entry points to it
+        const stillReferenced = Object.values(next).some(v => v.previewUrl === localPreviewUrl);
+        if (!stillReferenced) URL.revokeObjectURL(localPreviewUrl);
         return next;
       });
     } catch (err: any) {
-      // Rollback on failure
+      // Rollback on failure — remove mapping and revoke blob
       setMediaMapping(prev => {
         const next = { ...prev };
         for (const id of accountIds) delete next[id];
+        // F3: revoke once after all deletions
+        const stillReferenced = Object.values(next).some(v => v.previewUrl === localPreviewUrl);
+        if (!stillReferenced) URL.revokeObjectURL(localPreviewUrl);
         return next;
       });
       toast.error(`Upload failed: ${err.message}`);
@@ -1156,6 +1183,14 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
   const handleMediaRemove = useCallback((accountId: string) => {
     setMediaMapping(prev => {
       const next = { ...prev };
+      // P2.4: revoke blob URL on remove (only if not shared)
+      const previewUrl = next[accountId]?.previewUrl;
+      if (previewUrl) {
+        const others = Object.values(next).filter(
+          (v, _) => v !== next[accountId] && v.previewUrl === previewUrl
+        );
+        if (others.length === 0) URL.revokeObjectURL(previewUrl);
+      }
       delete next[accountId];
       return next;
     });
@@ -1181,23 +1216,58 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
 
   // ── Submit ────────────────────────────────────────────────────────────────
 
+  const resetComposer = () => {
+    // P2.4: revoke all blob preview URLs before clearing mediaMapping
+    const prevMapping = mediaMapping;
+    const revokedUrls = new Set<string>();
+    for (const entry of Object.values(prevMapping)) {
+      if (entry.previewUrl && !revokedUrls.has(entry.previewUrl)) {
+        URL.revokeObjectURL(entry.previewUrl);
+        revokedUrls.add(entry.previewUrl);
+      }
+    }
+    // Reset
+    setBody('');
+    setMediaUrls([]);
+    setLinkUrl('');
+    setScheduledAt('');
+    setSelectedAccountIds(new Set());
+    setNetworkStates({});
+    setCustomizePerNetwork(false);
+    setActiveNetworkId(null);
+    setMediaMapping({});
+    onPostCreated();
+  };
+
   const handleSubmit = async (mode: 'draft' | 'schedule' | 'now') => {
     if (selectedAccountIds.size === 0) return toast.error('Select at least one account');
-    
-    // Check if every selected account has content (either from Master or Custom)
+
+    // P0.2: guard against in-progress uploads
+    const pendingUploads = Array.from(selectedAccountIds)
+      .filter(id => mediaMapping[id] && !mediaMapping[id].uploadedUrl);
+    if (isUploading || pendingUploads.length > 0) {
+      return toast.error('Espera a que termine de subir el media antes de publicar');
+    }
+
+    // P2.5: correct type-safe content/media check
     for (const id of Array.from(selectedAccountIds)) {
       const acct = accounts.find(a => a.id === id);
       if (!acct) continue;
       const ns = getNetworkState(id, acct.platform);
       const text = ns.customBody !== undefined ? ns.customBody : body;
-      const mUrls = mediaMapping[id] ? [mediaMapping[id]] : mediaUrls;
-      
-      if (!text.trim() && mUrls.length === 0) {
-         return toast.error(`Account ${acct.displayName || acct.platform} has no content or media.`);
+      const hasMedia = Boolean(mediaMapping[id]) || mediaUrls.length > 0;
+      if (!text.trim() && !hasMedia) {
+        return toast.error(`Account ${acct.display_name || acct.platform} has no content or media.`);
       }
     }
 
-    if (mode === 'schedule' && !scheduledAt) return toast.error('Pick a date/time to schedule');
+    // P0.1: validate scheduled date is future
+    if (mode === 'schedule') {
+      if (!scheduledAt) return toast.error('Selecciona fecha y hora para programar');
+      if (new Date(scheduledAt).getTime() <= Date.now()) {
+        return toast.error('La fecha de programación debe ser futura');
+      }
+    }
 
     // Validate per-platform
     for (const id of Array.from(selectedAccountIds)) {
@@ -1209,7 +1279,8 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
       if (meta && text.length > meta.charLimit) {
         return toast.error(`Text too long for ${meta.label} (limit: ${meta.charLimit} chars)`);
       }
-      if (acct.platform === 'tiktok' && mediaUrls.length === 0) {
+      // P2.1: check mediaMapping[id] too for TikTok (media may be per-account via MediaMapper)
+      if (acct.platform === 'tiktok' && mediaUrls.length === 0 && !mediaMapping[id]) {
         return toast.error('TikTok requires at least one video');
       }
       if (acct.platform === 'instagram' && mediaUrls.length === 0 && !mediaMapping[id]) {
@@ -1297,25 +1368,24 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
       });
 
       if (mode === 'now') {
-        await api.publishNow(post.id);
-        toast.success('🚀 Published!');
+        try {
+          await api.publishNow(post.id);
+          toast.success('🚀 Published!');
+        } catch (publishErr: any) {
+          // Post already created: degrade to draft so it doesn't sit in queue as
+          // "scheduled" with no scheduled_at date (the scheduler will never pick it up).
+          try { await api.updatePost(post.id, { status: 'draft' }); } catch { /* best effort */ }
+          toast.error(`No se pudo publicar: ${publishErr.message}. El post quedó en la cola, revísalo ahí.`);
+          resetComposer();
+          return;
+        }
       } else if (mode === 'schedule') {
         toast.success('📅 Scheduled!');
       } else {
         toast.success('📝 Saved as draft');
       }
 
-      // Reset
-      setBody('');
-      setMediaUrls([]);
-      setLinkUrl('');
-      setScheduledAt('');
-      setSelectedAccountIds(new Set());
-      setNetworkStates({});
-      setCustomizePerNetwork(false);
-      setActiveNetworkId(null);
-      setMediaMapping({});
-      onPostCreated();
+      resetComposer();
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -1563,13 +1633,9 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
                             account={account}
                             state={ns}
                             masterBody={body}
-                            mediaUrls={assignedMedia?.uploadedUrl ? [assignedMedia.uploadedUrl] : mediaUrls}
                             isActive={activeNetworkId === id}
                             onActivate={() => setActiveNetworkId(id)}
-                            onChange={(patch) => updateNetworkState(id, patch)}
-                            fileInputRef={fileInputRef}
-                            onUpload={() => fileInputRef.current?.click()}
-                            isUploading={isUploading}
+                            onChange={(patch) => updateNetworkState(id, account.platform, patch)}
                           />
                         </div>
                       );
@@ -1600,22 +1666,34 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
         {/* Fixed Actions Bar */}
         {accounts.length > 0 && (
           <div className="shrink-0 flex items-center gap-2 px-6 md:px-8 py-4 border-t border-white/5 bg-[#0d1117] relative z-20 shadow-[0_-10px_20px_rgba(0,0,0,0.3)]">
-            <button
-              onClick={() => handleSubmit('now')}
-              disabled={isSubmitting || masterOverLimit}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-violet-500 hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-[13px] transition-colors shadow-md shadow-violet-500/20"
-            >
-              <Send className="size-3.5" />
-              {isSubmitting ? 'Publishing...' : 'Post Now'}
-            </button>
-            {scheduledAt && (
+            {/* P0.1: mutually exclusive Post Now vs Schedule */}
+            {!scheduledAt ? (
               <button
-                onClick={() => handleSubmit('schedule')}
-                disabled={isSubmitting}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white/5 hover:bg-white/8 border border-white/10 text-slate-300 font-semibold text-[13px] transition-colors"
+                onClick={() => handleSubmit('now')}
+                disabled={isSubmitting || masterOverLimit}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-violet-500 hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-[13px] transition-colors shadow-md shadow-violet-500/20"
               >
-                <Clock className="size-3.5" /> Schedule
+                <Send className="size-3.5" />
+                {isSubmitting ? 'Publishing...' : 'Post Now'}
               </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => handleSubmit('schedule')}
+                  disabled={isSubmitting || masterOverLimit}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-violet-500 hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-[13px] transition-colors shadow-md shadow-violet-500/20"
+                >
+                  <Clock className="size-3.5" />
+                  {isSubmitting ? 'Scheduling...' : 'Schedule'}
+                </button>
+                <button
+                  onClick={() => setScheduledAt('')}
+                  disabled={isSubmitting}
+                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-slate-600 hover:text-slate-300 text-[12px] transition-colors"
+                >
+                  <X className="size-3" /> Publicar ahora en vez de programar
+                </button>
+              </>
             )}
             <button
               onClick={() => handleSubmit('draft')}

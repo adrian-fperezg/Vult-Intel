@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -9,6 +9,7 @@ import QueueView from './social-studio/QueueView';
 import CalendarView from './social-studio/CalendarView';
 import AnalyticsView from './social-studio/AnalyticsView';
 import AccountsView from './social-studio/AccountsView';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import {
   PenSquare, CalendarDays, BarChart2, Link2,
   Layers, Share2
@@ -136,36 +137,37 @@ export default function SocialStudioLayout() {
             transition={{ duration: 0.15 }}
             className="absolute inset-0 flex flex-col"
           >
-            {activeTab === 'compose' && (
-              <ComposeView
-                accounts={accounts}
-                loadingAccounts={loadingAccounts}
-                onPostCreated={loadPosts}
-                onNavigateToAccounts={() => setTab('accounts')}
-              />
-            )}
-            {activeTab === 'queue' && (
-              <QueueView
-                posts={posts}
-                loading={loadingPosts}
-                onRefresh={loadPosts}
-                api={api}
-              />
-            )}
-            {activeTab === 'calendar' && (
-              <CalendarView posts={posts} loading={loadingPosts} />
-            )}
-            {activeTab === 'analytics' && (
-              <AnalyticsView posts={posts} loading={loadingPosts} />
-            )}
-            {activeTab === 'accounts' && (
-              <AccountsView
-                accounts={accounts}
-                loading={loadingAccounts}
-                onRefresh={loadAccounts}
-                api={api}
-              />
-            )}
+            <ErrorBoundary>
+              {activeTab === 'compose' && (
+                <ComposeView
+                  accounts={accounts}
+                  loadingAccounts={loadingAccounts}
+                  onPostCreated={loadPosts}
+                  onNavigateToAccounts={() => setTab('accounts')}
+                />
+              )}
+              {activeTab === 'queue' && (
+                <QueueView
+                  posts={posts}
+                  loading={loadingPosts}
+                  onRefresh={loadPosts}
+                  api={api}
+                />
+              )}
+              {activeTab === 'calendar' && (
+                <CalendarView posts={posts} loading={loadingPosts} />
+              )}
+              {/* P2.8: AnalyticsView is fully autonomous (self-fetching), no props needed */}
+              {activeTab === 'analytics' && <AnalyticsView />}
+              {activeTab === 'accounts' && (
+                <AccountsView
+                  accounts={accounts}
+                  loading={loadingAccounts}
+                  onRefresh={loadAccounts}
+                  api={api}
+                />
+              )}
+            </ErrorBoundary>
           </motion.div>
         </AnimatePresence>
       </div>

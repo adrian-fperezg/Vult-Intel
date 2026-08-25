@@ -2,26 +2,22 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { cn } from '@/lib/utils';
-import { format, parseISO } from 'date-fns';
 import {
-  Clock, CheckCircle2, AlertCircle, FileEdit, Trash2, Send,
+  Clock, AlertCircle, FileEdit, Trash2, Send,
   RefreshCw, Linkedin, Twitter, Youtube, Facebook, Instagram, ExternalLink,
-  Pause, Play, ChevronDown, ChevronUp, Image as ImageIcon, X
+  Pause, Play, ChevronDown, ChevronUp, X
 } from 'lucide-react';
+import { safeParseArray, safeFormatDate } from '@/utils/socialParsers';
+import { STATUS_STYLES, KNOWN_STATUSES } from '@/constants/socialStatus';
+
+// ─── Platform icon map ────────────────────────────────────────────────────────
 
 const PLATFORM_ICONS: Record<string, any> = {
   linkedin: Linkedin, twitter: Twitter, youtube: Youtube,
   facebook: Facebook, instagram: Instagram, tiktok: ExternalLink,
 };
 
-const STATUS_STYLES: Record<string, { label: string; color: string; border: string; bg: string; dot: string; icon: any }> = {
-  draft:      { label: 'Draft',      color: 'text-slate-400',   border: 'border-slate-500/20',   bg: 'bg-slate-500/5',   dot: 'bg-slate-500',   icon: FileEdit },
-  scheduled:  { label: 'Queued',     color: 'text-blue-400',    border: 'border-blue-500/30',    bg: 'bg-blue-500/5',    dot: 'bg-blue-500',    icon: Clock },
-  paused:     { label: 'Paused',     color: 'text-amber-400',   border: 'border-amber-500/30',   bg: 'bg-amber-500/5',   dot: 'bg-amber-500',   icon: Pause },
-  publishing: { label: 'Publishing', color: 'text-purple-400',  border: 'border-purple-500/30',  bg: 'bg-purple-500/5',  dot: 'bg-purple-500',  icon: RefreshCw },
-  published:  { label: 'Published',  color: 'text-emerald-400', border: 'border-emerald-500/30', bg: 'bg-emerald-500/5', dot: 'bg-emerald-500', icon: CheckCircle2 },
-  failed:     { label: 'Failed',     color: 'text-red-400',     border: 'border-red-500/30',     bg: 'bg-red-500/5',     dot: 'bg-red-500',     icon: AlertCircle },
-};
+// ─── Props ────────────────────────────────────────────────────────────────────
 
 interface QueueViewProps {
   posts: any[];
@@ -31,9 +27,14 @@ interface QueueViewProps {
   onEdit?: (post: any) => void;
 }
 
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export default function QueueView({ posts, loading, onRefresh, api, onEdit }: QueueViewProps) {
-  const [activePost, setActivePost] = useState<any | null>(null);
+  // P2.11: store only the ID, derive post on each render
+  const [activePostId, setActivePostId] = useState<string | null>(null);
   const [workingId, setWorkingId] = useState<string | null>(null);
+
+  const activePost = activePostId ? posts.find(p => p.id === activePostId) ?? null : null;
 
   const wrapAction = async (id: string, action: () => Promise<void>, successMsg: string) => {
     setWorkingId(id);
@@ -41,7 +42,7 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
       await action();
       if (successMsg) toast.success(successMsg);
       onRefresh();
-      if (activePost?.id === id) setActivePost(null); // Close modal on state change
+      if (activePostId === id) setActivePostId(null); // Close modal on state change
     } catch (err: any) {
       toast.error(err.message);
     } finally { setWorkingId(null); }
@@ -63,12 +64,15 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
     </div>
   );
 
+  // P0.4: include publishing + other (unknown statuses)
   const grouped = {
-    scheduled: posts.filter(p => p.status === 'scheduled'),
-    paused: posts.filter(p => p.status === 'paused'),
-    failed: posts.filter(p => p.status === 'failed'),
-    draft: posts.filter(p => p.status === 'draft'),
-    published: posts.filter(p => p.status === 'published'),
+    failed:     posts.filter(p => p.status === 'failed'),
+    publishing: posts.filter(p => p.status === 'publishing'),
+    paused:     posts.filter(p => p.status === 'paused'),
+    scheduled:  posts.filter(p => p.status === 'scheduled'),
+    draft:      posts.filter(p => p.status === 'draft'),
+    published:  posts.filter(p => p.status === 'published'),
+    other:      posts.filter(p => !KNOWN_STATUSES.includes(p.status)),
   };
 
   return (
@@ -86,10 +90,11 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
             </div>
           )}
 
-          {(['failed', 'paused', 'scheduled', 'draft', 'published'] as const).map(status => {
+          {/* P0.4: render all known statuses + other */}
+          {([...KNOWN_STATUSES, 'other'] as const).map(status => {
             const statusPosts = grouped[status];
             if (!statusPosts.length) return null;
-            const style = STATUS_STYLES[status];
+            const style = STATUS_STYLES[status] || STATUS_STYLES.other;
 
             return (
               <div key={status}>
@@ -101,16 +106,17 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
                 </div>
                 <div className="grid grid-cols-1 gap-3">
                   {statusPosts.map(post => {
-                    const targets = typeof post.targets === 'string' ? JSON.parse(post.targets) : (post.targets || []);
-                    const media = typeof post.media_urls === 'string' ? JSON.parse(post.media_urls) : (post.media_urls || []);
-                    
+                    // P1.1: safe parsing
+                    const targets = safeParseArray<any>(post.targets);
+                    const media = safeParseArray<string>(post.media_urls).filter(u => typeof u === 'string');
+
                     return (
                       <motion.div
                         key={post.id}
                         layout
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        onClick={() => setActivePost(post)}
+                        onClick={() => setActivePostId(post.id)}
                         className={cn(
                           "group relative rounded-xl border p-4 transition-all duration-200 cursor-pointer hover:shadow-lg",
                           style.border, style.bg,
@@ -131,11 +137,12 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
                                   );
                                 })}
                               </div>
+                              {/* P1.1: safe date formatting */}
                               <span className="text-[11px] text-slate-500 font-medium">
-                                {post.scheduled_at 
-                                  ? format(parseISO(post.scheduled_at), 'MMM d, h:mm a') 
-                                  : post.published_at 
-                                    ? `Published ${format(parseISO(post.published_at), 'MMM d')}` 
+                                {post.scheduled_at
+                                  ? safeFormatDate(post.scheduled_at, 'MMM d, h:mm a')
+                                  : post.published_at
+                                    ? `Published ${safeFormatDate(post.published_at, 'MMM d')}`
                                     : 'No date'}
                               </span>
                             </div>
@@ -160,7 +167,7 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
                               <style.icon className="size-3.5" />
                               {style.label}
                             </div>
-                            
+
                             {media.length > 0 && (
                               <div className="size-12 rounded-lg overflow-hidden border border-white/10 relative">
                                 {media[0].match(/\.(mp4|mov|webm)$/i) ? (
@@ -180,10 +187,13 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
                           </div>
                         </div>
 
-                        {/* Hover Actions (Desktop) */}
-                        <div className="absolute inset-y-0 right-0 pr-4 flex items-center opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                        {/* P1.5: pointer-events-none when invisible to prevent mobile tap-through */}
+                        <div
+                          className="absolute inset-y-0 right-0 pr-4 flex items-center opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity"
+                          onClick={e => e.stopPropagation()}
+                        >
                           <div className="flex items-center gap-1.5 bg-[#161b22] p-1.5 rounded-xl border border-white/10 shadow-xl">
-                            
+
                             {post.status === 'scheduled' && (
                               <>
                                 <button onClick={() => handlePause(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-amber-500/10 text-slate-400 hover:text-amber-400" title="Pause">
@@ -197,7 +207,7 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
                                 </button>
                               </>
                             )}
-                            
+
                             {post.status === 'paused' && (
                               <button onClick={() => handleResume(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-blue-500/10 text-slate-400 hover:text-blue-400" title="Resume">
                                 <Play className="size-3.5" />
@@ -217,7 +227,7 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
                             )}
 
                             <div className="w-[1px] h-4 bg-white/10 mx-1" />
-                            
+
                             <button onClick={() => handleDelete(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-red-500/10 text-slate-400 hover:text-red-400" title="Delete">
                               <Trash2 className="size-3.5" />
                             </button>
@@ -236,9 +246,9 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
       {/* Detail Modal Overlay */}
       <AnimatePresence>
         {activePost && (
-          <PostDetailModal 
-            post={activePost} 
-            onClose={() => setActivePost(null)}
+          <PostDetailModal
+            post={activePost}
+            onClose={() => setActivePostId(null)}
             workingId={workingId}
             onDelete={() => handleDelete(activePost.id)}
             onPublishNow={() => handlePublishNow(activePost.id)}
@@ -259,23 +269,24 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
 // ─────────────────────────────────────────────────────────────────────────────
 // POST DETAIL MODAL (Slide-over / Centered Modal)
 // ─────────────────────────────────────────────────────────────────────────────
-function PostDetailModal({ 
-  post, onClose, workingId, onDelete, onPublishNow, onPause, onResume, onRetry, onEdit 
+function PostDetailModal({
+  post, onClose, workingId, onDelete, onPublishNow, onPause, onResume, onRetry, onEdit
 }: any) {
   const [showRawError, setShowRawError] = useState(false);
-  const targets = typeof post.targets === 'string' ? JSON.parse(post.targets) : (post.targets || []);
-  const media = typeof post.media_urls === 'string' ? JSON.parse(post.media_urls) : (post.media_urls || []);
-  const style = STATUS_STYLES[post.status] || STATUS_STYLES.draft;
-  
+  // P1.1: safe parsing in modal
+  const targets = safeParseArray<any>(post.targets);
+  const media = safeParseArray<string>(post.media_urls).filter(u => typeof u === 'string');
+  const style = STATUS_STYLES[post.status] || STATUS_STYLES.other;
+
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
       onClick={onClose}
     >
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -291,10 +302,11 @@ function PostDetailModal({
             <div>
               <h2 className="text-sm font-semibold text-white">Post Details</h2>
               <div className="text-[11px] text-slate-400 mt-0.5">
-                {post.scheduled_at 
-                  ? `Scheduled for ${format(parseISO(post.scheduled_at), 'MMMM d, yyyy h:mm a')}` 
-                  : post.published_at 
-                    ? `Published on ${format(parseISO(post.published_at), 'MMMM d, yyyy')}` 
+                {/* P1.1: safe date formatting */}
+                {post.scheduled_at
+                  ? `Scheduled for ${safeFormatDate(post.scheduled_at, 'MMMM d, yyyy h:mm a')}`
+                  : post.published_at
+                    ? `Published on ${safeFormatDate(post.published_at, 'MMMM d, yyyy')}`
                     : 'No date scheduled'}
               </div>
             </div>
@@ -306,7 +318,7 @@ function PostDetailModal({
 
         {/* Content (Scrollable) */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
-          
+
           {/* Main Error Alert */}
           {post.status === 'failed' && (
             <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 space-y-3">
@@ -317,10 +329,10 @@ function PostDetailModal({
                   <p className="text-[12px] text-red-300 mt-1">{post.error_message}</p>
                 </div>
               </div>
-              
+
               {post.error_code && (
                 <div>
-                  <button 
+                  <button
                     onClick={() => setShowRawError(!showRawError)}
                     className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-300 font-medium"
                   >
@@ -404,7 +416,7 @@ function PostDetailModal({
 
         {/* Footer Actions */}
         <div className="px-6 py-4 border-t border-white/5 bg-black/20 flex items-center justify-between">
-          <button 
+          <button
             onClick={onDelete}
             disabled={workingId === post.id}
             className="flex items-center gap-2 px-3 py-2 text-[12px] font-medium text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
