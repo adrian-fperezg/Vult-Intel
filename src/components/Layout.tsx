@@ -23,8 +23,8 @@ export default function Layout() {
   });
 
   if (!currentUser) {
-    console.log("[Layout] No user, redirecting to /");
-    return <Navigate to="/" replace />;
+    console.log("[Layout] No user, redirecting to /auth");
+    return <Navigate to="/auth" replace />;
   }
 
   if (loading) {

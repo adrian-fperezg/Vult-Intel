@@ -49,7 +49,7 @@ export default function PricingSection({ id = "pricing", showAddon = true }: Pri
 
         if (!currentUser) {
             localStorage.setItem('landingPendingCheckout', productId);
-            navigate('/auth');
+            window.location.href = 'https://app.vultintel.com/auth';
             return;
         }
         setSelectedPlan(productId);
