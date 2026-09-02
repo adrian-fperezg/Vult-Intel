@@ -13,6 +13,19 @@ router.get('/', async (req: AuthRequest, res) => {
   if (!userId || !pId) return res.status(400).json({ error: 'project_id required' });
 
   try {
+    // Auto-prune old published posts (> 1 month old) to save memory/storage
+    try {
+      await db.run(`
+        DELETE FROM social_posts 
+        WHERE project_id = ? 
+          AND user_id = ? 
+          AND status = 'published' 
+          AND COALESCE(published_at, scheduled_at, created_at) < NOW() - INTERVAL '1 month'
+      `, pId, userId);
+    } catch (pruneErr) {
+      console.warn('[SOCIAL_POSTS] Failed to prune old posts:', pruneErr);
+    }
+
     let sql = `
       SELECT p.*, 
         COALESCE(

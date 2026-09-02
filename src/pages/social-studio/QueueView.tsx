@@ -31,35 +31,212 @@ interface QueueViewProps {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function QueueView({ posts, loading, onRefresh, api, onEdit }: QueueViewProps) {
+// ─── PostCard Component ────────────────────────────────────────────────────────
+function PostCard({ post, style, onClick, onEdit, onRefresh, api, workingId, setWorkingId }: any) {
   const { t } = useTranslation();
-  // P2.11: store only the ID, derive post on each render
-  const [activePostId, setActivePostId] = useState<string | null>(null);
-  const [workingId, setWorkingId] = useState<string | null>(null);
+  const targets = safeParseArray<any>(post.targets);
+  const media = safeParseArray<string>(post.media_urls).filter(u => typeof u === 'string');
 
-  const activePost = activePostId ? posts.find(p => p.id === activePostId) ?? null : null;
+  // Local state for inline date editing
+  const getLocalIso = (dateStr: string) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    const offset = d.getTimezoneOffset() * 60000;
+    return new Date(d.getTime() - offset).toISOString().slice(0, 16);
+  };
 
-  const wrapAction = async (id: string, action: () => Promise<void>, successMsg: string) => {
-    setWorkingId(id);
+  const [dateVal, setDateVal] = useState(getLocalIso(post.scheduled_at));
+  const [isDirty, setIsDirty] = useState(false);
+
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setDateVal(e.target.value);
+    setIsDirty(true);
+  };
+
+  const saveDate = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // prevent modal open
+    if (!dateVal) return;
+    setWorkingId(post.id);
+    try {
+      const isoString = new Date(dateVal).toISOString();
+      await api.updatePost(post.id, { scheduled_at: isoString });
+      toast.success(t('queue.dateUpdated', { defaultValue: 'Date updated successfully' }));
+      setIsDirty(false);
+      onRefresh();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setWorkingId(null);
+    }
+  };
+
+  const wrapAction = async (action: () => Promise<void>, successMsg: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setWorkingId(post.id);
     try {
       await action();
       if (successMsg) toast.success(successMsg);
       onRefresh();
-      if (activePostId === id) setActivePostId(null); // Close modal on state change
     } catch (err: any) {
       toast.error(err.message);
     } finally { setWorkingId(null); }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = (e: React.MouseEvent) => {
     if (!confirm(t('queue.confirmDelete', { defaultValue: 'Are you sure you want to delete this post?' }))) return;
-    wrapAction(id, () => api.deletePost(id), t('queue.postDeleted', { defaultValue: 'Post deleted' }));
+    wrapAction(() => api.deletePost(post.id), t('queue.postDeleted', { defaultValue: 'Post deleted' }), e);
   };
 
-  const handlePublishNow = (id: string) => wrapAction(id, () => api.publishNow(id), '🚀 ' + t('queue.published', { defaultValue: 'Published!' }));
-  const handlePause = (id: string) => wrapAction(id, () => api.pausePost(id), t('queue.postPaused', { defaultValue: 'Post paused' }));
-  const handleResume = (id: string) => wrapAction(id, () => api.resumePost(id), t('queue.postResumed', { defaultValue: 'Post resumed' }));
-  const handleRetry = (id: string) => wrapAction(id, () => api.retryPost(id), t('queue.retrying', { defaultValue: 'Retrying post...' }));
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      onClick={onClick}
+      className={cn(
+        "group relative rounded-xl border p-4 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-lg",
+        style.border, style.bg,
+        "hover:bg-white/[0.06] hover:border-white/20"
+      )}
+    >
+      <div className="flex flex-col gap-3">
+        {/* Header: Platforms & Status */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center -space-x-1">
+            {targets.map((tItem: any) => {
+              const Icon = PLATFORM_ICONS[tItem.platform] || ExternalLink;
+              return (
+                <div key={tItem.id} className="size-6 rounded-full bg-[#1e2329] border border-slate-700 flex items-center justify-center shadow-sm relative group/icon">
+                  <Icon className="size-3 text-slate-300" />
+                </div>
+              );
+            })}
+          </div>
+          <div className={cn("flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest", style.color, "bg-black/20 px-2 py-1 rounded-md")}>
+            <style.icon className="size-3" />
+            {style.label}
+          </div>
+        </div>
+
+        {/* Date Field (Inline Editable if Scheduled) */}
+        <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+          {post.status === 'scheduled' || post.status === 'paused' || post.status === 'failed' ? (
+            <div className="flex items-center gap-2 bg-black/30 px-2 py-1 rounded-lg border border-white/5">
+              <Clock className="size-3.5 text-slate-400" />
+              <input 
+                type="datetime-local" 
+                value={dateVal}
+                onChange={handleDateChange}
+                disabled={workingId === post.id}
+                className="bg-transparent text-[12px] text-slate-300 outline-none w-[140px] cursor-text"
+              />
+              {isDirty && (
+                <button 
+                  onClick={saveDate} 
+                  disabled={workingId === post.id}
+                  className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/40 p-1 rounded transition-colors"
+                  title="Save new date"
+                >
+                  <RefreshCw className={cn("size-3", workingId === post.id && "animate-spin")} />
+                </button>
+              )}
+            </div>
+          ) : (
+            <span className="text-[11px] text-slate-500 font-medium">
+              {post.published_at
+                ? `Published ${safeFormatDate(post.published_at, 'MMM d, yyyy h:mm a')}`
+                : 'No date'}
+            </span>
+          )}
+        </div>
+
+        {/* Content Preview */}
+        <div className="flex items-start gap-3 mt-1">
+          <p className="text-[13px] text-slate-200 leading-relaxed line-clamp-2 flex-1 break-words">
+            {post.body || <span className="italic text-slate-500">{t('queue.noTextContent', { defaultValue: 'No text content...' })}</span>}
+          </p>
+          
+          {/* Media Thumbnail */}
+          {media.length > 0 && (
+            <div className="size-12 rounded-lg overflow-hidden border border-white/10 relative shrink-0">
+              {media[0].match(/\.(mp4|mov|webm)$/i) ? (
+                <div className="w-full h-full bg-slate-800 flex items-center justify-center">
+                  <Play className="size-4 text-white" />
+                </div>
+              ) : (
+                <SafeImage src={getMediaUrl(media[0])} alt="Media" className="w-full h-full object-cover" />
+              )}
+              {media.length > 1 && (
+                <div className="absolute bottom-0.5 right-0.5 bg-black/70 px-1 rounded text-[9px] font-medium text-white">
+                  +{media.length - 1}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Error inline alert if failed */}
+        {post.status === 'failed' && post.error_message && (
+          <div className="flex items-start gap-2 text-[11px] text-red-400 bg-red-500/10 p-2 rounded-lg border border-red-500/20">
+            <AlertCircle className="size-3.5 mt-0.5 shrink-0" />
+            <span className="line-clamp-2">{post.error_message}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Hover Actions */}
+      <div className="absolute inset-y-0 right-0 pr-4 flex items-center opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-1.5 bg-[#161b22] p-1.5 rounded-xl border border-white/10 shadow-xl">
+          {post.status === 'scheduled' && (
+            <>
+              <button onClick={(e) => wrapAction(() => api.pausePost(post.id), t('queue.postPaused', { defaultValue: 'Post paused' }), e)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-amber-500/10 text-slate-400 hover:text-amber-400" title={t('queue.pause', { defaultValue: 'Pause' })}>
+                <Pause className="size-3.5" />
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); if (onEdit) onEdit(post); }} className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white" title={t('queue.edit', { defaultValue: 'Edit' })}>
+                <FileEdit className="size-3.5" />
+              </button>
+            </>
+          )}
+
+          {post.status === 'paused' && (
+            <button onClick={(e) => wrapAction(() => api.resumePost(post.id), t('queue.postResumed', { defaultValue: 'Post resumed' }), e)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-blue-500/10 text-slate-400 hover:text-blue-400" title={t('queue.resume', { defaultValue: 'Resume' })}>
+              <Play className="size-3.5" />
+            </button>
+          )}
+
+          {post.status === 'failed' && (
+            <button onClick={(e) => wrapAction(() => api.retryPost(post.id), t('queue.retrying', { defaultValue: 'Retrying post...' }), e)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-violet-500/10 text-slate-400 hover:text-violet-400" title={t('queue.retry', { defaultValue: 'Retry' })}>
+              <RefreshCw className="size-3.5" />
+            </button>
+          )}
+
+          {(post.status === 'draft' || post.status === 'scheduled') && (
+            <button onClick={(e) => wrapAction(() => api.publishNow(post.id), '🚀 ' + t('queue.published', { defaultValue: 'Published!' }), e)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-400" title={t('queue.publishNow', { defaultValue: 'Publish Now' })}>
+              <Send className="size-3.5" />
+            </button>
+          )}
+
+          <div className="w-[1px] h-4 bg-white/10 mx-1" />
+
+          <button onClick={handleDelete} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-red-500/10 text-slate-400 hover:text-red-400" title={t('queue.delete', { defaultValue: 'Delete' })}>
+            <Trash2 className="size-3.5" />
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
+export default function QueueView({ posts, loading, onRefresh, api, onEdit }: QueueViewProps) {
+  const { t } = useTranslation();
+  const [activePostId, setActivePostId] = useState<string | null>(null);
+  const [workingId, setWorkingId] = useState<string | null>(null);
+
+  const activePost = activePostId ? posts.find(p => p.id === activePostId) ?? null : null;
 
   if (loading) return (
     <div className="flex items-center justify-center h-full">
@@ -67,180 +244,105 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
     </div>
   );
 
-  // P0.4: include publishing + other (unknown statuses)
-  const grouped = {
-    failed:     posts.filter(p => p.status === 'failed'),
-    publishing: posts.filter(p => p.status === 'publishing'),
-    paused:     posts.filter(p => p.status === 'paused'),
-    scheduled:  posts.filter(p => p.status === 'scheduled'),
-    draft:      posts.filter(p => p.status === 'draft'),
-    published:  posts.filter(p => p.status === 'published'),
-    other:      posts.filter(p => !KNOWN_STATUSES.includes(p.status)),
-  };
+  // Filter and sort the posts for the Two-Column layout
+  const publishedPosts = posts
+    .filter(p => p.status === 'published')
+    .sort((a, b) => {
+      const dA = new Date(a.published_at || a.scheduled_at || a.created_at).getTime();
+      const dB = new Date(b.published_at || b.scheduled_at || b.created_at).getTime();
+      return dB - dA; // Descending (most recent at the top)
+    });
+
+  const queuePosts = posts
+    .filter(p => p.status !== 'published')
+    .sort((a, b) => {
+      const dA = new Date(a.scheduled_at || a.created_at).getTime();
+      const dB = new Date(b.scheduled_at || b.created_at).getTime();
+      return dA - dB; // Ascending (closest to publish at the top)
+    });
 
   return (
-    <div className="h-full flex relative">
-      {/* Scrollable list */}
+    <div className="h-full flex relative overflow-hidden bg-[#0d1117]">
+      {/* Scrollable Container */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
-        <div className="max-w-3xl mx-auto p-6 md:p-8 space-y-10">
-          {posts.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-32 text-center">
-              <div className="size-16 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center mb-5">
-                <Clock className="size-8 text-slate-700" />
-              </div>
-              <h3 className="text-sm font-semibold text-white">Your queue is empty</h3>
-              <p className="text-[13px] text-slate-500 mt-1">Compose a new post to get started.</p>
+        <div className="max-w-7xl mx-auto p-6 md:p-8 flex flex-col lg:flex-row gap-8 items-start min-h-full">
+          
+          {/* LEFT COLUMN: HISTORY / PUBLISHED */}
+          <div className="flex-1 w-full lg:w-1/2 flex flex-col gap-4">
+            <div className="flex items-center gap-2 mb-2 sticky top-0 bg-[#0d1117] py-2 z-10">
+              <div className="size-2 rounded-full bg-emerald-500" />
+              <h2 className="text-sm font-bold uppercase tracking-widest text-slate-300">
+                {t('queue.history', { defaultValue: 'History' })} 
+                <span className="text-slate-500 font-normal ml-2 lowercase">({publishedPosts.length} published)</span>
+              </h2>
             </div>
-          )}
-
-          {/* P0.4: render all known statuses + other */}
-          {([...KNOWN_STATUSES, 'other'] as const).map(status => {
-            const statusPosts = grouped[status];
-            if (!statusPosts.length) return null;
-            const style = STATUS_STYLES[status] || STATUS_STYLES.other;
-
-            return (
-              <div key={status}>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className={cn("size-2 rounded-full", style.dot)} />
-                  <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
-                    {style.label} <span className="text-slate-600 opacity-60 ml-1">({statusPosts.length})</span>
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 gap-3">
-                  {statusPosts.map(post => {
-                    // P1.1: safe parsing
-                    const targets = safeParseArray<any>(post.targets);
-                    const media = safeParseArray<string>(post.media_urls).filter(u => typeof u === 'string');
-
-                    return (
-                      <motion.div
-                        key={post.id}
-                        layout
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        onClick={() => setActivePostId(post.id)}
-                        className={cn(
-                          "group relative rounded-xl border p-4 transition-all duration-200 cursor-pointer hover:shadow-lg",
-                          style.border, style.bg,
-                          "hover:bg-white/[0.06] hover:border-white/20"
-                        )}
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            {/* Platforms & Date */}
-                            <div className="flex items-center gap-3 mb-2">
-                              <div className="flex items-center -space-x-1">
-                                {targets.map((t: any) => {
-                                  const Icon = PLATFORM_ICONS[t.platform] || ExternalLink;
-                                  return (
-                                    <div key={t.id} className="size-6 rounded-full bg-[#1e2329] border border-slate-700 flex items-center justify-center shadow-sm">
-                                      <Icon className="size-3 text-slate-300" />
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                              {/* P1.1: safe date formatting */}
-                              <span className="text-[11px] text-slate-500 font-medium">
-                                {post.scheduled_at
-                                  ? safeFormatDate(post.scheduled_at, 'MMM d, h:mm a')
-                                  : post.published_at
-                                    ? `Published ${safeFormatDate(post.published_at, 'MMM d')}`
-                                    : 'No date'}
-                              </span>
-                            </div>
-
-                            {/* Body Excerpt */}
-                            <p className="text-[13px] text-slate-200 leading-relaxed line-clamp-2 pr-6">
-                              {post.body || <span className="italic text-slate-500">{t('queue.noTextContent', { defaultValue: 'No text content...' })}</span>}
-                            </p>
-
-                            {/* Error inline alert if failed */}
-                            {post.status === 'failed' && post.error_message && (
-                              <div className="mt-3 flex items-start gap-2 text-[12px] text-red-400 bg-red-500/10 p-2 rounded-lg border border-red-500/20">
-                                <AlertCircle className="size-3.5 mt-0.5 shrink-0" />
-                                <span className="line-clamp-1">{post.error_message}</span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Media Thumbnail or Status Icon */}
-                          <div className="shrink-0 flex flex-col items-end gap-3">
-                            <div className={cn("flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide", style.color)}>
-                              <style.icon className="size-3.5" />
-                              {style.label}
-                            </div>
-
-                            {media.length > 0 && (
-                              <div className="size-12 rounded-lg overflow-hidden border border-white/10 relative">
-                                {media[0].match(/\.(mp4|mov|webm)$/i) ? (
-                                  <div className="w-full h-full bg-slate-800 flex items-center justify-center">
-                                    <Play className="size-4 text-white" />
-                                  </div>
-                                ) : (
-                                  <SafeImage src={getMediaUrl(media[0])} alt="Media" className="w-full h-full object-cover" />
-                                )}
-                                {media.length > 1 && (
-                                  <div className="absolute bottom-0.5 right-0.5 bg-black/70 px-1 rounded text-[9px] font-medium text-white">
-                                    +{media.length - 1}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* P1.5: pointer-events-none when invisible to prevent mobile tap-through */}
-                        <div className="absolute inset-y-0 right-0 pr-4 flex items-center opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity"
-                          onClick={e => e.stopPropagation()}
-                        >
-                          <div className="flex items-center gap-1.5 bg-[#161b22] p-1.5 rounded-xl border border-white/10 shadow-xl">
-
-                            {post.status === 'scheduled' && (
-                              <>
-                                <button onClick={() => handlePause(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-amber-500/10 text-slate-400 hover:text-amber-400" title={t('queue.pause', { defaultValue: 'Pause' })}>
-                                  <Pause className="size-3.5" />
-                                </button>
-                                <button onClick={() => {
-                                  if (onEdit) onEdit(post);
-                                }} className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white" title={t('queue.edit', { defaultValue: 'Edit' })}>
-                                  <FileEdit className="size-3.5" />
-                                </button>
-                              </>
-                            )}
-
-                            {post.status === 'paused' && (
-                              <button onClick={() => handleResume(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-blue-500/10 text-slate-400 hover:text-blue-400" title={t('queue.resume', { defaultValue: 'Resume' })}>
-                                <Play className="size-3.5" />
-                              </button>
-                            )}
-
-                            {post.status === 'failed' && (
-                              <button onClick={() => handleRetry(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-violet-500/10 text-slate-400 hover:text-violet-400" title={t('queue.retry', { defaultValue: 'Retry' })}>
-                                <RefreshCw className="size-3.5" />
-                              </button>
-                            )}
-
-                            {(post.status === 'draft' || post.status === 'scheduled') && (
-                              <button onClick={() => handlePublishNow(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-400" title={t('queue.publishNow', { defaultValue: 'Publish Now' })}>
-                                <Send className="size-3.5" />
-                              </button>
-                            )}
-
-                            <div className="w-[1px] h-4 bg-white/10 mx-1" />
-
-                            <button onClick={() => handleDelete(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-red-500/10 text-slate-400 hover:text-red-400" title={t('queue.delete', { defaultValue: 'Delete' })}>
-                              <Trash2 className="size-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
+            
+            {publishedPosts.length === 0 ? (
+              <div className="text-center py-16 border border-dashed border-white/10 rounded-2xl bg-white/[0.01]">
+                <p className="text-[13px] text-slate-500">No published posts yet.</p>
               </div>
-            );
-          })}
+            ) : (
+              <div className="flex flex-col gap-4 relative">
+                {/* Visual timeline line */}
+                <div className="absolute left-6 top-6 bottom-6 w-px bg-emerald-500/10 pointer-events-none" />
+                
+                {publishedPosts.map(post => (
+                  <PostCard 
+                    key={post.id} 
+                    post={post} 
+                    style={STATUS_STYLES.published} 
+                    onClick={() => setActivePostId(post.id)}
+                    onEdit={onEdit}
+                    onRefresh={onRefresh}
+                    api={api}
+                    workingId={workingId}
+                    setWorkingId={setWorkingId}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT COLUMN: QUEUE / SCHEDULED */}
+          <div className="flex-1 w-full lg:w-1/2 flex flex-col gap-4">
+            <div className="flex items-center gap-2 mb-2 sticky top-0 bg-[#0d1117] py-2 z-10">
+              <div className="size-2 rounded-full bg-violet-500" />
+              <h2 className="text-sm font-bold uppercase tracking-widest text-slate-300">
+                {t('queue.scheduled', { defaultValue: 'Queue' })} 
+                <span className="text-slate-500 font-normal ml-2 lowercase">({queuePosts.length} upcoming)</span>
+              </h2>
+            </div>
+
+            {queuePosts.length === 0 ? (
+              <div className="text-center py-16 border border-dashed border-white/10 rounded-2xl bg-white/[0.01]">
+                <Clock className="size-8 text-slate-600 mx-auto mb-3 opacity-50" />
+                <p className="text-[13px] text-slate-500">Queue is empty.<br/>Schedule a new post.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4 relative">
+                {/* Visual timeline line */}
+                <div className="absolute left-6 top-6 bottom-6 w-px bg-violet-500/10 pointer-events-none" />
+                
+                {queuePosts.map(post => {
+                  const style = STATUS_STYLES[post.status] || STATUS_STYLES.other;
+                  return (
+                    <PostCard 
+                      key={post.id} 
+                      post={post} 
+                      style={style} 
+                      onClick={() => setActivePostId(post.id)}
+                      onEdit={onEdit}
+                      onRefresh={onRefresh}
+                      api={api}
+                      workingId={workingId}
+                      setWorkingId={setWorkingId}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          
         </div>
       </div>
 
@@ -251,11 +353,49 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
             post={activePost}
             onClose={() => setActivePostId(null)}
             workingId={workingId}
-            onDelete={() => handleDelete(activePost.id)}
-            onPublishNow={() => handlePublishNow(activePost.id)}
-            onPause={() => handlePause(activePost.id)}
-            onResume={() => handleResume(activePost.id)}
-            onRetry={() => handleRetry(activePost.id)}
+            onDelete={async () => {
+              if (!confirm(t('queue.confirmDelete', { defaultValue: 'Are you sure you want to delete this post?' }))) return;
+              setWorkingId(activePost.id);
+              try {
+                await api.deletePost(activePost.id);
+                toast.success(t('queue.postDeleted', { defaultValue: 'Post deleted' }));
+                onRefresh();
+                setActivePostId(null);
+              } catch (err: any) { toast.error(err.message); } finally { setWorkingId(null); }
+            }}
+            onPublishNow={async () => {
+              setWorkingId(activePost.id);
+              try {
+                await api.publishNow(activePost.id);
+                toast.success('🚀 ' + t('queue.published', { defaultValue: 'Published!' }));
+                onRefresh();
+                setActivePostId(null);
+              } catch (err: any) { toast.error(err.message); } finally { setWorkingId(null); }
+            }}
+            onPause={async () => {
+              setWorkingId(activePost.id);
+              try {
+                await api.pausePost(activePost.id);
+                toast.success(t('queue.postPaused', { defaultValue: 'Post paused' }));
+                onRefresh();
+              } catch (err: any) { toast.error(err.message); } finally { setWorkingId(null); }
+            }}
+            onResume={async () => {
+              setWorkingId(activePost.id);
+              try {
+                await api.resumePost(activePost.id);
+                toast.success(t('queue.postResumed', { defaultValue: 'Post resumed' }));
+                onRefresh();
+              } catch (err: any) { toast.error(err.message); } finally { setWorkingId(null); }
+            }}
+            onRetry={async () => {
+              setWorkingId(activePost.id);
+              try {
+                await api.retryPost(activePost.id);
+                toast.success(t('queue.retrying', { defaultValue: 'Retrying post...' }));
+                onRefresh();
+              } catch (err: any) { toast.error(err.message); } finally { setWorkingId(null); }
+            }}
             onEdit={() => {
               if (onEdit) onEdit(activePost);
             }}
