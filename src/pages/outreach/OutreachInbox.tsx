@@ -77,7 +77,7 @@ const groupMessagesByThread = (messages: InboxMessage[]): Thread[] => {
       subject: latestIncoming.subject,
       is_read: incomingMessages.every(m => m.is_read),
       intent: latestIncoming.intent || ''
-    };
+    } as Thread;
   }).filter((t): t is Thread => t !== null)
     .sort((a, b) => 
       new Date(b.latest_message.received_at).getTime() - new Date(a.latest_message.received_at).getTime()
