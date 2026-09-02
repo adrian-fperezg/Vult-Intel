@@ -4,7 +4,7 @@
  * Called by the cron scheduler and by the "Post Now" endpoint.
  */
 import db from '../../db.js';
-import { decryptToken } from '../outreach/encrypt.js';
+import { decryptToken, encryptToken } from '../outreach/encrypt.js';
 import fetch from 'node-fetch';
 import FormData from 'form-data';
 import axios from 'axios';
@@ -704,6 +704,40 @@ export async function publishPost(postId: string): Promise<void> {
 // ─── CRON SCHEDULER ───────────────────────────────────────────────────────────
 export async function runSocialPublisherCron(): Promise<void> {
   try {
+    // 1. Refresh expiring Threads tokens (within 15 days)
+    try {
+      const expiringThreads = await db.all<any>(`
+        SELECT id, access_token 
+        FROM social_accounts 
+        WHERE platform = 'threads' 
+          AND token_expires_at IS NOT NULL
+          AND token_expires_at < NOW() + INTERVAL '15 days'
+      `);
+
+      for (const account of expiringThreads) {
+        try {
+          const token = decryptToken(account.access_token);
+          const res = await fetch(`https://graph.threads.net/refresh_access_token?grant_type=th_refresh_token&access_token=${token}`);
+          const data = await res.json() as any;
+          if (data.access_token) {
+            const newExpires = new Date(Date.now() + (data.expires_in || 60 * 60 * 24 * 60) * 1000).toISOString();
+            const encryptedNewToken = encryptToken(data.access_token);
+            await db.run(`
+              UPDATE social_accounts 
+              SET access_token = ?, token_expires_at = ?, updated_at = NOW() 
+              WHERE id = ?
+            `, encryptedNewToken, newExpires, account.id);
+            console.log(`[SOCIAL_CRON] Refreshed Threads token for account ${account.id}`);
+          }
+        } catch (e: any) {
+          console.warn(`[SOCIAL_CRON] Failed to refresh Threads token for account ${account.id}:`, e.message);
+        }
+      }
+    } catch (err: any) {
+      console.error('[SOCIAL_CRON] Threads token refresh error:', err.message);
+    }
+
+    // 2. Publish due posts
     const duePosts = await db.all<any>(`
       SELECT id FROM social_posts 
       WHERE status = 'scheduled' AND scheduled_at <= NOW()

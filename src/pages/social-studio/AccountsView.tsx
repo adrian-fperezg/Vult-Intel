@@ -5,7 +5,7 @@ import { toast } from 'react-hot-toast';
 import { cn, getMediaUrl } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-  Link2, Trash2, ExternalLink, CheckCircle2, Lock,
+  Link2, Trash2, ExternalLink, CheckCircle2, Lock, AlertTriangle,
   Linkedin, Twitter, Youtube, Facebook, Instagram, Hash, RefreshCw
 } from 'lucide-react';
 
@@ -225,9 +225,23 @@ export default function AccountsView({ accounts, loading: _loading, onRefresh, a
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                          <CheckCircle2 className="size-3" />
-                          <span className="text-[10px] font-bold uppercase tracking-wider">Active</span>
+                        <div className="flex flex-col items-end gap-1.5">
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                            <CheckCircle2 className="size-3" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Active</span>
+                          </div>
+                          {account.token_expires_at && new Date(account.token_expires_at) < new Date() && (
+                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 whitespace-nowrap">
+                              <AlertTriangle className="size-3 shrink-0" />
+                              <span className="text-[10px] font-bold uppercase tracking-wider">Expired: Reconnect</span>
+                            </div>
+                          )}
+                          {account.token_expires_at && new Date(account.token_expires_at) >= new Date() && new Date(account.token_expires_at).getTime() - Date.now() < 5 * 24 * 60 * 60 * 1000 && (
+                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 whitespace-nowrap">
+                              <AlertTriangle className="size-3 shrink-0" />
+                              <span className="text-[10px] font-bold uppercase tracking-wider">Expiring Soon</span>
+                            </div>
+                          )}
                         </div>
                       </div>
 

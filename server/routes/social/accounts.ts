@@ -218,7 +218,7 @@ router.post('/sync/:id', async (req: AuthRequest, res) => {
             let igAvatar = mainFbAccount.avatar_url;
             
             try {
-              const igRes = await fetch(`https://graph.facebook.com/v19.0/${igId}?fields=username,name,profile_picture_url&access_token=${accessToken}`);
+              const igRes = await fetch(`https://graph.facebook.com/v19.0/${igId}?fields=username,name,profile_picture_url&access_token=${page.access_token}`);
               const igData = await igRes.json() as any;
               if (igData.username) igUser = igData.username;
               if (igData.name) igDisplay = igData.name;

@@ -268,6 +268,32 @@ router.get('/:platform/callback', async (req, res) => {
       throw new Error(tokenData.error_message || tokenData.error_description || tokenData.error?.message || tokenData.error || 'Failed to get access token');
     }
 
+
+    // Exchange short-lived token for long-lived token (Meta platforms)
+    if (platform === 'facebook' || platform === 'instagram' || platform === 'instagram_dm' || platform === 'whatsapp') {
+      try {
+        const exchangeRes = await fetch(`https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${clientId}&client_secret=${clientSecret}&fb_exchange_token=${tokenData.access_token}`);
+        const exchangeData = await exchangeRes.json() as any;
+        if (exchangeData.access_token) {
+          tokenData.access_token = exchangeData.access_token;
+          tokenData.expires_in = exchangeData.expires_in || (60 * 60 * 24 * 60);
+        }
+      } catch (e) {
+        console.error(`[SOCIAL_OAUTH] Failed to exchange for long-lived Meta token for ${platform}`, e);
+      }
+    } else if (platform === 'threads') {
+      try {
+        const exchangeRes = await fetch(`https://graph.threads.net/access_token?grant_type=th_exchange_token&client_secret=${clientSecret}&access_token=${tokenData.access_token}`);
+        const exchangeData = await exchangeRes.json() as any;
+        if (exchangeData.access_token) {
+          tokenData.access_token = exchangeData.access_token;
+          tokenData.expires_in = exchangeData.expires_in || (60 * 60 * 24 * 60);
+        }
+      } catch (e) {
+        console.error('[SOCIAL_OAUTH] Failed to exchange for long-lived Threads token', e);
+      }
+    }
+
     // Get user info
     let accountsToInsert: any[] = [];
     

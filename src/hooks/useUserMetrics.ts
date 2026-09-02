@@ -100,7 +100,10 @@ export function useUserMetrics(): UseUserMetricsReturn {
                         console.error('Error calculating limits:', err);
                         // Fallback to strict zero limits if calculation fails
                         setTotalLimits({
-                            aiTokens: 0,
+                            tokens: 0,
+                            projects: 0,
+                            personas: 0,
+                            pillars: 0,
                             deepScans: 0,
                             images: 0,
                             videos: 0,
@@ -111,7 +114,10 @@ export function useUserMetrics(): UseUserMetricsReturn {
                     setCurrentPlanId('solo');
                     setActiveAddons([]);
                     setTotalLimits({
-                        aiTokens: 0,
+                        tokens: 0,
+                        projects: 0,
+                        personas: 0,
+                        pillars: 0,
                         deepScans: 0,
                         images: 0,
                         videos: 0,

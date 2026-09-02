@@ -17,6 +17,8 @@ export interface AuthRequest extends Request {
   headers: any;
   file?: any;
   files?: any;
+  path: string;
+  method: string;
 }
 
 export const verifyFirebaseToken = async (req: AuthRequest, res: Response, next: NextFunction) => {

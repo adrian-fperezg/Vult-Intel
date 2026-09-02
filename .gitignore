@@ -13,3 +13,6 @@ coverage/
 *.db-wal
 tests/test_output.txt
 .firebase/
+
+# Antigravity Agents Config
+.agents/
