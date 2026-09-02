@@ -85,6 +85,75 @@ export default function Settings() {
     const [isPurgingCache, setIsPurgingCache] = useState(false);
     const [isClearingAssets, setIsClearingAssets] = useState(false);
 
+    // AI usage breakdown state
+    const [usageBreakdown, setUsageBreakdown] = useState<{
+        currentMonth: { total: number; byFeature: Array<{ feature_key: string; section: string; feature_name: string; tokens: number }> };
+        previousMonth: { total: number };
+    } | null>(null);
+    const [selectedToolGroup, setSelectedToolGroup] = useState<string | null>(null);
+    const [usageLoading, setUsageLoading] = useState(false);
+
+    useEffect(() => {
+        if (!currentUser) return;
+        const fetchBreakdown = async () => {
+            setUsageLoading(true);
+            try {
+                const token = await currentUser.getIdToken();
+                const res = await fetch('/api/ai/usage-breakdown', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (res.ok) setUsageBreakdown(await res.json());
+            } catch (e) { /* silent */ }
+            finally { setUsageLoading(false); }
+        };
+        fetchBreakdown();
+    }, [currentUser]);
+
+    // Group features into tool groups matching Gemini product families
+    const TOOL_GROUPS = [
+        {
+            key: 'gemini_pro_radar',
+            name: 'Gemini 2.5 Pro',
+            subtitle: 'Deep Scans, Radar de Mercado',
+            color: 'from-violet-500 to-purple-600',
+            dot: 'bg-violet-500',
+            featureKeys: ['radar_deep_scan'],
+        },
+        {
+            key: 'gemini_flash_brand',
+            name: 'Gemini 2.5 Flash',
+            subtitle: 'Estrategia de Marca, Personas',
+            color: 'from-blue-500 to-indigo-600',
+            dot: 'bg-blue-500',
+            featureKeys: ['brand_persona', 'brand_strategy'],
+        },
+        {
+            key: 'gemini_flash_content',
+            name: 'Gemini 2.5 Flash',
+            subtitle: 'Content Generator, Social Variations',
+            color: 'from-emerald-500 to-teal-600',
+            dot: 'bg-emerald-500',
+            featureKeys: ['content_generate', 'content_social_vars'],
+        },
+        {
+            key: 'gemini_flash_chat',
+            name: 'Gemini 2.5 Flash',
+            subtitle: 'AI Chat Assistant',
+            color: 'from-amber-500 to-orange-600',
+            dot: 'bg-amber-500',
+            featureKeys: ['ai_chat'],
+        },
+        {
+            key: 'gemini_generic',
+            name: 'Gemini (Motor General)',
+            subtitle: 'Web Growth Plan, Campaign Architect, otras secciones',
+            color: 'from-pink-500 to-rose-600',
+            dot: 'bg-pink-500',
+            featureKeys: ['generate_content', 'generate_generic'],
+        },
+    ];
+
+
     const handleManageSubscription = () => {
         if (!currentUser) return;
         setIsManagingSubscription(true);
@@ -213,7 +282,7 @@ export default function Settings() {
                     </div>
                 </header>
 
-                {/* 1. Telemetry and Usage Hub (The Engine Room) */}
+                {/* 1. Telemetry and Usage Hub */}
                 <section className="space-y-8">
                     <div className="flex items-center gap-3">
                         <div className="size-10 rounded-xl bg-blue-600/10 flex items-center justify-center border border-blue-500/20 shadow-inner">
@@ -223,40 +292,57 @@ export default function Settings() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {/* AI Token Ring */}
-                        <div className="bg-white/5 border border-white/5 rounded-3xl p-8 flex flex-col items-center justify-center space-y-6 shadow-2xl relative overflow-hidden group">
+                        {/* ── Donut Ring with month comparison ── */}
+                        <div className="bg-white/5 border border-white/5 rounded-3xl p-8 flex flex-col items-center justify-center space-y-5 shadow-2xl relative overflow-hidden">
                             <div className={cn(
                                 "absolute top-0 left-0 w-full h-1 bg-gradient-to-r",
                                 isUnlimited ? "from-amber-400 via-orange-500 to-amber-600" : "from-blue-500 via-indigo-500 to-purple-500"
                             )} />
-                            <div className="relative size-40">
+                            <div className="relative size-36">
                                 <svg className="size-full -rotate-90 transform">
-                                    <circle cx="80" cy="80" r="70" fill="none" stroke="currentColor" strokeWidth="8" className="text-white/5" />
+                                    <circle cx="72" cy="72" r="62" fill="none" stroke="currentColor" strokeWidth="8" className="text-white/5" />
                                     <motion.circle
-                                        initial={{ strokeDashoffset: 440 }}
-                                        animate={{ strokeDashoffset: isUnlimited ? 0 : 440 - (440 * tokenPct) / 100 }}
-                                        cx="80" cy="80" r="70" fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round"
+                                        initial={{ strokeDashoffset: 390 }}
+                                        animate={{ strokeDashoffset: isUnlimited ? 0 : 390 - (390 * tokenPct) / 100 }}
+                                        cx="72" cy="72" r="62" fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round"
                                         className={cn(
                                             "transition-all duration-1000",
                                             isUnlimited ? "text-amber-500" : (tokenPct > 80 ? "text-amber-500" : "text-blue-500")
                                         )}
-                                        strokeDasharray={440}
+                                        strokeDasharray={390}
                                     />
                                 </svg>
                                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className="text-2xl font-black">{isUnlimited ? '∞' : `${Math.round(tokenPct)}%`}</span>
-                                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{t('commandCenter.aiPower')}</span>
+                                    <span className="text-lg font-black leading-tight">{isUnlimited ? '∞' : formatTokens(totalTokensUsed)}</span>
+                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">tokens</span>
                                 </div>
                             </div>
-                            <div className="text-center">
-                                <p className="text-lg font-bold">
-                                    {formatTokens(metrics.tokensUsed)} / {isUnlimited ? '∞' : formatTokens(totalLimits.tokens)}
-                                </p>
-                                <p className="text-sm text-slate-500 uppercase font-bold tracking-tight mt-1">{t('commandCenter.tokensGenerated')}</p>
+                            <div className="text-center space-y-1 w-full">
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Este mes</p>
+                                <p className="text-sm font-semibold text-white">{formatTokens(usageBreakdown?.currentMonth.total ?? totalTokensUsed)} tokens</p>
+                                {usageBreakdown && (
+                                    <div className="flex items-center justify-center gap-1.5 pt-1">
+                                        {(() => {
+                                            const curr = usageBreakdown.currentMonth.total;
+                                            const prev = usageBreakdown.previousMonth.total;
+                                            if (prev === 0) return <span className="text-[11px] text-slate-500">Sin datos del mes anterior</span>;
+                                            const pct = Math.round(((curr - prev) / prev) * 100);
+                                            const up = pct >= 0;
+                                            return (
+                                                <>
+                                                    <span className={cn("text-[11px] font-bold", up ? "text-red-400" : "text-emerald-400")}>
+                                                        {up ? '▲' : '▼'} {Math.abs(pct)}%
+                                                    </span>
+                                                    <span className="text-[11px] text-slate-500">vs mes anterior ({formatTokens(prev)})</span>
+                                                </>
+                                            );
+                                        })()}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
-                        {/* Scans and Assets */}
+                        {/* ── Right: Scans/Images + Storage Manager ── */}
                         <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
                             <div className="bg-white/5 border border-white/5 rounded-3xl p-8 space-y-6 flex flex-col justify-between">
                                 <div className="space-y-4">
@@ -328,7 +414,102 @@ export default function Settings() {
                             </div>
                         </div>
                     </div>
+
+                    {/* ── AI Tool Breakdown Panel ── */}
+                    <div className="bg-white/[0.03] border border-white/5 rounded-3xl overflow-hidden">
+                        <div className="p-6 border-b border-white/5">
+                            <h3 className="text-sm font-bold text-white">Consumo por Herramienta de IA</h3>
+                            <p className="text-xs text-slate-500 mt-1">Haz click en una herramienta para ver el desglose de tokens por feature</p>
+                        </div>
+
+                        {usageLoading ? (
+                            <div className="p-8 text-center text-slate-500 text-sm">Cargando datos de uso...</div>
+                        ) : !usageBreakdown || usageBreakdown.currentMonth.byFeature.length === 0 ? (
+                            <div className="p-8 text-center">
+                                <Zap className="size-8 text-slate-700 mx-auto mb-3" />
+                                <p className="text-sm text-slate-500">Aún no hay datos de uso este mes.</p>
+                                <p className="text-xs text-slate-600 mt-1">Los registros aparecerán aquí cada vez que uses una función de IA.</p>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-white/5">
+                                {TOOL_GROUPS.map(group => {
+                                    const groupFeatures = usageBreakdown.currentMonth.byFeature.filter(f =>
+                                        group.featureKeys.includes(f.feature_key)
+                                    );
+                                    const groupTotal = groupFeatures.reduce((s, f) => s + f.tokens, 0);
+                                    if (groupTotal === 0) return null;
+                                    const grandTotal = usageBreakdown.currentMonth.total;
+                                    const pct = grandTotal > 0 ? Math.round((groupTotal / grandTotal) * 100) : 0;
+                                    const isOpen = selectedToolGroup === group.key;
+
+                                    return (
+                                        <div key={group.key}>
+                                            <button
+                                                onClick={() => setSelectedToolGroup(isOpen ? null : group.key)}
+                                                className="w-full flex items-center justify-between px-6 py-4 hover:bg-white/[0.03] transition-colors text-left"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <span className={cn("size-2.5 rounded-full shrink-0", group.dot)} />
+                                                    <div>
+                                                        <span className="text-sm font-semibold text-white">{group.name}</span>
+                                                        <span className="text-xs text-slate-500 ml-2">({group.subtitle})</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-4">
+                                                    <div className="text-right">
+                                                        <span className="text-sm font-bold text-white">{formatTokens(groupTotal)}</span>
+                                                        <span className="text-xs text-slate-500 ml-1.5">tokens ({pct}%)</span>
+                                                    </div>
+                                                    <div className="w-24 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                                        <div className={cn("h-full rounded-full bg-gradient-to-r", group.color)} style={{ width: `${pct}%` }} />
+                                                    </div>
+                                                    <span className="text-slate-500 text-xs">{isOpen ? '▲' : '▼'}</span>
+                                                </div>
+                                            </button>
+
+                                            <AnimatePresence>
+                                                {isOpen && (
+                                                    <motion.div
+                                                        initial={{ height: 0, opacity: 0 }}
+                                                        animate={{ height: 'auto', opacity: 1 }}
+                                                        exit={{ height: 0, opacity: 0 }}
+                                                        transition={{ duration: 0.2 }}
+                                                        className="overflow-hidden"
+                                                    >
+                                                        <div className="bg-black/20">
+                                                            {/* Table header */}
+                                                            <div className="grid grid-cols-4 px-6 py-2 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-white/5">
+                                                                <span className="col-span-1">Sección</span>
+                                                                <span className="col-span-2">Feature / Funcionalidad</span>
+                                                                <span className="col-span-1 text-right">Tokens usados</span>
+                                                            </div>
+                                                            {groupFeatures.map((f, idx) => (
+                                                                <div key={idx} className="grid grid-cols-4 px-6 py-3 border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
+                                                                    <span className="col-span-1 text-xs text-slate-400 truncate pr-2">{f.section}</span>
+                                                                    <span className="col-span-2 text-xs font-medium text-white truncate pr-2">{f.feature_name}</span>
+                                                                    <div className="col-span-1 flex items-center justify-end gap-2">
+                                                                        <div className="h-1 w-16 bg-white/10 rounded-full overflow-hidden">
+                                                                            <div
+                                                                                className={cn("h-full rounded-full bg-gradient-to-r", group.color)}
+                                                                                style={{ width: `${groupTotal > 0 ? Math.round((f.tokens / groupTotal) * 100) : 0}%` }}
+                                                                            />
+                                                                        </div>
+                                                                        <span className="text-xs font-mono font-bold text-white">{formatTokens(f.tokens)}</span>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
                 </section>
+
 
                 {/* 2. Smart Notification Center (Signal Over Noise) */}
                 <section className="space-y-8">

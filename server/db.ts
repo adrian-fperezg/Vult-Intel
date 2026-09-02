@@ -807,6 +807,21 @@ export const initDb = async () => {
       )
     `);
 
+    // 14b. AI Usage Logs — per-feature token tracking
+    await db.run(`
+      CREATE TABLE IF NOT EXISTS ai_usage_logs (
+        id SERIAL PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        feature_key TEXT NOT NULL,
+        section TEXT NOT NULL,
+        feature_name TEXT NOT NULL,
+        tokens_used INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await db.run(`CREATE INDEX IF NOT EXISTS idx_ai_usage_logs_user_month ON ai_usage_logs (user_id, created_at)`);
+
+
     // 15. Saved Searches
     await db.run(`
       CREATE TABLE IF NOT EXISTS outreach_saved_searches (

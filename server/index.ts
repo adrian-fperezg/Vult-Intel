@@ -128,10 +128,40 @@ import { radarQueue, initRadarScheduler } from "./queues/radarQueue.js";
 import { runSocialPublisherCron } from "./lib/social/publisher.js";
 import { processRadarRun } from "./lib/radar/radarService.js";
 
-
-
+// ─── AI Usage Tracking Helper ─────────────────────────────────────────────────
+async function logAIUsage(
+  uid: string,
+  tokens: number,
+  featureKey: string,
+  section: string,
+  featureName: string
+): Promise<void> {
+  if (!uid || tokens <= 0) return;
+  // 1. Persist granular log to PostgreSQL
+  try {
+    await db.run(
+      `INSERT INTO ai_usage_logs (user_id, feature_key, section, feature_name, tokens_used)
+       VALUES (?, ?, ?, ?, ?)`,
+      uid, featureKey, section, featureName, tokens
+    );
+  } catch (e: any) {
+    console.error('[AI_USAGE_LOG] Failed to insert log:', e.message);
+  }
+  // 2. Update global counter in Firestore
+  try {
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}`;
+    admin.firestore().collection('customers').doc(uid).set({
+      totalTokensUsed: admin.firestore.FieldValue.increment(tokens),
+      [`monthlyTokens.${monthKey}`]: admin.firestore.FieldValue.increment(tokens),
+    }, { merge: true }).catch(err => console.error('[AI_USAGE_LOG] Firestore error:', err));
+  } catch (e: any) {
+    console.error('[AI_USAGE_LOG] Firestore update failed:', e.message);
+  }
+}
 
 const app = express();
+
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 8080;
 
@@ -1954,12 +1984,7 @@ app.post("/api/outreach/radar/deep-scan", async (req: AuthRequest, res) => {
     }
 
     const tokens = result.usageMetadata?.totalTokenCount ?? 0;
-    if (req.user?.uid) {
-      const dbStore = admin.firestore();
-      dbStore.collection('customers').doc(req.user.uid).set({
-        totalTokensUsed: admin.firestore.FieldValue.increment(tokens)
-      }, { merge: true }).catch(err => console.error("[Backend Token Tracking Error]:", err));
-    }
+    if (req.user?.uid) await logAIUsage(req.user.uid, tokens, 'radar_deep_scan', 'Intel Radar', 'Deep Scan de Competidor');
 
     res.json(parsedData);
   } catch (err: any) {
@@ -2025,12 +2050,7 @@ ESTRUCTURA JSON REQUERIDA:
     if (!responseText) throw new Error("AI failed to generate persona");
 
     const tokens = result.usageMetadata?.totalTokenCount ?? 0;
-    if (req.user?.uid) {
-      const dbStore = admin.firestore();
-      dbStore.collection('customers').doc(req.user.uid).set({
-        totalTokensUsed: admin.firestore.FieldValue.increment(tokens)
-      }, { merge: true }).catch(err => console.error("[Backend Token Tracking Error]:", err));
-    }
+    if (req.user?.uid) await logAIUsage(req.user.uid, tokens, 'brand_persona', 'Global Brand Strategy', 'Análisis de Persona');
 
     res.json(JSON.parse(responseText));
   } catch (err: any) {
@@ -2101,12 +2121,7 @@ FORMATO DE SALIDA (ESTRICTO JSON):
     if (!responseText) throw new Error("AI failed to generate strategy");
 
     const tokens = result.usageMetadata?.totalTokenCount ?? 0;
-    if (req.user?.uid) {
-      const dbStore = admin.firestore();
-      dbStore.collection('customers').doc(req.user.uid).set({
-        totalTokensUsed: admin.firestore.FieldValue.increment(tokens)
-      }, { merge: true }).catch(err => console.error("[Backend Token Tracking Error]:", err));
-    }
+    if (req.user?.uid) await logAIUsage(req.user.uid, tokens, 'brand_strategy', 'Global Brand Strategy', 'Estrategia de Marca');
 
     res.json(JSON.parse(responseText));
   } catch (err: any) {
@@ -2289,12 +2304,7 @@ app.post("/api/outreach/content-forge/generate", async (req: AuthRequest, res) =
 
     // Track usage securely
     const tokens = result.usageMetadata?.totalTokenCount ?? 0;
-    if (req.user?.uid) {
-      const db = admin.firestore();
-      db.collection('customers').doc(req.user.uid).set({
-        totalTokensUsed: admin.firestore.FieldValue.increment(tokens)
-      }, { merge: true }).catch(err => console.error("[Backend Token Tracking Error]:", err));
-    }
+    if (req.user?.uid) await logAIUsage(req.user.uid, tokens, 'content_generate', 'Content Generator', 'Generación de Contenido');
 
     res.json(parsedData);
   } catch (err: any) {
@@ -2360,12 +2370,7 @@ app.post("/api/outreach/content-forge/social-variations", async (req: AuthReques
 
     // Track usage securely
     const tokens = result.usageMetadata?.totalTokenCount ?? 0;
-    if (req.user?.uid) {
-      const db = admin.firestore();
-      db.collection('customers').doc(req.user.uid).set({
-        totalTokensUsed: admin.firestore.FieldValue.increment(tokens)
-      }, { merge: true }).catch(err => console.error("[Backend Token Tracking Error]:", err));
-    }
+    if (req.user?.uid) await logAIUsage(req.user.uid, tokens, 'content_social_vars', 'Content Generator', 'Variaciones para Redes Sociales');
 
     res.json(JSON.parse(responseText));
   } catch (err: any) {
@@ -2426,6 +2431,64 @@ app.post("/api/outreach/content-forge/generate-image", async (req: AuthRequest, 
 
 // ─── AI PROXY ENDPOINTS ──────────────────────────────────────────────────
 
+// GET /api/ai/usage-breakdown — Per-feature token breakdown for current & previous month
+app.get('/api/ai/usage-breakdown', verifyFirebaseToken, async (req: AuthRequest, res) => {
+  const uid = req.user?.uid;
+  if (!uid) return res.status(401).json({ error: 'Unauthorized' });
+
+  try {
+    // Current month boundaries
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+    // Current month data grouped by feature
+    const currentRows = await db.all<any>(
+      `SELECT feature_key, section, feature_name, SUM(tokens_used) AS tokens
+       FROM ai_usage_logs
+       WHERE user_id = ? AND created_at >= ?
+       GROUP BY feature_key, section, feature_name
+       ORDER BY tokens DESC`,
+      uid, startOfMonth
+    );
+
+    // Previous month data grouped by feature
+    const prevRows = await db.all<any>(
+      `SELECT feature_key, SUM(tokens_used) AS tokens
+       FROM ai_usage_logs
+       WHERE user_id = ? AND created_at >= ? AND created_at < ?
+       GROUP BY feature_key`,
+      uid, startOfLastMonth, endOfLastMonth
+    );
+
+    const currentTotal = currentRows.reduce((sum: number, r: any) => sum + Number(r.tokens), 0);
+    const prevTotal = prevRows.reduce((sum: number, r: any) => sum + Number(r.tokens), 0);
+
+    res.json({
+      currentMonth: {
+        total: currentTotal,
+        byFeature: currentRows.map((r: any) => ({
+          feature_key: r.feature_key,
+          section: r.section,
+          feature_name: r.feature_name,
+          tokens: Number(r.tokens),
+        })),
+      },
+      previousMonth: {
+        total: prevTotal,
+        byFeature: prevRows.map((r: any) => ({
+          feature_key: r.feature_key,
+          tokens: Number(r.tokens),
+        })),
+      },
+    });
+  } catch (err: any) {
+    console.error('[AI_USAGE_BREAKDOWN] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post("/api/ai/chat", verifyFirebaseToken, async (req: AuthRequest, res) => {
   const { messages, projectContext, config } = req.body;
   const projectId = req.headers['x-project-id'] as string;
@@ -2443,12 +2506,7 @@ app.post("/api/ai/chat", verifyFirebaseToken, async (req: AuthRequest, res) => {
     });
 
     const tokens = response.usageMetadata?.totalTokenCount ?? 0;
-    if (req.user?.uid) {
-      const dbStore = admin.firestore();
-      dbStore.collection('customers').doc(req.user.uid).set({
-        totalTokensUsed: admin.firestore.FieldValue.increment(tokens)
-      }, { merge: true }).catch(err => console.error("[Backend Token Tracking Error]:", err));
-    }
+    if (req.user?.uid) await logAIUsage(req.user.uid, tokens, 'ai_chat', 'AI Assistant (Chat)', 'Chat con Asistente IA');
 
     res.json({ text: response.text, usage: response.usageMetadata });
   } catch (err: any) {
@@ -2603,11 +2661,7 @@ app.post("/api/generate-content", verifyFirebaseToken, async (req: AuthRequest, 
 
     // Track token usage
     const tokens = response.usageMetadata?.totalTokenCount ?? 0;
-    if (tokens > 0) {
-      admin.firestore().collection('customers').doc(uid).set({
-        totalTokensUsed: admin.firestore.FieldValue.increment(tokens)
-      }, { merge: true }).catch(err => console.error("[Token Tracking Error]:", err));
-    }
+    if (tokens > 0 && uid) await logAIUsage(uid, tokens, 'generate_content', 'Multiple Secciones', 'Generación General de Contenido');
 
     let responseText = "";
     try {
@@ -2672,11 +2726,7 @@ app.post("/api/outreach/generate-generic", verifyFirebaseToken, async (req: Auth
     });
 
     const tokens = response.usageMetadata?.totalTokenCount ?? 0;
-    if (tokens > 0) {
-      admin.firestore().collection('customers').doc(uid).set({
-        totalTokensUsed: admin.firestore.FieldValue.increment(tokens)
-      }, { merge: true }).catch(err => console.error("[Backend Token Tracking Error]:", err));
-    }
+    if (tokens > 0 && uid) await logAIUsage(uid, tokens, 'generate_generic', 'Multiple Secciones', 'Motor Genérico de IA');
 
     res.json(response);
   } catch (err: any) {
