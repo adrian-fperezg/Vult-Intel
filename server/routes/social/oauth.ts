@@ -243,16 +243,16 @@ router.get('/:platform/callback', async (req, res) => {
         accessSecret: session.oauth_token_secret,
       });
       const { client: loggedClient, accessToken, accessSecret, screenName, userId: twitterUserId } = await client.login(oauth_verifier);
-      let existing = (await db.get(`SELECT id FROM social_accounts WHERE project_id = ? AND platform = ? AND platform_account_id = ?`, [session.pId, 'twitter', twitterUserId])) as any;
       const finalToken = encryptToken(`${accessToken}:${accessSecret}`);
-      if (existing) {
-        await db.run(`UPDATE social_accounts SET access_token = ?, username = ?, status = 'active', updated_at = NOW() WHERE id = ?`, finalToken, screenName, existing.id);
-      } else {
-        await db.run(`
-          INSERT INTO social_accounts (project_id, platform, platform_account_id, username, access_token, status)
-          VALUES (?, ?, ?, ?, ?, 'active')
-        `, session.pId, 'twitter', twitterUserId, screenName, finalToken);
-      }
+      await db.run(`
+        INSERT INTO social_accounts (id, project_id, user_id, platform, account_id, username, display_name, access_token)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (project_id, platform, account_id) DO UPDATE SET
+          username = EXCLUDED.username,
+          display_name = EXCLUDED.display_name,
+          access_token = EXCLUDED.access_token,
+          updated_at = NOW()
+      `, uuidv4(), session.pId, session.userId, 'twitter', twitterUserId, screenName, screenName, finalToken);
       return res.redirect(getTwitterRedirect(session.source));
     } catch (err: any) {
       console.error('[TWITTER_OAUTH_ERROR]', err);
