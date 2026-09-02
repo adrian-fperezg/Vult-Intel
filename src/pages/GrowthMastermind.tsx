@@ -796,5 +796,6 @@ export default function GrowthMastermind() {
             )}
         </div>
         </div>
+        </div>
     );
 }
