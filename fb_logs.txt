@@ -1,0 +1,252 @@
+Starting Container
+npm warn config production Use `--omit=dev` instead.
+
+> react-example@0.0.0 start
+> tsx server/index.ts
+
+◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
+◇ injected env (0) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+◇ injected env (0) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
+◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
+[FIREBASE] Successfully initialized with GOOGLE_APPLICATION_CREDENTIALS_JSON
+◇ injected env (0) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
+◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
+◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+[VEO] Veo Studio Pack routes registered
+✅ AI configured: Gemini 
+[Persistence] Checking Redis for persistent mailboxes...
+[STARTUP] Initializing database...
+Connected to Redis for persistence
+[DB] Verifying/Initializing tables...
+[DB] Checking for pending migrations...
+✅ Database initialized successfully
+[DB] Initialization complete. Scheduling background jobs...
+[QUEUE] Resetting repeatable jobs...
+[QUEUE] Removed stale repeatable job: fb35390ee79c4a6a9b287b2a587d90cc (name: poll-mailboxes)
+[QUEUE] Re-added poll-mailboxes with 24-hour interval.
+[QUEUE] Background jobs initialized and scheduled.
+🚀 Outreach API running at http://localhost:8080
+[RADAR SCHEDULER] Checking for due radar runs...
+[RADAR SCHEDULER] Checking for due radar runs...
+[RADAR SCHEDULER] Checking for due radar runs...
+[Tracking] Recorded open for email adb0003f-15f0-4857-b138-e8934d00f78b
+[Tracking] Recorded open for email adb0003f-15f0-4857-b138-e8934d00f78b
+[RADAR SCHEDULER] Checking for due radar runs...
+[RADAR SCHEDULER] Checking for due radar runs...
+[THREADS MEDIA ERROR]: {
+  error: {
+    message: 'Error validating access token: Session has expired on Thursday, 06-Aug-26 23:00:00 PDT. The current time is Wednesday, 02-Sep-26 07:00:22 PDT.',
+    type: 'OAuthException',
+    code: 190,
+    error_subcode: 0,
+    fbtrace_id: 'AnsgRBg4Klmm0PA25OU51Hf'
+  }
+}
+[SOCIAL_PUBLISHER] threads failed: Error validating access token: Session has expired on Thursday, 06-Aug-26 23:00:00 PDT. The current time is Wednesday, 02-Sep-26 07:00:22 PDT.
+[DEBUG] DATOS PARA IG: {
+  "id": "eabeb197-0d1d-4dcb-82c8-e99fc469f6c4",
+  "project_id": "3d175c11-eb08-4f79-8fa8-fbeda34887bf",
+  "user_id": "b2QpRWHXDtMmCt1j7a1rEbmQP0m1",
+  "body": "",
+  "media_urls": [
+    "https://vult-intel-backend-production.up.railway.app/uploads/media/social_1788334423939-590739981.png"
+  ],
+  "link_url": null,
+  "link_title": null,
+  "link_description": null,
+  "link_image": null,
+  "status": "scheduled",
+  "scheduled_at": "2026-09-02T14:00:00.000Z",
+  "published_at": null,
+  "error_message": null,
+  "created_at": "2026-09-02T07:36:49.768Z",
+  "updated_at": "2026-09-02T07:36:49.768Z",
+  "first_comment": null,
+  "error_code": null,
+  "paused_at": null
+}
+[404 NOT FOUND]: GET /uploads/media/social_1788334423939-590739981.png
+[IG MEDIA ERROR]: {
+  error: {
+    message: 'Only photo or video can be accepted as media type.',
+    type: 'OAuthException',
+    code: 9004,
+    error_subcode: 2207052,
+    is_transient: false,
+    error_user_title: "Media download has failed. The media URI doesn't meet our requirements.",
+    error_user_msg: 'The media could not be fetched from this URI: https://vult-intel-backend-production.up.railway.app/uploads/media/social_1788334423939-590739981.png.Please check the limitations section in our development document for more information: https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-user/media#creating',
+    fbtrace_id: 'AKSeGffsCi0osl8tbR9XkoG'
+  }
+}
+[SOCIAL_PUBLISHER] instagram failed: Only photo or video can be accepted as media type.
+[404 NOT FOUND]: GET /uploads/media/social_1788334423939-590739981.png
+[SOCIAL_PUBLISHER] facebook failed: Missing or invalid image file
+[404 NOT FOUND]: GET /uploads/media/social_1788334423939-590739981.png
+[PUBLISHER] Failed to upload media to Twitter: Request failed with status code 404
+[SOCIAL_PUBLISHER] twitter failed: Twitter API rejected media upload: Request failed with status code 404
+[AUTH ERROR] No Bearer token provided in Authorization header. Request path: /radar/deep-scan, Method: GET
+[AUTH ERROR] Headers received: {
+  "host": "vult-intel-backend-production.up.railway.app",
+  "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+  "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+  "accept-encoding": "gzip, deflate, br",
+  "accept-language": "en-US,en;q=0.9",
+  "sec-ch-ua": "Google Chrome\";v=\"111\", \"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"111",
+  "sec-fetch-mode": "navigate",
+  "x-forwarded-for": "104.164.173.158, 79.127.217.66",
+  "x-forwarded-host": "vult-intel-backend-production.up.railway.app",
+  "x-forwarded-proto": "https",
+  "x-railway-edge": "sjc1",
+  "x-railway-request-id": "xFCihOofQwqWSMSJYqVb7A",
+  "x-real-ip": "104.164.173.158",
+  "x-request-start": "1788358008322"
+}
+[AUTH ERROR] No Bearer token provided in Authorization header. Request path: /subscription, Method: GET
+[AUTH ERROR] Headers received: {
+  "host": "vult-intel-backend-production.up.railway.app",
+  "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+  "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+  "accept-encoding": "gzip, deflate, br",
+  "accept-language": "en-US,en;q=0.9",
+  "sec-ch-ua": "Google Chrome\";v=\"111\", \"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"111",
+  "sec-fetch-mode": "navigate",
+  "x-forwarded-for": "104.164.173.158, 152.233.76.10",
+  "x-forwarded-host": "vult-intel-backend-production.up.railway.app",
+  "x-forwarded-proto": "https",
+  "x-railway-edge": "sjc1",
+  "x-railway-request-id": "1I9neGH8TyS7dYK3lt7tkg",
+  "x-real-ip": "104.164.173.158",
+  "x-request-start": "1788358008384"
+}
+[AUTH ERROR] No Bearer token provided in Authorization header. Request path: /, Method: GET
+[AUTH ERROR] Headers received: {
+  "host": "vult-intel-backend-production.up.railway.app",
+  "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+  "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+  "accept-encoding": "gzip, deflate, br",
+  "accept-language": "en-US,en;q=0.9",
+  "sec-ch-ua": "Google Chrome\";v=\"111\", \"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"111",
+  "sec-fetch-mode": "navigate",
+  "x-forwarded-for": "104.164.173.158, 152.233.76.10",
+  "x-forwarded-host": "vult-intel-backend-production.up.railway.app",
+  "x-forwarded-proto": "https",
+  "x-railway-edge": "sjc1",
+  "x-railway-request-id": "VqmMjdrPTWK3_KvFnpoFkQ",
+  "x-real-ip": "104.164.173.158",
+  "x-request-start": "1788358008379"
+}
+[404 NOT FOUND]: GET /api
+[AUTH ERROR] No Bearer token provided in Authorization header. Request path: /radar/deep-scan, Method: GET
+[AUTH ERROR] Headers received: {
+  "host": "vult-intel-backend-production.up.railway.app",
+  "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+  "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+  "accept-encoding": "gzip, deflate, br",
+  "accept-language": "en-US,en;q=0.9",
+  "sec-ch-ua": "Google Chrome\";v=\"111\", \"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"111",
+  "x-request-start": "1788358009238"
+}
+[404 NOT FOUND]: GET /api
+[AUTH ERROR] No Bearer token provided in Authorization header. Request path: /, Method: GET
+[AUTH ERROR] Headers received: {
+  "host": "vult-intel-backend-production.up.railway.app",
+  "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+  "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+  "accept-encoding": "gzip, deflate, br",
+  "accept-language": "en-US,en;q=0.9",
+  "sec-ch-ua": "Google Chrome\";v=\"111\", \"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"111",
+  "sec-fetch-mode": "navigate",
+  "x-forwarded-for": "104.164.126.110, 79.127.217.65",
+  "x-forwarded-host": "vult-intel-backend-production.up.railway.app",
+  "sec-fetch-mode": "navigate",
+  "x-forwarded-for": "104.164.126.110, 152.233.76.9",
+  "x-forwarded-host": "vult-intel-backend-production.up.railway.app",
+  "x-forwarded-proto": "https",
+  "x-railway-edge": "sjc1",
+  "x-railway-request-id": "PzlST7lfQWGDjtHl9fVATg",
+  "x-real-ip": "104.164.126.110",
+  "sec-ch-ua": "Google Chrome\";v=\"111\", \"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"111",
+  "x-forwarded-proto": "https",
+  "x-railway-edge": "sjc1",
+  "x-railway-request-id": "3ubEXLgFS-WMghdMjq4OvQ",
+  "x-real-ip": "104.164.126.110",
+  "x-request-start": "1788358009298"
+}
+[AUTH ERROR] No Bearer token provided in Authorization header. Request path: /subscription, Method: GET
+[AUTH ERROR] Headers received: {
+  "host": "vult-intel-backend-production.up.railway.app",
+  "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+  "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+  "accept-encoding": "gzip, deflate, br",
+  "accept-language": "en-US,en;q=0.9",
+  "sec-fetch-mode": "navigate",
+  "x-forwarded-for": "104.164.126.110, 152.233.76.10",
+  "x-forwarded-host": "vult-intel-backend-production.up.railway.app",
+  "x-forwarded-proto": "https",
+  "x-railway-edge": "sjc1",
+  "x-railway-request-id": "-NmjCH0HRQSR_K8C9o6EoQ",
+  "x-real-ip": "104.164.126.110",
+  "x-request-start": "1788358009310"
+}
+[AUTH ERROR] No Bearer token provided in Authorization header. Request path: /ai/optimize, Method: GET
+[AUTH ERROR] Headers received: {
+  "host": "vult-intel-backend-production.up.railway.app",
+  "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+  "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+  "accept-encoding": "gzip, deflate, br",
+  "accept-language": "en-US,en;q=0.9",
+  "sec-ch-ua": "Google Chrome\";v=\"111\", \"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"111",
+  "sec-fetch-mode": "navigate",
+  "x-forwarded-for": "104.164.126.110, 152.233.76.10",
+  "x-forwarded-host": "vult-intel-backend-production.up.railway.app",
+  "x-forwarded-proto": "https",
+  "x-railway-edge": "sjc1",
+  "x-railway-request-id": "uioNZDXLQnOiiXgo0_TJvA",
+  "x-real-ip": "104.164.126.110",
+  "x-request-start": "1788358009308"
+}
+[RADAR SCHEDULER] Checking for due radar runs...
+[RADAR SCHEDULER] Checking for due radar runs...
+Failed fetching IG profile for 17841415316663163: ReferenceError: accessToken is not defined
+    at <anonymous> (/app/server/routes/social/accounts.ts:221:139)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+Failed fetching IG profile for 17841439669363348: ReferenceError: accessToken is not defined
+    at <anonymous> (/app/server/routes/social/accounts.ts:221:139)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+Failed fetching IG profile for 17841467922087994: ReferenceError: accessToken is not defined
+    at <anonymous> (/app/server/routes/social/accounts.ts:221:139)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+Failed fetching IG profile for 17841465993995066: ReferenceError: accessToken is not defined
+    at <anonymous> (/app/server/routes/social/accounts.ts:221:139)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+Failed fetching IG profile for 17841437882441730: ReferenceError: accessToken is not defined
+    at <anonymous> (/app/server/routes/social/accounts.ts:221:139)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+Failed fetching IG profile for 17841415316663163: ReferenceError: accessToken is not defined
+    at <anonymous> (/app/server/routes/social/accounts.ts:221:139)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+Failed fetching IG profile for 17841439669363348: ReferenceError: accessToken is not defined
+    at <anonymous> (/app/server/routes/social/accounts.ts:221:139)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+Failed fetching IG profile for 17841467922087994: ReferenceError: accessToken is not defined
+    at <anonymous> (/app/server/routes/social/accounts.ts:221:139)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+Failed fetching IG profile for 17841465993995066: ReferenceError: accessToken is not defined
+    at <anonymous> (/app/server/routes/social/accounts.ts:221:139)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+Failed fetching IG profile for 17841437882441730: ReferenceError: accessToken is not defined
+    at <anonymous> (/app/server/routes/social/accounts.ts:221:139)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+[404 NOT FOUND]: GET /uploads/media/social_1788334423939-590739981.png
+[RADAR SCHEDULER] Checking for due radar runs...
+[RADAR SCHEDULER] Checking for due radar runs...
+Stopping Container
+npm error path /app
+npm error command failed
+npm error signal SIGTERM
+npm error command sh -c tsx server/index.ts
+npm error A complete log of this run can be found in: /root/.npm/_logs/2026-09-02T09_12_14_177Z-debug-0.log

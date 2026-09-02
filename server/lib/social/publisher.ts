@@ -11,6 +11,13 @@ import axios from 'axios';
 import admin from '../../lib/firebase.js';
 import { TwitterApi } from 'twitter-api-v2';
 
+export class PartialPublishError extends Error {
+  constructor(message: string, public platformPostId: string) {
+    super(message);
+    this.name = 'PartialPublishError';
+  }
+}
+
 // ─── PLATFORM PUBLISHERS ──────────────────────────────────────────────────────
 
 async function publishToLinkedIn(account: any, post: any): Promise<string> {
@@ -103,18 +110,18 @@ async function publishToLinkedIn(account: any, post: any): Promise<string> {
   const urn = res.headers.get('x-restli-id') || (data && data.id) || 'linkedin_post';
 
   if (post.first_comment && urn && urn !== 'linkedin_post') {
-    try {
-      await fetch(`https://api.linkedin.com/rest/socialActions/${urn}/comments`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          actor: authorUrn,
-          object: urn,
-          message: { text: post.first_comment }
-        }),
-      });
-    } catch (e: any) {
-      console.error('[PUBLISHER] LinkedIn first comment failed', e.message);
+    const commentRes = await fetch(`https://api.linkedin.com/rest/socialActions/${urn}/comments`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        actor: authorUrn,
+        object: urn,
+        message: { text: post.first_comment }
+      }),
+    });
+    const commentData = await commentRes.json() as any;
+    if (!commentRes.ok || commentData.status >= 400 || commentData.error) {
+      throw new PartialPublishError('First comment failed: ' + (commentData.message || commentData.error?.message || JSON.stringify(commentData)), urn);
     }
   }
 
@@ -162,14 +169,14 @@ async function publishToFacebook(account: any, post: any): Promise<string> {
     if (feedData.error) throw new Error(feedData.error.message);
     
     if (post.first_comment && feedData.id) {
-      try {
-        await fetch(`https://graph.facebook.com/v19.0/${feedData.id}/comments`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: post.first_comment, access_token: token }),
-        });
-      } catch (e: any) {
-        console.error('[PUBLISHER] Facebook first comment failed', e.message);
+      const commentRes = await fetch(`https://graph.facebook.com/v19.0/${feedData.id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: post.first_comment, access_token: token }),
+      });
+      const commentData = await commentRes.json() as any;
+      if (commentData.error) {
+        throw new PartialPublishError('First comment failed: ' + commentData.error.message, feedData.id);
       }
     }
     return feedData.id;
@@ -216,14 +223,14 @@ async function publishToFacebook(account: any, post: any): Promise<string> {
       if (data.error) throw new Error(data.error.message);
 
       if (post.first_comment && data.id) {
-        try {
-          await fetch(`https://graph.facebook.com/v19.0/${data.id}/comments`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: post.first_comment, access_token: token }),
-          });
-        } catch (e: any) {
-          console.error('[PUBLISHER] Facebook first comment failed', e.message);
+        const commentRes = await fetch(`https://graph.facebook.com/v19.0/${data.id}/comments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: post.first_comment, access_token: token }),
+        });
+        const commentData = await commentRes.json() as any;
+        if (commentData.error) {
+          throw new PartialPublishError('First comment failed: ' + commentData.error.message, data.id);
         }
       }
 
@@ -244,14 +251,14 @@ async function publishToFacebook(account: any, post: any): Promise<string> {
     if (data.error) throw new Error(data.error.message);
 
     if (post.first_comment && data.id) {
-      try {
-        await fetch(`https://graph.facebook.com/v19.0/${data.id}/comments`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: post.first_comment, access_token: token }),
-        });
-      } catch (e: any) {
-        console.error('[PUBLISHER] Facebook first comment failed', e.message);
+      const commentRes = await fetch(`https://graph.facebook.com/v19.0/${data.id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: post.first_comment, access_token: token }),
+      });
+      const commentData = await commentRes.json() as any;
+      if (commentData.error) {
+        throw new PartialPublishError('First comment failed: ' + commentData.error.message, data.id);
       }
     }
 
@@ -395,14 +402,14 @@ async function publishToInstagram(account: any, post: any): Promise<string> {
   if (pubData.error) throw new Error(pubData.error.message);
   
   if (post.first_comment && pubData.id) {
-    try {
-      await fetch(`https://graph.facebook.com/v19.0/${pubData.id}/comments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: post.first_comment, access_token: token }),
-      });
-    } catch (e: any) {
-      console.error('[PUBLISHER] Instagram first comment failed', e.message);
+    const commentRes = await fetch(`https://graph.facebook.com/v19.0/${pubData.id}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: post.first_comment, access_token: token }),
+    });
+    const commentData = await commentRes.json() as any;
+    if (commentData.error) {
+      throw new PartialPublishError('First comment failed: ' + commentData.error.message, pubData.id);
     }
   }
 
@@ -425,11 +432,16 @@ async function publishToYouTube(account: any, post: any): Promise<string> {
 }
 
 async function publishToTwitter(account: any, post: any): Promise<string> {
-  const token = decryptToken(account.access_token);
+  const [accToken, accSecret] = decryptToken(account.access_token).split(':');
   const mediaUrls = post.media_urls || [];
   const mediaIds: string[] = [];
 
-  const twitterClient = new TwitterApi(token);
+  const twitterClient = new TwitterApi({
+    appKey: process.env.TWITTER_CLIENT_ID || '',
+    appSecret: process.env.TWITTER_CLIENT_SECRET || '',
+    accessToken: accToken,
+    accessSecret: accSecret,
+  });
 
   if (mediaUrls.length > 0) {
     for (const url of mediaUrls.slice(0, 4)) {
@@ -471,7 +483,7 @@ async function publishToTwitter(account: any, post: any): Promise<string> {
         reply: { in_reply_to_tweet_id: tweetId }
       });
     } catch (e: any) {
-      console.error('[PUBLISHER] Twitter first comment failed', e.message);
+      throw new PartialPublishError('First comment failed: ' + (e.message || JSON.stringify(e)), tweetId);
     }
   }
 
@@ -661,15 +673,26 @@ export async function publishPost(postId: string): Promise<void> {
         UPDATE social_post_targets SET status = 'published', platform_post_id = ?, published_at = NOW() WHERE id = ?
       `, platformPostId, target.id);
     } catch (err: any) {
-      console.error(`[SOCIAL_PUBLISHER] ${target.platform} failed:`, err.message);
-      const errCode = JSON.stringify({ message: err.message, stack: err.stack?.slice(0, 600), response: err.response?.data ?? null });
-      await db.run(`UPDATE social_post_targets SET status = 'failed', error_message = ?, error_code = ? WHERE id = ?`, err.message, errCode, target.id);
-      if (!firstError) firstError = { message: err.message, code: errCode };
-      allPublished = false;
+      if (err.name === 'PartialPublishError') {
+        const pErr = err as PartialPublishError;
+        console.warn(`[SOCIAL_PUBLISHER] ${target.platform} partial success (comment failed):`, err.message);
+        await db.run(`UPDATE social_post_targets SET status = 'published_partial', platform_post_id = ?, error_message = ? WHERE id = ?`, pErr.platformPostId, pErr.message, target.id);
+        allPublished = false;
+        // Don't set firstError if it's just a partial failure, we want the main post status to reflect partial if no other hard errors occurred.
+        // Or wait, if there are hard errors, firstError handles it. We can track if there was a partial error.
+        // Actually, we should just let `firstError` capture it so the parent post shows the warning.
+        if (!firstError) firstError = { message: pErr.message, code: 'PARTIAL_PUBLISH' };
+      } else {
+        console.error(`[SOCIAL_PUBLISHER] ${target.platform} failed:`, err.message);
+        const errCode = JSON.stringify({ message: err.message, stack: err.stack?.slice(0, 600), response: err.response?.data ?? null });
+        await db.run(`UPDATE social_post_targets SET status = 'failed', error_message = ?, error_code = ? WHERE id = ?`, err.message, errCode, target.id);
+        if (!firstError) firstError = { message: err.message, code: errCode };
+        allPublished = false;
+      }
     }
   }
 
-  const newStatus = allPublished ? 'published' : 'failed';
+  const newStatus = allPublished ? 'published' : (firstError?.code === 'PARTIAL_PUBLISH' ? 'published_partial' : 'failed');
   if (allPublished) {
     await db.run(`UPDATE social_posts SET status = 'published', published_at = NOW(), error_message = NULL, error_code = NULL WHERE id = ?`, postId);
   } else {

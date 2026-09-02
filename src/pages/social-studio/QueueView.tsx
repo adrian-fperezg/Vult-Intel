@@ -52,14 +52,14 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm(t('queue.confirmDelete', 'Are you sure you want to delete this post?'))) return;
-    wrapAction(id, () => api.deletePost(id), t('queue.postDeleted', 'Post deleted'));
+    if (!confirm(t('queue.confirmDelete', { defaultValue: 'Are you sure you want to delete this post?' }))) return;
+    wrapAction(id, () => api.deletePost(id), t('queue.postDeleted', { defaultValue: 'Post deleted' }));
   };
 
-  const handlePublishNow = (id: string) => wrapAction(id, () => api.publishNow(id), '🚀 ' + t('queue.published', 'Published!'));
-  const handlePause = (id: string) => wrapAction(id, () => api.pausePost(id), t('queue.postPaused', 'Post paused'));
-  const handleResume = (id: string) => wrapAction(id, () => api.resumePost(id), t('queue.postResumed', 'Post resumed'));
-  const handleRetry = (id: string) => wrapAction(id, () => api.retryPost(id), t('queue.retrying', 'Retrying post...'));
+  const handlePublishNow = (id: string) => wrapAction(id, () => api.publishNow(id), '🚀 ' + t('queue.published', { defaultValue: 'Published!' }));
+  const handlePause = (id: string) => wrapAction(id, () => api.pausePost(id), t('queue.postPaused', { defaultValue: 'Post paused' }));
+  const handleResume = (id: string) => wrapAction(id, () => api.resumePost(id), t('queue.postResumed', { defaultValue: 'Post resumed' }));
+  const handleRetry = (id: string) => wrapAction(id, () => api.retryPost(id), t('queue.retrying', { defaultValue: 'Retrying post...' }));
 
   if (loading) return (
     <div className="flex items-center justify-center h-full">
@@ -152,7 +152,7 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
 
                             {/* Body Excerpt */}
                             <p className="text-[13px] text-slate-200 leading-relaxed line-clamp-2 pr-6">
-                              {post.body || <span className="italic text-slate-500">{t('queue.noTextContent', 'No text content...')}</span>}
+                              {post.body || <span className="italic text-slate-500">{t('queue.noTextContent', { defaultValue: 'No text content...' })}</span>}
                             </p>
 
                             {/* Error inline alert if failed */}
@@ -198,38 +198,38 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
 
                             {post.status === 'scheduled' && (
                               <>
-                                <button onClick={() => handlePause(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-amber-500/10 text-slate-400 hover:text-amber-400" title={t('queue.pause', 'Pause')}>
+                                <button onClick={() => handlePause(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-amber-500/10 text-slate-400 hover:text-amber-400" title={t('queue.pause', { defaultValue: 'Pause' })}>
                                   <Pause className="size-3.5" />
                                 </button>
                                 <button onClick={() => {
                                   if (onEdit) onEdit(post);
-                                }} className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white" title={t('queue.edit', 'Edit')}>
+                                }} className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white" title={t('queue.edit', { defaultValue: 'Edit' })}>
                                   <FileEdit className="size-3.5" />
                                 </button>
                               </>
                             )}
 
                             {post.status === 'paused' && (
-                              <button onClick={() => handleResume(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-blue-500/10 text-slate-400 hover:text-blue-400" title={t('queue.resume', 'Resume')}>
+                              <button onClick={() => handleResume(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-blue-500/10 text-slate-400 hover:text-blue-400" title={t('queue.resume', { defaultValue: 'Resume' })}>
                                 <Play className="size-3.5" />
                               </button>
                             )}
 
                             {post.status === 'failed' && (
-                              <button onClick={() => handleRetry(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-violet-500/10 text-slate-400 hover:text-violet-400" title={t('queue.retry', 'Retry')}>
+                              <button onClick={() => handleRetry(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-violet-500/10 text-slate-400 hover:text-violet-400" title={t('queue.retry', { defaultValue: 'Retry' })}>
                                 <RefreshCw className="size-3.5" />
                               </button>
                             )}
 
                             {(post.status === 'draft' || post.status === 'scheduled') && (
-                              <button onClick={() => handlePublishNow(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-400" title={t('queue.publishNow', 'Publish Now')}>
+                              <button onClick={() => handlePublishNow(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-400" title={t('queue.publishNow', { defaultValue: 'Publish Now' })}>
                                 <Send className="size-3.5" />
                               </button>
                             )}
 
                             <div className="w-[1px] h-4 bg-white/10 mx-1" />
 
-                            <button onClick={() => handleDelete(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-red-500/10 text-slate-400 hover:text-red-400" title={t('queue.delete', 'Delete')}>
+                            <button onClick={() => handleDelete(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-red-500/10 text-slate-400 hover:text-red-400" title={t('queue.delete', { defaultValue: 'Delete' })}>
                               <Trash2 className="size-3.5" />
                             </button>
                           </div>
@@ -301,13 +301,13 @@ function PostDetailModal({
               <style.icon className={cn("size-4", style.color)} />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-white">{t('queue.postDetails', 'Post Details')}</h2>
+              <h2 className="text-sm font-semibold text-white">{t('queue.postDetails', { defaultValue: 'Post Details' })}</h2>
               <div className="text-[11px] text-slate-400 mt-0.5">
                 {post.scheduled_at
-                  ? `${t('queue.scheduledFor', 'Scheduled for')} ${safeFormatDate(post.scheduled_at, 'MMMM d, yyyy h:mm a')}`
+                  ? `${t('queue.scheduledFor', { defaultValue: 'Scheduled for' })} ${safeFormatDate(post.scheduled_at, 'MMMM d, yyyy h:mm a')}`
                   : post.published_at
-                    ? `${t('queue.publishedOn', 'Published on')} ${safeFormatDate(post.published_at, 'MMMM d, yyyy')}`
-                    : t('queue.noDate', 'No date scheduled')}
+                    ? `${t('queue.publishedOn', { defaultValue: 'Published on' })} ${safeFormatDate(post.published_at, 'MMMM d, yyyy')}`
+                    : t('queue.noDate', { defaultValue: 'No date scheduled' })}
               </div>
             </div>
           </div>
@@ -325,7 +325,7 @@ function PostDetailModal({
               <div className="flex gap-3">
                 <AlertCircle className="size-5 text-red-400 shrink-0" />
                 <div>
-                  <h3 className="text-[13px] font-semibold text-red-200">{t('queue.publishingFailed', 'Publishing Failed')}</h3>
+                  <h3 className="text-[13px] font-semibold text-red-200">{t('queue.publishingFailed', { defaultValue: 'Publishing Failed' })}</h3>
                   <p className="text-[12px] text-red-300 mt-1">{post.error_message}</p>
                 </div>
               </div>
@@ -337,7 +337,7 @@ function PostDetailModal({
                     className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-300 font-medium"
                   >
                     {showRawError ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
-                    {t('queue.viewRawError', 'View raw error details')}
+                    {t('queue.viewRawError', { defaultValue: 'View raw error details' })}
                   </button>
                   {showRawError && (
                     <pre className="mt-2 p-3 bg-black/40 rounded-lg text-[10px] text-red-300 overflow-x-auto border border-red-500/10 whitespace-pre-wrap break-all">
@@ -351,16 +351,16 @@ function PostDetailModal({
 
           {/* Body */}
           <div>
-            <h4 className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-2">{t('queue.content', 'Content')}</h4>
+            <h4 className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-2">{t('queue.content', { defaultValue: 'Content' })}</h4>
             <div className="bg-white/[0.02] border border-white/5 rounded-xl p-4 text-[13px] text-slate-300 leading-relaxed whitespace-pre-wrap">
-              {post.body || <span className="italic text-slate-600">{t('queue.noBodyText', 'No body text')}</span>}
+              {post.body || <span className="italic text-slate-600">{t('queue.noBodyText', { defaultValue: 'No body text' })}</span>}
             </div>
           </div>
 
           {/* Media Grid */}
           {media.length > 0 && (
             <div>
-              <h4 className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-2">{t('queue.media', 'Media')} ({media.length})</h4>
+              <h4 className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-2">{t('queue.media', { defaultValue: 'Media' })} ({media.length})</h4>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {media.map((url: string, i: number) => (
                   <div key={i} className="aspect-square rounded-xl overflow-hidden border border-white/10 bg-black/50 relative group">
@@ -377,7 +377,7 @@ function PostDetailModal({
 
           {/* Targets */}
           <div>
-            <h4 className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-2">{t('queue.platforms', 'Platforms')}</h4>
+            <h4 className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-2">{t('queue.platforms', { defaultValue: 'Platforms' })}</h4>
             <div className="space-y-3">
               {targets.map((tItem: any) => {
                 const Icon = PLATFORM_ICONS[tItem.platform] || ExternalLink;
@@ -428,7 +428,7 @@ function PostDetailModal({
                         {displayBody && (
                           <div>
                             <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">
-                              {tItem.custom_body ? t('queue.customCopy', 'Custom Copy') : t('queue.copy', 'Copy')}
+                              {tItem.custom_body ? t('queue.customCopy', { defaultValue: 'Custom Copy' }) : t('queue.copy', { defaultValue: 'Copy' })}
                             </span>
                             <div className="text-[12px] text-slate-300 whitespace-pre-wrap bg-black/20 p-2.5 rounded-lg border border-white/5">
                               {displayBody}
@@ -437,7 +437,7 @@ function PostDetailModal({
                         )}
                         {thread.length > 0 && (
                           <div>
-                            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">{t('queue.threadTweets', 'Thread Tweets')}</span>
+                            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">{t('queue.threadTweets', { defaultValue: 'Thread Tweets' })}</span>
                             <div className="space-y-2">
                               {thread.map((tw: string, idx: number) => (
                                 <div key={idx} className="text-[12px] text-slate-300 whitespace-pre-wrap bg-black/20 p-2.5 rounded-lg border border-white/5 relative pl-7">
@@ -450,7 +450,7 @@ function PostDetailModal({
                         )}
                         {firstComment && (
                           <div>
-                            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">{t('queue.firstComment', 'First Comment')}</span>
+                            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">{t('queue.firstComment', { defaultValue: 'First Comment' })}</span>
                             <div className="text-[12px] text-slate-300 whitespace-pre-wrap bg-black/20 p-2.5 rounded-lg border border-white/5">
                               {firstComment}
                             </div>
@@ -459,7 +459,7 @@ function PostDetailModal({
                         {pMedia.length > 0 && (
                           <div>
                             <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">
-                              {po.media_urls?.length ? t('queue.customMedia', 'Custom Media') : t('queue.media', 'Media')} ({pMedia.length})
+                              {po.media_urls?.length ? t('queue.customMedia', { defaultValue: 'Custom Media' }) : t('queue.media', { defaultValue: 'Media' })} ({pMedia.length})
                             </span>
                             <div className="flex flex-wrap gap-2">
                               {pMedia.map((url: string, i: number) => (

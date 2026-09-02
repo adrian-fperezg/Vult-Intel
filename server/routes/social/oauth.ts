@@ -6,6 +6,7 @@ import fetch from 'node-fetch';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import redis from '../../redis.js';
+import { TwitterApi } from 'twitter-api-v2';
 
 const router = Router();
 
@@ -164,15 +165,19 @@ router.get('/:platform', async (req: AuthRequest, res) => {
   let codeChallenge: string | undefined;
   let codeChallengeMethod: string | undefined;
 
+  const redirectUri = `${getBackendUrl()}/api/social/auth/${platform}/callback`;
+
   if (platform === 'twitter') {
-    const codeVerifier = crypto.randomBytes(32).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-    codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-    codeChallengeMethod = 'S256';
-    await redis.setex(`oauth:twitter:${authSessionId}`, 600, codeVerifier);
+    const client = new TwitterApi({ appKey: clientId, appSecret: process.env[config.clientSecretEnv]! });
+    const authLink = await client.generateAuthLink(redirectUri, { linkMode: 'authorize' });
+    await redis.setex(`oauth:twitter:${authLink.oauth_token}`, 600, JSON.stringify({
+      oauth_token_secret: authLink.oauth_token_secret,
+      pId, userId, source
+    }));
+    return res.redirect(authLink.url);
   }
 
   const state = Buffer.from(JSON.stringify({ pId, userId, platform, source, authSessionId })).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-  const redirectUri = `${getBackendUrl()}/api/social/auth/${platform}/callback`;
 
   const params = new URLSearchParams({
     response_type: 'code',
@@ -181,7 +186,6 @@ router.get('/:platform', async (req: AuthRequest, res) => {
     scope: config.scopes,
     state,
     ...(platform === 'youtube' ? { access_type: 'offline', prompt: 'consent' } : {}),
-    ...(platform === 'twitter' ? { code_challenge_method: codeChallengeMethod!, code_challenge: codeChallenge! } : {}),
   });
 
   if (platform === 'tiktok') {
@@ -213,6 +217,49 @@ router.get('/:platform/callback', async (req, res) => {
   }
 
   // Otherwise proceed with normal OAuth callback
+  const { oauth_token, oauth_verifier } = req.query as Record<string, string>;
+
+  if (platform === 'twitter') {
+    const getTwitterRedirect = (src: string, err?: string) => {
+      const base = src === 'vult-pulse' ? `https://vultintel.com/vult-pulse?tab=settings` : `https://vultintel.com/social-studio?tab=accounts`;
+      return err ? `${base}&error=${encodeURIComponent(err)}` : `${base}&success=twitter`;
+    };
+    if (error) return res.redirect(getTwitterRedirect('social-studio', error));
+    if (!oauth_token || !oauth_verifier) return res.redirect(getTwitterRedirect('social-studio', 'twitter_missing_tokens'));
+    
+    const sessionStr = await redis.get(`oauth:twitter:${oauth_token}`);
+    if (!sessionStr) return res.redirect(getTwitterRedirect('social-studio', 'twitter_session_expired'));
+    
+    const session = JSON.parse(sessionStr);
+    const config = PLATFORMS.twitter;
+    const clientId = process.env[config.clientIdEnv]?.trim();
+    const clientSecret = process.env[config.clientSecretEnv]?.trim();
+    
+    try {
+      const client = new TwitterApi({
+        appKey: clientId!,
+        appSecret: clientSecret!,
+        accessToken: oauth_token,
+        accessSecret: session.oauth_token_secret,
+      });
+      const { client: loggedClient, accessToken, accessSecret, screenName, userId: twitterUserId } = await client.login(oauth_verifier);
+      let existing = (await db.get(`SELECT id FROM social_accounts WHERE project_id = ? AND platform = ? AND platform_account_id = ?`, [session.pId, 'twitter', twitterUserId])) as any;
+      const finalToken = encryptToken(`${accessToken}:${accessSecret}`);
+      if (existing) {
+        await db.run(`UPDATE social_accounts SET access_token = ?, username = ?, status = 'active', updated_at = NOW() WHERE id = ?`, finalToken, screenName, existing.id);
+      } else {
+        await db.run(`
+          INSERT INTO social_accounts (project_id, platform, platform_account_id, username, access_token, status)
+          VALUES (?, ?, ?, ?, ?, 'active')
+        `, session.pId, 'twitter', twitterUserId, screenName, finalToken);
+      }
+      return res.redirect(getTwitterRedirect(session.source));
+    } catch (err: any) {
+      console.error('[TWITTER_OAUTH_ERROR]', err);
+      return res.redirect(getTwitterRedirect(session.source, err.message));
+    }
+  }
+
   let stateData: { pId: string; userId: string; platform: string; source?: string; authSessionId?: string } = { pId: '', userId: '', platform: '', source: 'social-studio' };
   try {
     if (state) {
@@ -257,9 +304,8 @@ router.get('/:platform/callback', async (req, res) => {
         code,
         redirect_uri: redirectUri,
         client_id: clientId,
-        client_key: clientId,
         client_secret: clientSecret,
-        ...(platform === 'twitter' ? { code_verifier: (await redis.get(`oauth:twitter:${stateData.authSessionId}`)) || '' } : {}),
+        ...(platform === 'linkedin' ? {} : { code_verifier: (await redis.get(`oauth:${platform}:${stateData.authSessionId}`)) || '' }),
       }).toString(),
     });
     const tokenData = await tokenRes.json() as any;
@@ -298,7 +344,8 @@ router.get('/:platform/callback', async (req, res) => {
     let accountsToInsert: any[] = [];
     
     if (config.userInfoUrl) {
-      const headers: Record<string, string> = { Authorization: `Bearer ${tokenData.access_token}` };
+      const accToken = tokenData.access_token;
+      const headers: Record<string, string> = { Authorization: `Bearer ${accToken}` };
       const userRes = await fetch(config.userInfoUrl, { headers });
       const userData = await userRes.json() as any;
       if (!userRes.ok || userData.error) {
@@ -306,6 +353,7 @@ router.get('/:platform/callback', async (req, res) => {
       }
 
       if (platform === 'linkedin') {
+        
         accountsToInsert.push({
           accountId: userData.sub,
           username: userData.email || userData.sub,
@@ -431,14 +479,6 @@ router.get('/:platform/callback', async (req, res) => {
         } catch { /* channel lookup non-critical */ }
         const finalUsername = userData.email || displayName || 'YouTube Account';
         accountsToInsert.push({ accountId: userData.sub, username: finalUsername, displayName, avatarUrl: userData.picture || '', channelId });
-      } else if (platform === 'twitter') {
-        accountsToInsert.push({
-          accountId: userData.data?.id || userData.id,
-          username: `@${userData.data?.username || userData.username}`,
-          displayName: userData.data?.name || userData.name,
-          avatarUrl: userData.data?.profile_image_url || '',
-          channelId: ''
-        });
       } else if (platform === 'tiktok') {
         const username = userData.data?.user?.display_name || 'TikTok User';
         accountsToInsert.push({
