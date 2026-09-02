@@ -25,8 +25,7 @@ process.on('unhandledRejection', (reason, promise) => {
 import nodemailer from 'nodemailer';
 import imap from 'imap-simple';
 
-if (nodemailer) console.log('[STARTUP] Nodemailer loaded');
-if (imap) console.log('[STARTUP] imap-simple loaded');
+// nodemailer and imap-simple loaded as critical dependencies
 
 // Initialize global SMTP mailer
 (async () => {
@@ -81,16 +80,7 @@ if (imap) console.log('[STARTUP] imap-simple loaded');
     console.error("[BACKFILL] Failed during startup:", err);
   }
 
-  // Custom verification for Outreach Emergency (Matches user request)
-  try {
-    const count = await (db as any).mailbox.count();
-    console.log("DB_CHECK: Total mailboxes in DB is: " + count);
-    if (count > 0) {
-      console.warn("[DB_CHECK] Mailboxes still exist! Purge may have failed.");
-    }
-  } catch (err) {
-    console.error("[DB_CHECK] Fatal error during mailbox count check:", err);
-  }
+  // Mailbox count check removed — db.mailbox.count() is not a valid method
 })();
 import { v4 as uuidv4 } from "uuid";
 import Anthropic from "@anthropic-ai/sdk";
@@ -8459,6 +8449,110 @@ app.use((err: any, req: any, res: any, next: any) => {
     path: req.path,
     method: req.method,
   });
+});
+
+// ─── Google Workspace Export Endpoints ────────────────────────────────────────
+// These endpoints proxy Google Drive file creation through the backend Service Account.
+// This prevents Google OAuth tokens from being exposed in the browser.
+
+async function getGoogleDriveClient() {
+  const credsJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
+  if (!credsJson) throw new Error('Missing GOOGLE_APPLICATION_CREDENTIALS_JSON');
+
+  const creds = JSON.parse(credsJson);
+  const { GoogleAuth } = await import('google-auth-library');
+  const auth = new GoogleAuth({
+    credentials: {
+      client_email: creds.client_email,
+      private_key: creds.private_key,
+    },
+    projectId: creds.project_id,
+    scopes: ['https://www.googleapis.com/auth/drive.file'],
+  });
+  const client = await auth.getClient();
+  const tokenResult = await client.getAccessToken();
+  if (!tokenResult.token) throw new Error('Failed to obtain Google access token');
+  return tokenResult.token;
+}
+
+// POST /api/workspace/export-doc — Creates a Google Doc from HTML content
+app.post('/api/workspace/export-doc', verifyFirebaseToken, async (req: AuthRequest, res) => {
+  try {
+    const { html, title = 'Vult Intel Document' } = req.body;
+    if (!html) return res.status(400).json({ error: 'html is required' });
+
+    const token = await getGoogleDriveClient();
+    const boundary = '-------vultintel314159265358979';
+    const delimiter = `\r\n--${boundary}\r\n`;
+    const closeDelimiter = `\r\n--${boundary}--`;
+
+    const metadata = JSON.stringify({ name: title, mimeType: 'application/vnd.google-apps.document' });
+    const body = delimiter +
+      'Content-Type: application/json\r\n\r\n' + metadata +
+      delimiter +
+      'Content-Type: text/html\r\n\r\n' + html +
+      closeDelimiter;
+
+    const driveRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': `multipart/related; boundary=${boundary}`,
+      },
+      body,
+    });
+
+    if (!driveRes.ok) {
+      const errorText = await driveRes.text();
+      throw new Error(`Google Drive API error: ${errorText}`);
+    }
+
+    const data = await driveRes.json() as any;
+    return res.json({ url: `https://docs.google.com/document/d/${data.id}/edit` });
+  } catch (err: any) {
+    console.error('[Workspace] export-doc error:', err.message);
+    return res.status(500).json({ error: err.message || 'Failed to create Google Doc' });
+  }
+});
+
+// POST /api/workspace/export-sheet — Creates a Google Sheet from CSV content
+app.post('/api/workspace/export-sheet', verifyFirebaseToken, async (req: AuthRequest, res) => {
+  try {
+    const { csv, title = 'Vult Intel Sheet' } = req.body;
+    if (!csv) return res.status(400).json({ error: 'csv is required' });
+
+    const token = await getGoogleDriveClient();
+    const boundary = '-------vultintel314159265358979';
+    const delimiter = `\r\n--${boundary}\r\n`;
+    const closeDelimiter = `\r\n--${boundary}--`;
+
+    const metadata = JSON.stringify({ name: title, mimeType: 'application/vnd.google-apps.spreadsheet' });
+    const body = delimiter +
+      'Content-Type: application/json\r\n\r\n' + metadata +
+      delimiter +
+      'Content-Type: text/csv\r\n\r\n' + csv +
+      closeDelimiter;
+
+    const driveRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': `multipart/related; boundary=${boundary}`,
+      },
+      body,
+    });
+
+    if (!driveRes.ok) {
+      const errorText = await driveRes.text();
+      throw new Error(`Google Drive API error: ${errorText}`);
+    }
+
+    const data = await driveRes.json() as any;
+    return res.json({ url: `https://docs.google.com/spreadsheets/d/${data.id}/edit` });
+  } catch (err: any) {
+    console.error('[Workspace] export-sheet error:', err.message);
+    return res.status(500).json({ error: err.message || 'Failed to create Google Sheet' });
+  }
 });
 
 const startServer = async () => {
