@@ -147,21 +147,57 @@ router.post('/sync/:id', async (req: AuthRequest, res) => {
 
     if (platform === 'facebook' || platform === 'instagram') {
       // Find the main Facebook account (user token) to use for fetching Meta pages
-      const mainFbAccount = await db.get<any>(`
+      let mainFbAccount = await db.get<any>(`
         SELECT * FROM social_accounts 
         WHERE project_id = ? AND user_id = ? AND platform = 'facebook' AND (channel_id IS NULL OR channel_id = '')
         ORDER BY created_at DESC LIMIT 1
       `, pId, userId);
 
+      // Fallback 1: If the user deleted the main profile from this project, try to find it in another project.
       if (!mainFbAccount) {
-        return res.status(400).json({ error: 'No main Facebook profile found. Please reconnect Facebook.' });
+        mainFbAccount = await db.get<any>(`
+          SELECT * FROM social_accounts 
+          WHERE user_id = ? AND platform = 'facebook' AND (channel_id IS NULL OR channel_id = '')
+          ORDER BY created_at DESC LIMIT 1
+        `, userId);
       }
 
-      const accessToken = decryptToken(mainFbAccount.access_token);
-      const pagesRes = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=name,access_token,picture,instagram_business_account&limit=100&access_token=${accessToken}`);
-      const pagesData = await pagesRes.json() as any;
-
-      if (pagesData.error) throw new Error(`Meta API Error: ${pagesData.error.message}`);
+      let pagesData: any = null;
+      
+      if (mainFbAccount) {
+        const accessToken = decryptToken(mainFbAccount.access_token);
+        const pagesRes = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=name,access_token,picture,instagram_business_account&limit=100&access_token=${accessToken}`);
+        pagesData = await pagesRes.json() as any;
+      }
+      
+      // Fallback 2: If we still don't have a main profile, or the user token expired but we have a page token, 
+      // try to sync just the target account itself using its own token.
+      if (!pagesData || pagesData.error) {
+        if (!mainFbAccount) {
+          console.warn('[SOCIAL] No main FB account found for user, falling back to page token sync.');
+        } else {
+          console.warn('[SOCIAL] Main FB account token failed, trying page token sync.', pagesData?.error);
+        }
+        
+        const pageToken = decryptToken(targetAccount.access_token);
+        const singlePageRes = await fetch(`https://graph.facebook.com/v19.0/me?fields=name,picture,instagram_business_account&access_token=${pageToken}`);
+        const singlePageData = await singlePageRes.json() as any;
+        
+        if (singlePageData.error) {
+           throw new Error(`Meta API Error: ${singlePageData.error.message}`);
+        }
+        
+        // Mock the pagesData response to just include this one page
+        pagesData = {
+          data: [{
+            id: singlePageData.id || targetAccount.account_id, // For IG it might not return ID from /me for page directly in same way, but it's safe
+            name: singlePageData.name,
+            picture: singlePageData.picture,
+            access_token: pageToken,
+            instagram_business_account: singlePageData.instagram_business_account
+          }]
+        };
+      }
 
       if (pagesData.data) {
         for (const page of pagesData.data) {
