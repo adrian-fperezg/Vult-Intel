@@ -456,8 +456,9 @@ async function publishToTwitter(account: any, post: any): Promise<string> {
         const mediaId = await twitterClient.v1.uploadMedia(Buffer.from(fileRes.data), { mimeType });
         mediaIds.push(mediaId);
       } catch (err: any) {
-        console.error('[PUBLISHER] Failed to upload media to Twitter:', err.message || err);
-        throw new Error('Twitter API rejected media upload: ' + (err.message || err));
+        const errorDetails = err.data ? JSON.stringify(err.data) : (err.message || err);
+        console.error('[PUBLISHER] Failed to upload media to Twitter:', errorDetails);
+        throw new Error('Twitter API rejected media upload: ' + errorDetails);
       }
     }
   }
@@ -472,8 +473,9 @@ async function publishToTwitter(account: any, post: any): Promise<string> {
     const { data } = await twitterClient.v2.tweet(tweetBody);
     tweetId = data.id;
   } catch (err: any) {
-    console.error('[PUBLISHER] Failed to post tweet:', err.message || err);
-    throw new Error('Twitter API rejected tweet: ' + (err.message || err));
+    const errorDetails = err.data ? JSON.stringify(err.data) : (err.message || err);
+    console.error('[PUBLISHER] Failed to post tweet:', errorDetails);
+    throw new Error('Twitter API rejected tweet: ' + errorDetails);
   }
 
   if (post.first_comment && tweetId !== 'tweet') {
