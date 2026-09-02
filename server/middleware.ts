@@ -23,7 +23,8 @@ export const verifyFirebaseToken = async (req: AuthRequest, res: Response, next:
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    console.error('[AUTH ERROR] No Bearer token provided in Authorization header');
+    console.error(`[AUTH ERROR] No Bearer token provided in Authorization header. Request path: ${req.path}, Method: ${req.method}`);
+    console.error(`[AUTH ERROR] Headers received:`, JSON.stringify(req.headers, null, 2));
     return res.status(401).json({ error: 'Unauthorized: No token provided' });
   }
 

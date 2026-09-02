@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { landingTranslations } from '../lib/translations';
@@ -665,17 +665,21 @@ const Landing = () => {
                             <div>
                                 <h5 className="font-black mb-8 uppercase text-sm tracking-[0.3em] text-blue-600">Legal</h5>
                                 <ul className={`space-y-5 text-lg font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-[#0a0a0a]'}`}>
-                                    <li
-                                        onClick={() => navigate('/privacy')}
-                                        className="hover:text-blue-600 cursor-pointer transition-colors"
-                                    >
-                                        {t.footerPrivacy}
+                                    <li>
+                                        <Link
+                                            to="/privacy"
+                                            className="hover:text-blue-600 cursor-pointer transition-colors block"
+                                        >
+                                            {t.footerPrivacy}
+                                        </Link>
                                     </li>
-                                    <li
-                                        onClick={() => navigate('/terms')}
-                                        className="hover:text-blue-600 cursor-pointer transition-colors"
-                                    >
-                                        {t.footerTerms}
+                                    <li>
+                                        <Link
+                                            to="/terms"
+                                            className="hover:text-blue-600 cursor-pointer transition-colors block"
+                                        >
+                                            {t.footerTerms}
+                                        </Link>
                                     </li>
                                 </ul>
                             </div>
