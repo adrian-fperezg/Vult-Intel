@@ -399,7 +399,6 @@
         "synthesizingDesc": "Analizando informe de escaneo, segmentos de personas y matrices de voz de marca para diseñar la estrategia óptima...",
         "title": "Growth Mastermind"
     },
-
     "lightingPreference": "Preferencia de Iluminación",
     "masterplan": "Plan Maestro",
     "masterplanResults": "Resultados del Plan Maestro",
@@ -927,7 +926,6 @@
             "emptyTitle": "Cola Vacía",
             "failed": "Fallido",
             "filteredResults": "Resultados Filtrados",
-
             "ghostConfirm": "Confirmar limpieza de tareas fantasma",
             "headers": {
                 "action": "Acción",
@@ -938,7 +936,6 @@
                 "status": "Estado",
                 "time": "Hora"
             },
-
             "idNotFound": "ID no encontrado",
             "inXDays": "En {{count}} días",
             "nextSend": "Siguiente Envío",
@@ -1620,5 +1617,35 @@
     "calendar": {
         "today": "Hoy",
         "more": "más"
+    },
+    "queue": {
+        "postDetails": "Detalles del Post",
+        "scheduledFor": "Programado para",
+        "publishedOn": "Publicado el",
+        "noDate": "Sin fecha programada",
+        "publishingFailed": "Fallo en la publicación",
+        "viewRawError": "Ver error detallado",
+        "content": "Contenido",
+        "noBodyText": "Sin texto",
+        "media": "Multimedia",
+        "platforms": "Plataformas",
+        "customCopy": "Texto personalizado",
+        "copy": "Texto",
+        "threadTweets": "Hilos (Tweets)",
+        "firstComment": "Primer comentario",
+        "customMedia": "Multimedia personalizada",
+        "confirmDelete": "¿Seguro que quieres eliminar este post?",
+        "postDeleted": "Post eliminado",
+        "published": "¡Publicado!",
+        "postPaused": "Post pausado",
+        "postResumed": "Post reanudado",
+        "retrying": "Reintentando post...",
+        "noTextContent": "Sin contenido de texto...",
+        "pause": "Pausar",
+        "edit": "Editar",
+        "resume": "Reanudar",
+        "retry": "Reintentar",
+        "publishNow": "Publicar Ahora",
+        "delete": "Eliminar"
     }
 }

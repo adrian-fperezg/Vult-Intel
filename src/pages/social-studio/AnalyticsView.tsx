@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { SafeImage } from '@/components/ui/SafeImage';
 import { getMediaUrl } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import {
@@ -586,7 +587,7 @@ export default function AnalyticsView() {
                     <div className="flex items-center gap-2.5">
                       <div className="relative">
                         {acc.avatarUrl ? (
-                          <img src={getMediaUrl(acc.avatarUrl)} alt={acc.displayName} className="size-8 rounded-full object-cover" />
+                          <SafeImage src={getMediaUrl(acc.avatarUrl)} alt={acc.displayName} className="size-8 rounded-full object-cover" />
                         ) : (
                           <div className={`size-8 rounded-full ${meta.bg || 'bg-white/10'} flex items-center justify-center`}>
                             <Icon className={`size-4 ${meta.color || 'text-slate-400'}`} />
@@ -664,7 +665,7 @@ export default function AnalyticsView() {
                     {/* Thumbnail */}
                     <div className="relative h-36 bg-white/[0.03] border-b border-white/5">
                       {post.imageUrl ? (
-                        <img src={getMediaUrl(post.imageUrl)} alt="" className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
+                        <SafeImage src={getMediaUrl(post.imageUrl)} alt="" className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           <Image className="size-8 text-slate-700" />
@@ -748,7 +749,7 @@ export default function AnalyticsView() {
                             <td className="px-4 py-3">
                               <div className="flex items-center gap-2.5 max-w-[280px]">
                                 {post.mediaUrl ? (
-                                  <img src={getMediaUrl(post.mediaUrl)} alt="" className="size-8 rounded-md object-cover shrink-0 border border-white/10" />
+                                  <SafeImage src={getMediaUrl(post.mediaUrl)} alt="" className="size-8 rounded-md object-cover shrink-0 border border-white/10" />
                                 ) : (
                                   <div className="size-8 rounded-md bg-white/[0.03] border border-white/8 flex items-center justify-center shrink-0">
                                     <Image className="size-3.5 text-slate-700" />

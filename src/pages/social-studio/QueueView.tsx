@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { SafeImage } from '@/components/ui/SafeImage';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { cn, getMediaUrl } from '@/lib/utils';
@@ -177,7 +178,7 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
                                     <Play className="size-4 text-white" />
                                   </div>
                                 ) : (
-                                  <img src={getMediaUrl(media[0])} alt="Media" className="w-full h-full object-cover" />
+                                  <SafeImage src={getMediaUrl(media[0])} alt="Media" className="w-full h-full object-cover" />
                                 )}
                                 {media.length > 1 && (
                                   <div className="absolute bottom-0.5 right-0.5 bg-black/70 px-1 rounded text-[9px] font-medium text-white">
@@ -366,7 +367,7 @@ function PostDetailModal({
                     {url.match(/\.(mp4|mov|webm)$/i) ? (
                       <video src={getMediaUrl(url)} className="w-full h-full object-cover" controls />
                     ) : (
-                      <img src={getMediaUrl(url)} alt={`Media ${i}`} className="w-full h-full object-cover" />
+                      <SafeImage src={getMediaUrl(url)} alt={`Media ${i}`} className="w-full h-full object-cover" />
                     )}
                   </div>
                 ))}
@@ -466,7 +467,7 @@ function PostDetailModal({
                                   {url.match(/\.(mp4|mov|webm)$/i) ? (
                                     <video src={getMediaUrl(url)} className="w-full h-full object-cover" />
                                   ) : (
-                                    <img src={getMediaUrl(url)} className="w-full h-full object-cover" />
+                                    <SafeImage src={getMediaUrl(url)} className="w-full h-full object-cover" />
                                   )}
                                 </div>
                               ))}

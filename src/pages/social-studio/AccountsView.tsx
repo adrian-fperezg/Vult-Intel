@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { SafeImage } from '@/components/ui/SafeImage';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { cn, getMediaUrl } from '@/lib/utils';
@@ -213,7 +214,7 @@ export default function AccountsView({ accounts, loading: _loading, onRefresh, a
                       <div className="flex items-start justify-between mb-4">
                         <div className="relative size-14 rounded-xl bg-black/40 flex items-center justify-center overflow-hidden shrink-0 border border-white/5 shadow-inner">
                           {account.avatar_url
-                            ? <img src={getMediaUrl(account.avatar_url)} className="size-full object-cover" />
+                            ? <SafeImage src={getMediaUrl(account.avatar_url)} className="size-full object-cover" />
                             : <Icon className={cn("size-6", platform?.color || 'text-slate-400')} />
                           }
                           <div className={cn(
