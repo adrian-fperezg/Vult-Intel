@@ -41,7 +41,7 @@ export default function VeoStudioStoryboard({ projectId }: VeoStudioStoryboardPr
     setShots([]);
     setStoryboardTitle('');
     try {
-      const token = await currentUser?.getIdToken();
+      const token = await currentUser?.getIdToken(true);
       if (!token) throw new Error('Authentication required');
 
       const res = await fetch(`${apiBase}/api/veo-studio/storyboard-plan`, {
@@ -88,7 +88,7 @@ export default function VeoStudioStoryboard({ projectId }: VeoStudioStoryboardPr
     if (!shot) return;
     setShots(prev => prev.map(s => s.id === id ? { ...s, status: 'generating' } : s));
     try {
-      const token = await currentUser?.getIdToken();
+      const token = await currentUser?.getIdToken(true);
       if (!token) throw new Error('Authentication required');
 
       const res = await fetch(`${apiBase}/api/veo-studio/generate-video`, {

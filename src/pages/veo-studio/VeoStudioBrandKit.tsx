@@ -50,7 +50,7 @@ export default function VeoStudioBrandKit({ projectId }: VeoStudioBrandKitProps)
     async function load() {
       if (!projectId || !currentUser) return;
       try {
-        const token = await currentUser.getIdToken();
+        const token = await currentUser.getIdToken(true);
         const res = await fetch(`${apiBase}/api/veo-studio/brand-kit?projectId=${projectId}`, {
           headers: { 
             'Authorization': `Bearer ${token}`
@@ -74,7 +74,7 @@ export default function VeoStudioBrandKit({ projectId }: VeoStudioBrandKitProps)
     setIsSaving(true);
     setSavedOk(false);
     try {
-      const token = await currentUser?.getIdToken();
+      const token = await currentUser?.getIdToken(true);
       if (!token) throw new Error('Authentication required');
 
       const res = await fetch(`${apiBase}/api/veo-studio/brand-kit`, {

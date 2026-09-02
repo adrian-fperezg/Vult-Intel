@@ -152,7 +152,7 @@ async function callSecureAIProxy(model: string, contents: any, config?: any, too
     const user = auth.currentUser;
     if (!user) throw new Error("Authentication required");
     
-    const idToken = await user.getIdToken();
+    const idToken = await user.getIdToken(true);
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${idToken}`
@@ -198,7 +198,7 @@ export async function generateImage(prompt: string, uid?: string | null, project
   try {
     const user = auth.currentUser;
     if (!user) throw new Error("Authentication required");
-    const idToken = await user.getIdToken();
+    const idToken = await user.getIdToken(true);
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -287,7 +287,7 @@ export async function generateVideo(
       throw new Error("Project ID is required for secure video generation");
     }
 
-    const idToken = await user.getIdToken();
+    const idToken = await user.getIdToken(true);
     const isAnimation = !!imageBase64;
     const endpoint = isAnimation ? '/api/veo-studio/animate-image' : '/api/veo-studio/generate-video';
     
@@ -438,7 +438,7 @@ export async function generateSpeech(text: string, voice: string = 'Kore', proje
   try {
     const user = auth.currentUser;
     if (!user) throw new Error("Authentication required");
-    const idToken = await user.getIdToken();
+    const idToken = await user.getIdToken(true);
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -1222,7 +1222,7 @@ export async function generatePersonaFromReport(fullScanText: string, projectId:
     const user = auth.currentUser;
     if (!user) throw new Error("Authentication required.");
 
-    const idToken = await user.getIdToken();
+    const idToken = await user.getIdToken(true);
     const sysLang = localStorage.getItem('vult_language') || 'es';
 
     const response = await fetch('/api/outreach/brand-strategy/persona', {
@@ -1253,7 +1253,7 @@ export async function generateBrandStrategyFromReport(fullScanText: string, sysL
     const user = auth.currentUser;
     if (!user) throw new Error("Authentication required.");
 
-    const idToken = await user.getIdToken();
+    const idToken = await user.getIdToken(true);
 
     const response = await fetch('/api/outreach/brand-strategy/strategy', {
       method: 'POST',

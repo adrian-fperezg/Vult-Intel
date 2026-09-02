@@ -12,7 +12,7 @@ export function useOutreachBaseApi() {
   /** Build auth headers. Throws if no user. */
   const authHeaders = useCallback(async (): Promise<Record<string, string>> => {
     if (!currentUser) throw new Error('Not authenticated');
-    const token = await currentUser.getIdToken();
+    const token = await currentUser.getIdToken(true);
     return {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
@@ -50,7 +50,7 @@ export function useOutreachBaseApi() {
       if (!activeProjectId) throw new Error('No project selected');
       
       if (!currentUser) throw new Error('Not authenticated');
-      const token = await currentUser.getIdToken();
+      const token = await currentUser.getIdToken(true);
       
       // Ensure project_id is in the FormData
       if (!formData.has('project_id')) {
@@ -103,7 +103,7 @@ export function useOutreachBaseApi() {
       if (!activeProjectId) throw new Error('No project selected');
       
       if (!currentUser) throw new Error('Not authenticated');
-      const token = await currentUser.getIdToken();
+      const token = await currentUser.getIdToken(true);
       
       // Ensure project_id is in the FormData
       if (!formData.has('project_id')) {

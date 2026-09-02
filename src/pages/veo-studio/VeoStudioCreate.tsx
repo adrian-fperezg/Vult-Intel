@@ -64,7 +64,7 @@ export default function VeoStudioCreate({ projectId }: VeoStudioCreateProps) {
     async function checkBrandKit() {
       if (!projectId || !currentUser) return;
       try {
-        const token = await currentUser.getIdToken();
+        const token = await currentUser.getIdToken(true);
         const res = await fetch(`${apiBase}/api/veo-studio/brand-kit?projectId=${projectId}`, {
           headers: { 
             'Authorization': `Bearer ${token}`
@@ -98,7 +98,7 @@ export default function VeoStudioCreate({ projectId }: VeoStudioCreateProps) {
     if (!prompt.trim()) return toast.error('Enter a prompt first');
     setIsEnhancing(true);
     try {
-      const token = await currentUser?.getIdToken();
+      const token = await currentUser?.getIdToken(true);
       if (!token) throw new Error('Authentication required. Please refresh.');
 
       const res = await fetch(`${apiBase}/api/veo-studio/enhance-prompt`, {
@@ -129,7 +129,7 @@ export default function VeoStudioCreate({ projectId }: VeoStudioCreateProps) {
     setCurrentJob(null);
 
     try {
-      const token = await currentUser?.getIdToken();
+      const token = await currentUser?.getIdToken(true);
       if (!token) throw new Error('Authentication required. Please refresh.');
 
       const endpoint = mode === 'text-to-image'

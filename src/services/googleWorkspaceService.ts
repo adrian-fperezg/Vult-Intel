@@ -11,7 +11,7 @@ export const createGoogleDocFromHtml = async (html: string, title: string): Prom
     const user = auth.currentUser;
     if (!user) throw new Error('User must be logged in to export to Google Docs.');
 
-    const idToken = await user.getIdToken();
+    const idToken = await user.getIdToken(true);
 
     const res = await fetch(`${API_BASE}/api/workspace/export-doc`, {
         method: 'POST',
@@ -40,7 +40,7 @@ export const createGoogleSheetFromCsv = async (csv: string, title: string): Prom
     const user = auth.currentUser;
     if (!user) throw new Error('User must be logged in to export to Google Sheets.');
 
-    const idToken = await user.getIdToken();
+    const idToken = await user.getIdToken(true);
 
     const res = await fetch(`${API_BASE}/api/workspace/export-sheet`, {
         method: 'POST',

@@ -11,7 +11,7 @@ export function useSocialApi() {
 
   const headers = useCallback(async (): Promise<Record<string, string>> => {
     if (!currentUser) throw new Error('Not authenticated');
-    const token = await currentUser.getIdToken();
+    const token = await currentUser.getIdToken(true);
     return {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',

@@ -53,7 +53,7 @@ export function useVeoStudioSubscription(): VeoStudioSubscription {
       }
 
       try {
-        const token = await currentUser.getIdToken();
+        const token = await currentUser.getIdToken(true);
         const apiBase = import.meta.env.VITE_OUTREACH_API_URL || 'http://localhost:3001';
         const response = await fetch(`${apiBase}/api/veo-studio/subscription`, {
           headers: { 'Authorization': `Bearer ${token}` }

@@ -119,7 +119,7 @@ export default function AccountsView({ accounts, loading: _loading, onRefresh, a
   // P1.4: send auth token so the protected endpoint returns real provider status
   useEffect(() => {
     if (!currentUser) return;
-    currentUser.getIdToken().then(token => {
+    currentUser.getIdToken(true).then(token => {
       return fetch(`${BACKEND_URL}/api/social/auth/providers/status`, {
         headers: { Authorization: `Bearer ${token}` },
       });

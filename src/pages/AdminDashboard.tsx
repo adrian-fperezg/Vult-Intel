@@ -49,7 +49,7 @@ export default function AdminDashboard() {
   const fetchRoadmap = async () => {
     setIsLoading(true);
     try {
-      const token = await currentUser?.getIdToken();
+      const token = await currentUser?.getIdToken(true);
       const response = await fetch('/api/admin/roadmap', {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -88,7 +88,7 @@ export default function AdminDashboard() {
 
   const handleViewRaw = async (file: 'roadmap' | 'security') => {
     try {
-      const token = await currentUser?.getIdToken();
+      const token = await currentUser?.getIdToken(true);
       const response = await fetch(`/api/admin/roadmap/raw/${file}`, {
         headers: {
           'Authorization': `Bearer ${token}`
