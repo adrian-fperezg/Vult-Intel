@@ -177,43 +177,56 @@ export default function IntelRadar() {
   }
 
   return (
-    <>
-      <div className="flex flex-col gap-8 p-6 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
-              <Radar className="w-5 h-5 text-indigo-400" />
+    <div className="flex flex-col h-full w-full overflow-hidden text-white font-sans bg-background-dark">
+      {/* Module Header */}
+      <div className="shrink-0 border-b border-white/5 bg-[#0d1117] sticky top-0 z-50">
+        <div className="px-8 py-6">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-indigo-500/10 rounded-xl border border-indigo-500/20 shadow-[0_0_20px_rgba(99,102,241,0.1)] relative">
+                        <Radar className="size-5 text-indigo-400" strokeWidth={1.75} />
+                        <div className="absolute inset-0 rounded-xl bg-indigo-500/5 animate-pulse" />
+                    </div>
+                    <div>
+                        <h1 className="text-xl font-bold text-white tracking-tight">Intel Radar</h1>
+                        <p className="text-[11px] text-indigo-400/60 font-semibold uppercase tracking-widest">
+                            AI-powered industry intelligence
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <motion.button
+                    whileTap={{ scale: 0.96 }}
+                    onClick={handleRunNow}
+                    disabled={isScanning}
+                    className={cn(
+                      'flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-medium transition-all',
+                      isScanning
+                        ? 'bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 cursor-not-allowed'
+                        : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-[0_0_15px_rgba(79,70,229,0.4)]'
+                    )}
+                  >
+                    {isScanning ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>{scanStatusMsg || 'Scanning…'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-4 h-4" />
+                        Run Now
+                      </>
+                    )}
+                  </motion.button>
+                </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-white">Intel Radar</h1>
-              <p className="text-sm text-zinc-500">AI-powered industry intelligence</p>
-            </div>
-          </div>
-          <motion.button
-            whileTap={{ scale: 0.96 }}
-            onClick={handleRunNow}
-            disabled={isScanning}
-            className={cn(
-              'flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all',
-              isScanning
-                ? 'bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 cursor-not-allowed'
-                : 'bg-indigo-600 hover:bg-indigo-500 text-white'
-            )}
-          >
-            {isScanning ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>{scanStatusMsg || 'Scanning…'}</span>
-              </>
-            ) : (
-              <>
-                <Zap className="w-4 h-4" />
-                Run Now
-              </>
-            )}
-          </motion.button>
         </div>
+      </div>
+      
+      {/* Main Scrollable Content */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="flex flex-col gap-8 p-8 max-w-[1400px] mx-auto">
 
         {/* Schedule + Sources row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -366,7 +379,8 @@ export default function IntelRadar() {
           </div>
         )}
       </div>
-
+      </div>
+      
       {/* Content Studio panel */}
       <ContentStudio
         article={studioArticle}
@@ -374,6 +388,6 @@ export default function IntelRadar() {
         onClose={() => setIsStudioOpen(false)}
         language={language}
       />
-    </>
+    </div>
   );
 }

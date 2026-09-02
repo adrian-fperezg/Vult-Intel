@@ -128,15 +128,61 @@ export default function PersonaStudioLayout() {
     };
 
     return (
-        <div className="flex w-full bg-background-dark text-slate-100 font-sans selection:bg-blue-500/30">
+        <div className="flex flex-col h-full w-full overflow-hidden text-slate-100 font-sans bg-background-dark selection:bg-blue-500/30">
+            <div className="flex-1 flex flex-col min-w-0 relative overflow-hidden">
 
-            {/* Main Container */}
-            <div className="flex-1 flex flex-col min-w-0 relative">
+                {/* Module Header */}
+                <div className="shrink-0 border-b border-white/5 bg-[#0d1117] sticky top-0 z-50">
+                    <div className="px-8 pt-6 pb-0">
+                        <div className="flex items-center gap-3 mb-5">
+                            <div className="p-2 bg-fuchsia-500/10 rounded-xl border border-fuchsia-500/20 shadow-[0_0_20px_rgba(217,70,239,0.1)] relative">
+                                <Users className="size-5 text-fuchsia-400" strokeWidth={1.75} />
+                                <div className="absolute inset-0 rounded-xl bg-fuchsia-500/5 animate-pulse" />
+                            </div>
+                            <div>
+                                <h1 className="text-xl font-bold text-white tracking-tight">Persona Studio</h1>
+                                <p className="text-[11px] text-fuchsia-400/60 font-semibold uppercase tracking-widest">
+                                    Design data-driven buyer personas and target audiences for precise marketing.
+                                </p>
+                            </div>
+                        </div>
 
-                {/* Page Action Bar (replaces the artificial sub-header) */}
-                <div className="px-8 py-6 mb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-surface-border bg-background-dark">
+                        {/* Tab bar */}
+                        <nav className="flex items-center gap-0 overflow-x-auto hide-scrollbar" role="tablist">
+                            {[
+                                { id: 'overview', label: 'Overview', icon: CheckCircle2 },
+                                { id: 'psychographics', label: 'Psychographics', icon: Brain },
+                                { id: 'journey', label: 'Buying Journey', icon: ArrowRight },
+                                { id: 'messaging', label: 'Messaging Strategy', icon: MessageCircle },
+                            ].map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    role="tab"
+                                    aria-selected={activeTab === tab.id}
+                                    onClick={() => setActiveTab(tab.id as TabType)}
+                                    className={cn(
+                                        'relative px-5 pb-3.5 pt-1 text-sm font-semibold transition-colors flex items-center gap-2 whitespace-nowrap',
+                                        activeTab === tab.id ? 'text-fuchsia-400' : 'text-slate-500 hover:text-slate-300'
+                                    )}
+                                >
+                                    <tab.icon className="size-3.5" />
+                                    {tab.label}
+                                    {activeTab === tab.id && (
+                                        <motion.div
+                                            layoutId="persona-studio-tab-underline"
+                                            className="absolute bottom-0 left-0 right-0 h-0.5 bg-fuchsia-400 rounded-full"
+                                            transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                                        />
+                                    )}
+                                </button>
+                            ))}
+                        </nav>
+                    </div>
+                </div>
+
+                {/* Functional Toolbar */}
+                <div className="bg-surface-dark border-b border-white/5 px-8 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 z-40 relative">
                     <div className="flex items-center gap-6">
-
                         {/* Persona Selector */}
                         <div className="flex flex-col">
                             <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-none mb-1">Active Persona</span>
@@ -209,36 +255,6 @@ export default function PersonaStudioLayout() {
                         </div>
                     </div>
                 </div>
-
-                {/* Tab Navigation */}
-                <nav className="px-10 mt-8 flex-shrink-0">
-                    <div className="flex items-center gap-10 border-b border-white/5">
-                        {[
-                            { id: 'overview', label: 'Overview', icon: CheckCircle2 },
-                            { id: 'psychographics', label: 'Psychographics', icon: Brain },
-                            { id: 'journey', label: 'Buying Journey', icon: ArrowRight },
-                            { id: 'messaging', label: 'Messaging Strategy', icon: MessageCircle },
-                        ].map((tab) => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id as TabType)}
-                                className={cn(
-                                    "pb-4 text-xs font-bold tracking-widest uppercase transition-all duration-200 ease-out relative flex items-center gap-2",
-                                    activeTab === tab.id ? "text-blue-400" : "text-slate-500 hover:text-slate-300"
-                                )}
-                            >
-                                <tab.icon className="size-3.5" />
-                                {tab.label}
-                                {activeTab === tab.id && (
-                                    <motion.div
-                                        layoutId="activeTabPersona"
-                                        className="absolute bottom-0 left-0 right-0 h-[3px] bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.6)] rounded-t-full"
-                                    />
-                                )}
-                            </button>
-                        ))}
-                    </div>
-                </nav>
 
                 {/* Scrollable Content Area */}
                 <main className="flex-1 overflow-y-auto custom-scrollbar p-10 relative">

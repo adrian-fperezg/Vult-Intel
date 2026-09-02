@@ -326,35 +326,34 @@ export default function Workflows() {
     const isLimitReached = isSoloPlan && totalNodes >= 15;
 
     return (
-        <div className="flex flex-col h-full bg-background-dark overflow-hidden">
-            {/* Page Action Bar (replaces the artificial sub-header) */}
-            <div className="px-8 py-6 mb-2 border-b border-surface-border bg-background-dark shrink-0">
-                <div className="max-w-[1600px] mx-auto flex items-center justify-between">
-                    <div className="flex flex-col">
+        <div className="flex flex-col h-full w-full overflow-hidden text-white font-sans bg-background-dark">
+            {/* Module Header */}
+            <div className="shrink-0 border-b border-white/5 bg-[#0d1117] sticky top-0 z-50">
+                <div className="px-8 py-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
-                            <div className="p-2.5 bg-indigo-500/10 rounded-xl border border-indigo-500/20">
-                                <Boxes className="size-6 text-indigo-400" />
+                            <div className="p-2 bg-indigo-500/10 rounded-xl border border-indigo-500/20 shadow-[0_0_20px_rgba(99,102,241,0.1)] relative">
+                                <Boxes className="size-5 text-indigo-400" strokeWidth={1.75} />
+                                <div className="absolute inset-0 rounded-xl bg-indigo-500/5 animate-pulse" />
                             </div>
                             <div>
-                                <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
-                                    Visual Workflows
-                                </h1>
-                                <p className="text-sm text-slate-400 mt-1">
+                                <h1 className="text-xl font-bold text-white tracking-tight">Visual Workflows</h1>
+                                <p className="text-[11px] text-indigo-400/60 font-semibold uppercase tracking-widest">
                                     Design and manage your marketing automation sequences
                                 </p>
                             </div>
                         </div>
-                    </div>
 
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={handleSaveProject}
-                            disabled={isSaving}
-                            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-medium rounded-xl transition-all shadow-lg shadow-blue-500/20 active:scale-95"
-                        >
-                            {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-                            {isSaving ? 'Saving...' : 'Save Workflows'}
-                        </button>
+                        <div className="flex items-center gap-4">
+                            <button
+                                onClick={handleSaveProject}
+                                disabled={isSaving}
+                                className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium rounded-xl transition-all shadow-[0_0_15px_rgba(79,70,229,0.4)] active:scale-95"
+                            >
+                                {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                                {isSaving ? 'Saving...' : 'Save Workflows'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

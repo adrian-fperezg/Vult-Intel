@@ -1579,12 +1579,58 @@ export default function ContentGenerator() {
         )}
       </AnimatePresence>
 
-      {/* Top Header */}
-      <header className="py-4 lg:py-0 lg:h-20 border-b border-white/5 bg-background-dark/80 backdrop-blur-md flex flex-col lg:flex-row items-start lg:items-center justify-between px-4 lg:px-8 shrink-0 z-20 sticky top-0 gap-4 lg:gap-0">
-        <div className="flex items-center gap-4 w-full lg:w-auto">
-          <h1 className="text-xl font-bold tracking-tight shrink-0">Content Generator</h1>
-          <div className="hidden lg:block h-5 w-px bg-white/10" />
+      {/* Module Header */}
+      <div className="shrink-0 border-b border-white/5 bg-[#0d1117] sticky top-0 z-50">
+        <div className="px-8 pt-6 pb-0">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="p-2 bg-pink-500/10 rounded-xl border border-pink-500/20 shadow-[0_0_20px_rgba(236,72,153,0.1)] relative">
+              <PenTool className="size-5 text-pink-400" strokeWidth={1.75} />
+              <div className="absolute inset-0 rounded-xl bg-pink-500/5 animate-pulse" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-white tracking-tight">Content Generator</h1>
+              <p className="text-[11px] text-pink-400/60 font-semibold uppercase tracking-widest">
+                Create high-converting, AI-powered content tailored to your brand voice.
+              </p>
+            </div>
+          </div>
 
+          {/* Tab bar */}
+          <nav className="flex items-center gap-0 overflow-x-auto hide-scrollbar" role="tablist">
+            {[
+              { id: 'create', label: 'Create', icon: PenTool },
+              { id: 'planning', label: 'Planning', icon: Calendar },
+              { id: 'research', label: 'Research', icon: Search },
+              { id: 'brainstorm', label: 'Brainstorm', icon: Lightbulb },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={cn(
+                  'relative px-5 pb-3.5 pt-1 text-sm font-semibold transition-colors flex items-center gap-2 whitespace-nowrap',
+                  activeTab === tab.id ? 'text-pink-400' : 'text-slate-500 hover:text-slate-300'
+                )}
+              >
+                <tab.icon className="size-3.5" />
+                {tab.label}
+                {activeTab === tab.id && (
+                  <motion.div
+                    layoutId="content-gen-tab-underline"
+                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-pink-400 rounded-full"
+                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  />
+                )}
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
+
+      {/* Functional Toolbar */}
+      <div className="bg-surface-dark border-b border-white/5 px-4 lg:px-8 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shrink-0 z-40 relative">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           {/* Campaign Selector */}
           <div className="relative" ref={campaignMenuRef}>
             <button
@@ -1664,18 +1710,6 @@ export default function ContentGenerator() {
             </AnimatePresence>
           </div>
 
-          {/* Inline Edit for Title (Only visible when not in menu mode, but we replaced the whole block. 
-              We can keep the inline edit capability if the user clicks the title in the header, 
-              but the dropdown approach is cleaner for switching. 
-              Let's add a small edit button next to the dropdown trigger if needed, 
-              or just allow editing the title in the inputs below? 
-              Actually, the user asked for "dropdown menu where campaign name is mentioned". 
-              So the dropdown IS the way to switch. 
-              To EDIT the name of the CURRENT campaign, we can keep an input field somewhere or 
-              allow double clicking the trigger? 
-              Let's add a separate edit button or input field in the "Project Context" or "Campaign Details" section?
-              Or, simpler: Keep the edit button next to the dropdown trigger.
-          */}
           <button
             onClick={() => setIsEditingTitle(true)}
             className="p-1.5 text-slate-500 hover:text-white transition-colors rounded-md hover:bg-white/5"
@@ -1685,7 +1719,7 @@ export default function ContentGenerator() {
           </button>
 
           {isEditingTitle && (
-            <div className="absolute top-16 left-48 z-50 bg-surface-dark border border-white/10 p-2 rounded-lg shadow-xl flex gap-2">
+            <div className="absolute top-12 left-4 z-50 bg-surface-dark border border-white/10 p-2 rounded-lg shadow-xl flex gap-2">
               <input
                 type="text"
                 value={campaignTitle}
@@ -1693,7 +1727,7 @@ export default function ContentGenerator() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     setIsEditingTitle(false);
-                    handleSaveDraft(); // Save name change immediately
+                    handleSaveDraft();
                   }
                 }}
                 autoFocus
@@ -1702,49 +1736,28 @@ export default function ContentGenerator() {
               <button onClick={() => { setIsEditingTitle(false); handleSaveDraft(); }} className="px-2 py-1 bg-blue-600 rounded text-xs text-white">Save</button>
             </div>
           )}
-
         </div>
 
-        <div className="flex items-center gap-1.5 bg-surface-dark p-1.5 rounded-xl border border-white/10 overflow-x-auto hide-scrollbar w-full lg:w-auto shrink-0">
-          {[
-            { id: 'create', label: 'Create' },
-            { id: 'planning', label: 'Planning' },
-            { id: 'research', label: 'Research' },
-            { id: 'brainstorm', label: 'Brainstorm' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={cn(
-                "px-5 py-2 rounded-lg text-sm font-semibold transition-all",
-                activeTab === tab.id ? "bg-white/10 text-white shadow-sm" : "text-slate-400 hover:text-white"
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full lg:w-auto justify-end mt-4 lg:mt-0 shrink-0">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full sm:w-auto justify-end">
           <button className="p-2.5 text-slate-400 hover:text-white transition-colors" title="History">
             <History className="size-5" />
           </button>
           <button
             onClick={handleSaveDraft}
-            className="px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm font-semibold transition-colors"
+            className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm font-semibold transition-colors flex items-center gap-2"
           >
-            Save Draft
+            <Save className="size-4" /> Save Draft
           </button>
           <button
             onClick={handleGenerate}
             disabled={isGenerating}
-            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-semibold transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(59,130,246,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-5 py-2 bg-pink-600 hover:bg-pink-500 text-white rounded-xl text-sm font-semibold transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(236,72,153,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isGenerating ? <Sparkles className="size-4 animate-spin" /> : <Rocket className="size-4" />}
             Generate
           </button>
         </div>
-      </header>
+      </div>
 
       {/* Target Date Banner */}
       {targetDate && activeTab !== 'planning' && (

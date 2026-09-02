@@ -106,79 +106,88 @@ export default function WebGrowthPlan() {
     ] as const;
 
     return (
-        <div className="flex flex-col lg:flex-row h-full bg-background-dark overflow-y-auto lg:overflow-hidden text-slate-800 dark:text-slate-200 font-sans">
+        <div className="flex flex-col lg:flex-row h-full w-full overflow-hidden text-slate-800 dark:text-slate-200 font-sans bg-background-dark">
             {/* Main Content Area (Left) */}
-            <div className="flex-1 flex flex-col min-w-0 lg:overflow-hidden relative">
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
 
-                {/* Shared Header */}
-                <header className="px-8 py-6 border-b border-white/5 bg-background-dark shrink-0 z-10 backdrop-blur-xl">
-                    <div className="max-w-[1400px] mx-auto flex items-center justify-between">
-                        <div className="flex flex-col">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-white/5 rounded-lg border border-white/10">
-                                    <Globe className="size-5 text-blue-400" />
-                                </div>
-                                <div>
-                                    <h1 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
-                                        {isLoading ? 'Syncing...' : (activeProject?.project?.name || 'Select Project')}
-                                    </h1>
-                                    <p className="text-sm text-slate-400 font-medium">
-                                        {activeProject?.project?.niche || 'Niche not set'} • {activeProject?.project?.url || 'URL not set'}
-                                    </p>
-                                </div>
+                {/* Module Header */}
+                <div className="shrink-0 border-b border-white/5 bg-[#0d1117] sticky top-0 z-50">
+                    <div className="px-8 pt-6 pb-0">
+                        <div className="flex items-center gap-3 mb-5">
+                            <div className="p-2 bg-teal-500/10 rounded-xl border border-teal-500/20 shadow-[0_0_20px_rgba(45,212,191,0.1)] relative">
+                                <Globe className="size-5 text-teal-400" strokeWidth={1.75} />
+                                <div className="absolute inset-0 rounded-xl bg-teal-500/5 animate-pulse" />
+                            </div>
+                            <div>
+                                <h1 className="text-xl font-bold text-white tracking-tight">Web Growth Plan</h1>
+                                <p className="text-[11px] text-teal-400/60 font-semibold uppercase tracking-widest">
+                                    Analyze technical SEO and build actionable roadmaps to scale your web presence.
+                                </p>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 border border-white/10 rounded-full">
-                                <span className="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                                <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Data Fresh</span>
-                            </div>
+                        {/* Tab bar */}
+                        <nav className="flex items-center gap-0 overflow-x-auto hide-scrollbar" role="tablist">
+                            {tabs.map(tab => {
+                                const Icon = tab.icon;
+                                const isActive = activeTab === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        role="tab"
+                                        aria-selected={isActive}
+                                        onClick={() => setActiveTab(tab.id as TabType)}
+                                        className={cn(
+                                            "relative px-5 pb-3.5 pt-1 text-sm font-semibold transition-colors flex items-center gap-2 whitespace-nowrap",
+                                            isActive ? "text-teal-400" : "text-slate-500 hover:text-slate-300"
+                                        )}
+                                    >
+                                        <Icon className="size-3.5" />
+                                        {tab.label}
+                                        {isActive && (
+                                            <motion.div
+                                                layoutId="web-growth-tab-underline"
+                                                className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-400 rounded-full"
+                                                transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                                            />
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </nav>
+                    </div>
+                </div>
 
-                            <button
-                                onClick={() => setIsAdvancedMode(!isAdvancedMode)}
-                                className={cn(
-                                    "px-4 py-2 text-sm font-semibold rounded-lg transition-all border",
-                                    isAdvancedMode
-                                        ? "bg-blue-500/10 border-blue-500/30 text-blue-400"
-                                        : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
-                                )}
-                            >
-                                {isAdvancedMode ? 'Advanced Mode' : 'Simple Mode'}
-                            </button>
-
-                            <div className="h-6 w-px bg-white/10 mx-2" />
-
-
-                            <button className="flex items-center gap-2 px-4 py-2 bg-white text-black hover:bg-slate-200 font-semibold text-sm rounded-lg transition-all shadow-lg">
-                                <Plus className="size-4" /> Add to Campaign
-                            </button>
+                {/* Functional Toolbar */}
+                <div className="bg-surface-dark border-b border-white/5 px-8 py-3 flex items-center justify-between shrink-0 z-40 relative">
+                    <div className="flex items-center gap-3">
+                        <div className="flex flex-col">
+                            <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                                {isLoading ? 'Syncing...' : (activeProject?.project?.name || 'Select Project')}
+                            </h2>
+                            <p className="text-[11px] text-slate-400 font-medium">
+                                {activeProject?.project?.niche || 'Niche not set'} • {activeProject?.project?.url || 'URL not set'}
+                            </p>
                         </div>
                     </div>
-                </header>
-
-                {/* Tab Navigation */}
-                <div className="px-8 pt-6 pb-2 shrink-0 border-b border-white/5 bg-background-dark/50 z-10">
-                    <div className="max-w-[1400px] mx-auto flex items-center gap-2">
-                        {tabs.map(tab => {
-                            const Icon = tab.icon;
-                            const isActive = activeTab === tab.id;
-                            return (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveTab(tab.id as TabType)}
-                                    className={cn(
-                                        "flex items-center gap-2 px-5 py-3 rounded-full text-sm font-semibold transition-all relative overflow-hidden",
-                                        isActive
-                                            ? "text-white bg-white/10 border border-white/10 shadow-[0_0_20px_rgba(255,255,255,0.05)]"
-                                            : "text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent"
-                                    )}
-                                >
-                                    <Icon className={cn("size-4", isActive ? "text-blue-400" : "text-slate-500")} />
-                                    {tab.label}
-                                </button>
-                            )
-                        })}
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 border border-white/10 rounded-full">
+                            <span className="size-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Data Fresh</span>
+                        </div>
+                        <button
+                            onClick={() => setIsAdvancedMode(!isAdvancedMode)}
+                            className={cn(
+                                "px-4 py-2 text-sm font-semibold rounded-lg transition-all border",
+                                isAdvancedMode ? "bg-blue-500/10 border-blue-500/30 text-blue-400" : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
+                            )}
+                        >
+                            {isAdvancedMode ? 'Advanced Mode' : 'Simple Mode'}
+                        </button>
+                        <div className="h-6 w-px bg-white/10 mx-2" />
+                        <button className="flex items-center gap-2 px-4 py-2 bg-white text-black hover:bg-slate-200 font-semibold text-sm rounded-lg transition-all shadow-lg">
+                            <Plus className="size-4" /> Add to Campaign
+                        </button>
                     </div>
                 </div>
 

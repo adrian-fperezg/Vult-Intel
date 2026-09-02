@@ -556,33 +556,40 @@ export default function GrowthMastermind() {
     }
 
     return (
-        <div className="flex-1 p-8 lg:p-12 pb-24 lg:pb-12 max-w-7xl mx-auto w-full">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                <div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="p-2 bg-rose-500/10 rounded-lg border border-rose-500/20">
-                            <Target className="w-6 h-6 text-rose-400" />
+        <div className="flex flex-col h-full w-full overflow-hidden text-white font-sans bg-background-dark">
+            {/* Module Header */}
+            <div className="shrink-0 border-b border-white/5 bg-[#0d1117] sticky top-0 z-50">
+                <div className="px-8 py-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-rose-500/10 rounded-xl border border-rose-500/20 shadow-[0_0_20px_rgba(244,63,94,0.1)] relative">
+                                <Target className="size-5 text-rose-400" strokeWidth={1.75} />
+                                <div className="absolute inset-0 rounded-xl bg-rose-500/5 animate-pulse" />
+                            </div>
+                            <div>
+                                <h1 className="text-xl font-bold text-white tracking-tight">Growth Mastermind</h1>
+                                <p className="text-[11px] text-rose-400/60 font-semibold uppercase tracking-widest">
+                                    {t('growthMastermindSubtitle')}
+                                </p>
+                            </div>
                         </div>
-                        <h1 className="text-2xl lg:text-3xl font-bold text-white tracking-tight">
-                            Growth Mastermind
-                        </h1>
-                    </div>
-                    <p className="text-slate-400 max-w-2xl text-[15px]">
-                        {t('growthMastermindSubtitle')}
-                    </p>
-                </div>
 
-                {viewState === 'dashboard' && (
-                    <button
-                        onClick={() => setViewState('generator')}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-medium transition-all shadow-[0_0_20px_rgba(244,63,94,0.3)] hover:shadow-[0_0_25px_rgba(244,63,94,0.5)] active:scale-[0.98]"
-                    >
-                        <Plus className="w-4 h-4" />
-                        {t('newMasterplan')}
-                    </button>
-                )}
+                        {viewState === 'dashboard' && (
+                            <button
+                                onClick={() => setViewState('generator')}
+                                className="flex items-center gap-2 px-5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-medium transition-all shadow-[0_0_20px_rgba(244,63,94,0.3)] hover:shadow-[0_0_25px_rgba(244,63,94,0.5)] active:scale-[0.98]"
+                            >
+                                <Plus className="w-4 h-4" />
+                                {t('newMasterplan')}
+                            </button>
+                        )}
+                    </div>
+                </div>
             </div>
+
+            {/* Main Scrollable Content */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <div className="p-8 lg:p-12 pb-24 lg:pb-12 max-w-7xl mx-auto w-full">
 
             {/* Main Content */}
             <AnimatePresence mode="wait">
@@ -787,6 +794,7 @@ export default function GrowthMastermind() {
                     </motion.div>
                 </div>
             )}
+        </div>
         </div>
     );
 }

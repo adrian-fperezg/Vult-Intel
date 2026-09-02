@@ -16,10 +16,10 @@ import {
   ShieldCheck,
   Globe,
   Cpu,
-  FileText,
   BarChart3,
   Zap,
-  Trash2
+  Trash2,
+  Activity
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -203,25 +203,33 @@ export default function ProjectsHub() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-background-dark">
-      {/* Header */}
-      <header className="sticky top-0 z-10 px-8 py-6 bg-background-dark/80 backdrop-blur-md flex justify-between items-center border-b border-white/5">
-        <div>
-          <h2 className="text-white text-2xl font-bold tracking-tight">{t('pulse.title')}</h2>
-          <p className="text-slate-400 text-sm mt-1 flex items-center gap-2">
-            <span className="inline-block size-1.5 rounded-full bg-emerald-500"></span>
-            {t('pulse.subtitle')}
-          </p>
+    <div className="flex flex-col h-full w-full overflow-hidden">
+      {/* Module Header */}
+      <div className="shrink-0 border-b border-white/5 bg-[#0d1117] sticky top-0 z-50">
+        <div className="px-8 pt-6 pb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/20 shadow-[0_0_20px_rgba(59,130,246,0.1)] relative">
+              <Activity className="size-5 text-blue-400" strokeWidth={1.75} />
+              <div className="absolute inset-0 rounded-xl bg-blue-500/5 animate-pulse" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-white tracking-tight">Projects Hub</h1>
+              <p className="text-[11px] text-blue-400/60 font-semibold uppercase tracking-widest">
+                Manage and organize all your intelligence workspaces and campaigns.
+              </p>
+            </div>
+            
+            <div className="ml-auto flex items-center gap-4">
+              <button className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                <Bell className="size-5" />
+              </button>
+              <button className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                <Settings className="size-5" />
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          <button className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
-            <Bell className="size-5" />
-          </button>
-          <button className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
-            <Settings className="size-5" />
-          </button>
-        </div>
-      </header>
+      </div>
 
       <div className="flex-1 overflow-y-auto">
         <div className="p-8 max-w-5xl mx-auto w-full space-y-12 pb-20">

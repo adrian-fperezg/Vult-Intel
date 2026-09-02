@@ -67,13 +67,71 @@ export default function CampaignArchitectLayout() {
 
 
     return (
-        <div className="flex w-full bg-background-dark text-slate-100 font-sans">
+        <div className="flex flex-col h-full w-full overflow-hidden text-slate-100 font-sans bg-background-dark">
+            <div className="flex-1 flex flex-col min-w-0 relative overflow-hidden">
 
-            {/* Main Content Side */}
-            <div className="flex-1 flex flex-col min-w-0 relative">
+                {/* Module Header */}
+                <div className="shrink-0 border-b border-white/5 bg-[#0d1117] sticky top-0 z-50">
+                    <div className="px-8 pt-6 pb-0">
+                        <div className="flex items-center gap-3 mb-5">
+                            <div className="p-2 bg-orange-500/10 rounded-xl border border-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.1)] relative">
+                                <Layers className="size-5 text-orange-400" strokeWidth={1.75} />
+                                <div className="absolute inset-0 rounded-xl bg-orange-500/5 animate-pulse" />
+                            </div>
+                            <div>
+                                <h1 className="text-xl font-bold text-white tracking-tight">Campaign Architect</h1>
+                                <p className="text-[11px] text-orange-400/60 font-semibold uppercase tracking-widest">
+                                    Architect omni-channel campaigns based on target personas.
+                                </p>
+                            </div>
+                        </div>
 
-                {/* Page Action Bar (replaces the artificial sub-header) */}
-                <div className="px-6 py-6 mb-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-surface-border bg-background-dark">
+                        {/* Tab bar */}
+                        <nav className="flex items-center gap-0 overflow-x-auto hide-scrollbar" role="tablist">
+                            <button
+                                role="tab"
+                                aria-selected={activeTab === 'email'}
+                                onClick={() => setActiveTab('email')}
+                                className={cn(
+                                    "relative px-5 pb-3.5 pt-1 text-sm font-semibold transition-colors flex items-center gap-2 whitespace-nowrap",
+                                    activeTab === 'email' ? "text-orange-400" : "text-slate-500 hover:text-slate-300"
+                                )}
+                            >
+                                <Mail className="size-3.5" />
+                                Email Marketing Center
+                                {activeTab === 'email' && (
+                                    <motion.div
+                                        layoutId="campaign-architect-tab-underline"
+                                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-400 rounded-full"
+                                        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                                    />
+                                )}
+                            </button>
+                            <button
+                                role="tab"
+                                aria-selected={activeTab === 'ads'}
+                                onClick={() => setActiveTab('ads')}
+                                className={cn(
+                                    "relative px-5 pb-3.5 pt-1 text-sm font-semibold transition-colors flex items-center gap-2 whitespace-nowrap",
+                                    activeTab === 'ads' ? "text-orange-400" : "text-slate-500 hover:text-slate-300"
+                                )}
+                            >
+                                <Zap className="size-3.5" />
+                                Ads Creative & Messaging
+                                {activeTab === 'ads' && (
+                                    <motion.div
+                                        layoutId="campaign-architect-tab-underline"
+                                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-orange-400 rounded-full"
+                                        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                                    />
+                                )}
+                            </button>
+                        </nav>
+                    </div>
+                </div>
+
+                {/* Functional Toolbar */}
+                <div className="bg-surface-dark border-b border-white/5 px-8 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0 z-40 relative">
                     <div className="flex flex-wrap items-center gap-4">
 
                         {/* Country/Language Selector */}
@@ -158,48 +216,6 @@ export default function CampaignArchitectLayout() {
                                 Generate
                             </button>
                         </div>
-                    </div>
-                </div>
-
-                {/* Tab Navigation */}
-                <div className="px-8 mt-6">
-                    <div className="flex items-center gap-8 border-b border-white/5">
-                        <button
-                            onClick={() => setActiveTab('email')}
-                            className={cn(
-                                "pb-3 text-sm font-bold transition-all duration-200 ease-out relative",
-                                activeTab === 'email' ? "text-blue-400" : "text-slate-500 hover:text-slate-300"
-                            )}
-                        >
-                            <div className="flex items-center gap-2">
-                                <Mail className="size-4" />
-                                Email Marketing Center
-                            </div>
-                            {activeTab === 'email' && (
-                                <motion.div
-                                    layoutId="activeTab"
-                                    className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"
-                                />
-                            )}
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('ads')}
-                            className={cn(
-                                "pb-3 text-sm font-bold transition-all duration-200 ease-out relative",
-                                activeTab === 'ads' ? "text-blue-400" : "text-slate-500 hover:text-slate-300"
-                            )}
-                        >
-                            <div className="flex items-center gap-2">
-                                <Zap className="size-4" />
-                                Ads Creative & Messaging
-                            </div>
-                            {activeTab === 'ads' && (
-                                <motion.div
-                                    layoutId="activeTab"
-                                    className="absolute bottom-0 left-0 right-0 h-[2px] bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"
-                                />
-                            )}
-                        </button>
                     </div>
                 </div>
 

@@ -556,57 +556,68 @@ export default function GlobalBrandStrategy() {
     };
 
     return (
-        <div className="h-screen flex flex-col bg-background-dark text-white overflow-hidden">
-            {/* Page Header */}
-            <div className="flex-shrink-0 border-b border-white/5 bg-background-dark px-8 py-5">
-                <div className="flex items-start justify-between">
-                    <div>
-                        <div className="flex items-center gap-3 mb-1">
-                            <div className="p-2 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-xl border border-white/10">
-                                <Sparkles className="size-5 text-blue-400" />
+        <div className="flex flex-col h-full w-full overflow-hidden text-white font-sans bg-background-dark">
+            {/* Module Header */}
+            <div className="shrink-0 border-b border-white/5 bg-[#0d1117] sticky top-0 z-50">
+                <div className="px-8 pt-6 pb-0">
+                    <div className="flex items-center gap-3 mb-5">
+                        <div className="p-2 bg-indigo-500/10 rounded-xl border border-indigo-500/20 shadow-[0_0_20px_rgba(99,102,241,0.1)] relative">
+                            <Sparkles className="size-5 text-indigo-400" strokeWidth={1.75} />
+                            <div className="absolute inset-0 rounded-xl bg-indigo-500/5 animate-pulse" />
+                        </div>
+                        <div>
+                            <h1 className="text-xl font-bold text-white tracking-tight">Global Brand Strategy</h1>
+                            <p className="text-[11px] text-indigo-400/60 font-semibold uppercase tracking-widest">
+                                Define your core brand identity, positioning, and global market strategy.
+                            </p>
+                        </div>
+                        
+                        <div className="ml-auto">
+                            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                                <div className="size-2 bg-emerald-400 rounded-full animate-pulse" />
+                                <span className="text-sm font-medium text-emerald-400">Live — AI reads this</span>
                             </div>
-                            <h1 className="text-2xl font-bold text-white">Global Brand Strategy</h1>
-                        </div>
-                        <p className="text-sm text-slate-500 ml-12">The single source of truth for all AI generation across Vult Intel.</p>
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
-                            <div className="size-2 bg-emerald-400 rounded-full animate-pulse" />
-                            <span className="text-sm font-medium text-emerald-400">Live — AI reads this</span>
                         </div>
                     </div>
-                </div>
 
-                {/* Tabs */}
-                <div className="flex gap-1 mt-5 bg-surface-dark rounded-xl p-1 border border-white/8 w-fit">
-                    {([
-                        { id: 'pillars', label: 'Content Pillars', icon: Target, count: pillars.length, max: 7 },
-                        { id: 'personas', label: 'Buyer Personas', icon: Users, count: personas.length, max: 10 },
-                        { id: 'voice', label: 'Brand Voice', icon: Mic2, count: null, max: null },
-                        { id: 'context', label: 'Context Library', icon: Library, count: contextFiles.length, max: 20 },
-                    ] as const).map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={cn(
-                                "flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all",
-                                activeTab === tab.id
-                                    ? "bg-white/10 text-white shadow-sm"
-                                    : "text-slate-400 hover:text-white hover:bg-white/5"
-                            )}
-                        >
-                            <tab.icon className="size-4" />
-                            {tab.label}
-                            {tab.count !== null && (
-                                <span className={cn(
-                                    "px-2 py-0.5 rounded-full text-xs font-bold",
-                                    activeTab === tab.id ? "bg-blue-500/20 text-blue-300" : "bg-white/5 text-slate-500"
-                                )}>
-                                    {tab.count}/{tab.max}
-                                </span>
-                            )}
-                        </button>
-                    ))}
+                    {/* Tab bar */}
+                    <nav className="flex items-center gap-0 overflow-x-auto hide-scrollbar" role="tablist">
+                        {([
+                            { id: 'pillars', label: 'Content Pillars', icon: Target, count: pillars.length, max: 7 },
+                            { id: 'personas', label: 'Buyer Personas', icon: Users, count: personas.length, max: 10 },
+                            { id: 'voice', label: 'Brand Voice', icon: Mic2, count: null, max: null },
+                            { id: 'context', label: 'Context Library', icon: Library, count: contextFiles.length, max: 20 },
+                        ] as const).map(tab => (
+                            <button
+                                key={tab.id}
+                                role="tab"
+                                aria-selected={activeTab === tab.id}
+                                onClick={() => setActiveTab(tab.id as Tab)}
+                                className={cn(
+                                    'relative px-5 pb-3.5 pt-1 text-sm font-semibold transition-colors flex items-center gap-2 whitespace-nowrap',
+                                    activeTab === tab.id ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-300'
+                                )}
+                            >
+                                <tab.icon className="size-3.5" />
+                                {tab.label}
+                                {tab.count !== null && (
+                                    <span className={cn(
+                                        "px-2 py-0.5 rounded-full text-[10px] font-bold ml-1",
+                                        activeTab === tab.id ? "bg-indigo-500/20 text-indigo-300" : "bg-white/5 text-slate-500"
+                                    )}>
+                                        {tab.count}/{tab.max}
+                                    </span>
+                                )}
+                                {activeTab === tab.id && (
+                                    <motion.div
+                                        layoutId="brand-strategy-tab-underline"
+                                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-400 rounded-full"
+                                        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                                    />
+                                )}
+                            </button>
+                        ))}
+                    </nav>
                 </div>
             </div>
 

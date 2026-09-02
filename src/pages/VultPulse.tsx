@@ -56,9 +56,9 @@ export default function VultPulse() {
     }
 
     return (
-        <div className="flex flex-col h-full w-full overflow-hidden bg-[#0d1117]">
+        <div className="flex flex-col h-full w-full overflow-hidden text-white font-sans bg-background-dark">
             {/* Module Header */}
-            <div className="shrink-0 border-b border-white/5">
+            <div className="shrink-0 border-b border-white/5 bg-[#0d1117] sticky top-0 z-50">
                 {/* Trial / Founder Banner */}
                 <AnimatePresence>
                     {!bannerDismissed && (
@@ -138,7 +138,7 @@ export default function VultPulse() {
             </div>
 
             {/* Tab Content */}
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-y-auto custom-scrollbar relative z-0">
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={activeTab}
