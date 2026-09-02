@@ -1039,7 +1039,7 @@ function NetworkCard({ account, state, masterBody, isActive, onActivate, onChang
 
 // ─── Main ComposeView ─────────────────────────────────────────────────────────
 
-export default function ComposeView({ accounts, loadingAccounts, onPostCreated, onNavigateToAccounts }: ComposeViewProps) {
+export default function ComposeView({ accounts, loadingAccounts, onPostCreated, onNavigateToAccounts, initialPost }: ComposeViewProps) {
   const api = useSocialApi();
 
   // Master state
