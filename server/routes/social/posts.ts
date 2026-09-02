@@ -20,7 +20,9 @@ router.get('/', async (req: AuthRequest, res) => {
             json_build_object(
               'id', t.id, 'account_id', t.account_id, 'platform', t.platform,
               'status', t.status, 'error_message', t.error_message,
-              'published_at', t.published_at, 'analytics', t.analytics
+              'published_at', t.published_at, 'analytics', t.analytics,
+              'custom_body', t.custom_body, 'first_comment', t.first_comment,
+              'platform_options', t.platform_options
             )
           ) FILTER (WHERE t.id IS NOT NULL), '[]'
         ) as targets

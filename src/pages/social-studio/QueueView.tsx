@@ -378,14 +378,27 @@ function PostDetailModal({
           {/* Targets */}
           <div>
             <h4 className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-2">Platforms</h4>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {targets.map((t: any) => {
                 const Icon = PLATFORM_ICONS[t.platform] || ExternalLink;
                 const isFailed = t.status === 'failed';
                 const isPub = t.status === 'published';
+                
+                // Parse platform_options safely
+                let po: any = {};
+                if (t.platform_options) {
+                  try {
+                    po = typeof t.platform_options === 'string' ? JSON.parse(t.platform_options) : t.platform_options;
+                  } catch (e) {}
+                }
+                const customBody = t.custom_body;
+                const firstComment = t.first_comment;
+                const pMedia = po.media_urls && Array.isArray(po.media_urls) ? po.media_urls : [];
+                const thread = po.thread && Array.isArray(po.thread) ? po.thread : [];
+
                 return (
-                  <div key={t.id} className="flex flex-col bg-white/[0.02] border border-white/5 rounded-xl p-3">
-                    <div className="flex items-center justify-between">
+                  <div key={t.id} className="flex flex-col bg-white/[0.02] border border-white/5 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2.5">
                         <div className="size-7 rounded-full bg-[#1e2329] border border-slate-700 flex items-center justify-center">
                           <Icon className="size-3.5 text-slate-300" />
@@ -401,9 +414,61 @@ function PostDetailModal({
                         {t.status}
                       </div>
                     </div>
+
                     {isFailed && t.error_message && (
-                      <div className="mt-3 text-[11px] text-red-300 bg-red-500/5 p-2 rounded-lg border border-red-500/10">
+                      <div className="mt-2 text-[11px] text-red-300 bg-red-500/5 p-2 rounded-lg border border-red-500/10">
                         {t.error_message}
+                      </div>
+                    )}
+
+                    {/* Tailored content block */}
+                    {(customBody || firstComment || thread.length > 0 || pMedia.length > 0) && (
+                      <div className="space-y-3 pt-3 mt-2 border-t border-white/5">
+                        {customBody && (
+                          <div>
+                            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">Custom Copy</span>
+                            <div className="text-[12px] text-slate-300 whitespace-pre-wrap bg-black/20 p-2.5 rounded-lg border border-white/5">
+                              {customBody}
+                            </div>
+                          </div>
+                        )}
+                        {thread.length > 0 && (
+                          <div>
+                            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">Thread Tweets</span>
+                            <div className="space-y-2">
+                              {thread.map((tw: string, idx: number) => (
+                                <div key={idx} className="text-[12px] text-slate-300 whitespace-pre-wrap bg-black/20 p-2.5 rounded-lg border border-white/5 relative pl-7">
+                                  <span className="absolute left-2.5 top-2.5 text-[10px] font-bold text-slate-500">{idx + 2}.</span>
+                                  {tw}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {firstComment && (
+                          <div>
+                            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">First Comment</span>
+                            <div className="text-[12px] text-slate-300 whitespace-pre-wrap bg-black/20 p-2.5 rounded-lg border border-white/5">
+                              {firstComment}
+                            </div>
+                          </div>
+                        )}
+                        {pMedia.length > 0 && (
+                          <div>
+                            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">Custom Media ({pMedia.length})</span>
+                            <div className="flex flex-wrap gap-2">
+                              {pMedia.map((url: string, i: number) => (
+                                <div key={i} className="size-16 rounded-lg overflow-hidden border border-white/10 bg-black/50 shrink-0">
+                                  {url.match(/\.(mp4|mov|webm)$/i) ? (
+                                    <video src={url} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <img src={url} className="w-full h-full object-cover" />
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
