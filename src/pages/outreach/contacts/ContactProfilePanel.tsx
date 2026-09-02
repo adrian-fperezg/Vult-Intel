@@ -65,7 +65,7 @@ export default function ContactProfilePanel({ contact, isOpen, onClose }: Contac
     if (!dateString) return t('outreach.contacts.profile.notAvailable');
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return t('outreach.contacts.profile.notAvailable');
-    return date.toLocaleString(language === 'es' ? 'es-ES' : 'en-US', {
+    return date.toLocaleString(navigator.language.startsWith('es') ? 'es-ES' : 'en-US', {
       month: 'short',
       day: 'numeric',
       hour: 'numeric',

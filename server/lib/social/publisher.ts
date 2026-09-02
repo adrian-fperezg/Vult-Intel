@@ -55,7 +55,7 @@ async function publishToLinkedIn(account: any, post: any): Promise<string> {
       const uploadReq = await fetch(uploadUrl, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/octet-stream', 'Authorization': `Bearer ${token}` },
-        body: arrayBuffer
+        body: Buffer.from(arrayBuffer)
       });
       if (!uploadReq.ok) throw new Error('Failed to upload media to LinkedIn S3 bucket');
       
