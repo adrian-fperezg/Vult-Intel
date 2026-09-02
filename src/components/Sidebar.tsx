@@ -239,7 +239,7 @@ export default function Sidebar() {
             <button
               onClick={async () => {
                 await logout();
-                navigate('/');
+                window.location.href = 'https://vultintel.com/';
               }}
               className="flex items-center justify-center gap-2 w-full py-3 min-h-[44px] text-sm md:text-base text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
             >

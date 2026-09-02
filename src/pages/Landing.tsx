@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { landingTranslations } from '../lib/translations';
@@ -39,7 +39,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const Landing = () => {
     const { currentUser } = useAuth();
-    const navigate = useNavigate();
     const { language, theme, setLanguage, setTheme } = useSettings();
     const t = landingTranslations[language as keyof typeof landingTranslations] || landingTranslations.en;
     const [activeFaq, setActiveFaq] = useState<number | null>(null);
@@ -73,7 +72,7 @@ const Landing = () => {
                     ? (theme === 'dark' ? 'bg-[#171b23]/80 border-slate-700/50 shadow-2xl shadow-black/50' : 'bg-white/90 border-slate-200/50 shadow-2xl shadow-slate-200/50')
                     : 'bg-transparent border-transparent shadow-none'
                     }`}>
-                    <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
+                    <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.location.href = '/'}>
                         <Logo className="h-14 md:h-[4.2rem]" dark={theme === 'dark'} />
                     </div>
 
@@ -100,7 +99,7 @@ const Landing = () => {
                             {language.toUpperCase()}
                         </button>
                         <button
-                            onClick={() => navigate('/auth')}
+                            onClick={() => window.location.href = 'https://app.vultintel.com/auth'}
                             className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-md shadow-blue-500/10"
                         >
                             {t.login}
@@ -151,7 +150,7 @@ const Landing = () => {
                         <button
                             onClick={() => {
                                 if (window.posthog) window.posthog.capture('user_clicked_signup', { location: 'hero' });
-                                currentUser ? navigate('/deep-scan') : navigate('/auth');
+                                window.location.href = currentUser ? 'https://app.vultintel.com/deep-scan' : 'https://app.vultintel.com/auth';
                             }}
                             className="w-full sm:w-auto px-10 py-5 bg-blue-600 text-white rounded-2xl font-black text-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-3 shadow-2xl shadow-blue-500/30 active:scale-95"
                         >
