@@ -41,6 +41,10 @@ export function useSubscription() {
                 setError(null);
             }
         }, (err) => {
+            if (err.name === 'AbortError' || err.code === 'cancelled') {
+                console.log('[useSubscription] AbortError ignored');
+                return;
+            }
             console.error("[useSubscription] Error fetching subscription status:", err);
             if (isMounted) {
                 setError(err as Error);

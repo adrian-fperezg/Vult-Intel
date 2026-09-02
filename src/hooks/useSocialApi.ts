@@ -20,10 +20,15 @@ export function useSocialApi() {
   }, [currentUser, activeProjectId]);
 
   const getAccounts = useCallback(async () => {
-    const h = await headers();
-    const res = await fetch(`${BASE_URL}/accounts?project_id=${activeProjectId}`, { headers: h });
-    if (!res.ok) throw new Error(`Failed to fetch accounts: ${res.status}`);
-    return res.json();
+    try {
+      const h = await headers();
+      const res = await fetch(`${BASE_URL}/accounts?project_id=${activeProjectId}`, { headers: h });
+      if (!res.ok) throw new Error(`Failed to fetch accounts: ${res.status}`);
+      return await res.json();
+    } catch (err: any) {
+      if (err.name === 'AbortError') return [];
+      throw err;
+    }
   }, [headers, activeProjectId]);
 
   const deleteAccount = useCallback(async (id: string) => {

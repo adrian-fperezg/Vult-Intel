@@ -88,7 +88,6 @@ export function useUserMetrics(): UseUserMetricsReturn {
                         videosGenerated: data.videosGenerated || 0,
                     });
 
-                    // Calculate limits
                     try {
                         const profile: UserSubscriptionProfile = {
                             currentPlanId: planId,
@@ -98,20 +97,36 @@ export function useUserMetrics(): UseUserMetricsReturn {
                         setTotalLimits(calculatedLimits);
                         setError(null);
                     } catch (err) {
-                        console.error("Error calculating total limits:", err);
-                        setError(err instanceof Error ? err : new Error('Failed to calculate limits'));
+                        console.error('Error calculating limits:', err);
+                        // Fallback to strict zero limits if calculation fails
+                        setTotalLimits({
+                            aiTokens: 0,
+                            deepScans: 0,
+                            images: 0,
+                            videos: 0,
+                        });
                     }
                 } else {
-                    // Document doesn't exist yet, but we have safe defaults set via useState
-                    setError(null);
+                    // Reset if doc doesn't exist
+                    setCurrentPlanId('solo');
+                    setActiveAddons([]);
+                    setTotalLimits({
+                        aiTokens: 0,
+                        deepScans: 0,
+                        images: 0,
+                        videos: 0,
+                    });
                 }
-
                 setLoading(false);
             },
             (err) => {
-                console.error("Error fetching user metrics:", err);
+                if (err.name === 'AbortError' || err.code === 'cancelled') {
+                    console.log('[useUserMetrics] AbortError ignored');
+                    return;
+                }
+                console.error('Error listening to user metrics:', err);
                 if (isMounted) {
-                    setError(err instanceof Error ? err : new Error('Failed to fetch user metrics'));
+                    setError(err as Error);
                     setLoading(false);
                 }
             }

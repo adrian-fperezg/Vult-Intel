@@ -47,6 +47,10 @@ export default function SocialStudioLayout() {
       const data = await api.getAccounts();
       setAccounts(data || []);
     } catch (err: any) {
+      if (err.name === 'AbortError') {
+        console.log('[Accounts] AbortError ignored during cleanup');
+        return;
+      }
       toast.error(err.message);
     } finally { setLoadingAccounts(false); }
   }, [api, api.activeProjectId]);
@@ -61,7 +65,11 @@ export default function SocialStudioLayout() {
       const data = await api.getPosts();
       setPosts(data || []);
     } catch (err: any) {
-      console.error(err);
+      if (err.name === 'AbortError') {
+        console.log('[Posts] AbortError ignored during cleanup');
+        return;
+      }
+      toast.error(err.message);
     } finally { setLoadingPosts(false); }
   }, [api, api.activeProjectId]);
 

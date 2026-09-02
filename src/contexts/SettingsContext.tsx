@@ -117,6 +117,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
                 if (typeof data.appNotifications === 'boolean') setAppNotifications(data.appNotifications);
                 if (data.notificationPrefs) setNotificationPrefs(data.notificationPrefs);
             }
+        }, (err: any) => {
+            if (err.name === 'AbortError' || err.code === 'cancelled') {
+                console.log('[SettingsContext] AbortError ignored');
+                return;
+            }
+            console.error('[SettingsContext] onSnapshot error:', err);
         });
 
         return () => unsubscribe();

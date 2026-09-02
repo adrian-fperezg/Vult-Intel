@@ -58,6 +58,14 @@ export const useCheckout = () => {
                         window.location.assign(url);
                     }
                 }
+            }, (err) => {
+                if (err.name === 'AbortError' || err.code === 'cancelled') {
+                    console.log('[useCheckout] AbortError ignored');
+                    return;
+                }
+                console.error('[useCheckout] onSnapshot error:', err);
+                setError(err.message);
+                setIsLoading(false);
             });
 
         } catch (err: any) {
