@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-import { cn } from '@/lib/utils';
+import { cn, getMediaUrl } from '@/lib/utils';
 import { useSocialApi } from '@/hooks/useSocialApi';
 import {
   Send, Clock, FileEdit, Plus, X, Image, Link2,
@@ -631,7 +631,7 @@ function MediaMapper({
               <div key={accountId} className="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/15">
                 {/* Thumbnail */}
                 <div className="relative size-10 rounded-md overflow-hidden shrink-0 border border-white/10">
-                  <img src={displayUrl} alt="" className="w-full h-full object-cover" />
+                  <img src={getMediaUrl(displayUrl)} alt="" className="w-full h-full object-cover" />
                   {!assignment.uploadedUrl && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                       <RefreshCw className="size-3 text-white animate-spin" />
@@ -687,7 +687,7 @@ function MediaMapper({
           {/* Image preview row */}
           <div className="flex items-start gap-3 p-3 border-b border-white/5">
             <div className="relative size-16 rounded-lg overflow-hidden shrink-0 border border-white/10">
-              <img src={stagingPreviewUrl} alt="" className="w-full h-full object-cover" />
+              <img src={getMediaUrl(stagingPreviewUrl)} alt="" className="w-full h-full object-cover" />
             </div>
             <div className="flex-1 min-w-0 pt-0.5">
               <p className="text-[12px] font-semibold text-white truncate">{stagingFile.name}</p>
@@ -795,7 +795,7 @@ function PlatformPreview({ account, text, mediaUrls, linkUrl, firstComment, cont
         <div className="flex items-center gap-2.5 mb-3">
           <div className="size-9 rounded-full bg-white/5 overflow-hidden border border-white/10 shrink-0">
             {account.avatar_url
-              ? <img src={account.avatar_url} className="w-full h-full object-cover" alt="" />
+              ? <img src={getMediaUrl(account.avatar_url)} className="w-full h-full object-cover" alt="" />
               : <div className="w-full h-full bg-violet-500/20 flex items-center justify-center">
                   <Icon className={cn('size-4', meta.color)} />
                 </div>
@@ -838,7 +838,7 @@ function PlatformPreview({ account, text, mediaUrls, linkUrl, firstComment, cont
               <div key={i} className="aspect-square bg-black/30">
                 {url.match(/\.(mp4|mov)$/i)
                   ? <div className="w-full h-full flex items-center justify-center"><Video className="size-6 text-white/20" /></div>
-                  : <img src={url} className="w-full h-full object-cover" alt="" />
+                  : <img src={getMediaUrl(url)} className="w-full h-full object-cover" alt="" />
                 }
               </div>
             ))}
@@ -885,7 +885,7 @@ function PlatformPreview({ account, text, mediaUrls, linkUrl, firstComment, cont
         <div className="mt-3 flex gap-2 pl-2">
           <div className="size-6 rounded-full bg-white/5 overflow-hidden border border-white/10 shrink-0">
             {account.avatar_url
-              ? <img src={account.avatar_url} className="w-full h-full object-cover" alt="" />
+              ? <img src={getMediaUrl(account.avatar_url)} className="w-full h-full object-cover" alt="" />
               : <div className="w-full h-full bg-violet-500/20" />
             }
           </div>
@@ -940,7 +940,7 @@ function NetworkCard({ account, state, masterBody, isActive, onActivate, onChang
       >
         <div className="size-8 rounded-lg bg-black/20 overflow-hidden flex items-center justify-center shrink-0">
           {account.avatar_url
-            ? <img src={account.avatar_url} className="w-full h-full object-cover" alt="" />
+            ? <img src={getMediaUrl(account.avatar_url)} className="w-full h-full object-cover" alt="" />
             : <Icon className={cn('size-4', meta?.color || 'text-slate-400')} />
           }
         </div>
@@ -1577,7 +1577,7 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
                                 <Video className="size-5 text-white/40" />
                                 <span className="text-[9px] text-white/40 font-medium">VIDEO</span>
                               </div>
-                            : <img src={url} alt="" className="w-full h-full object-cover" />
+                            : <img src={getMediaUrl(url)} alt="" className="w-full h-full object-cover" />
                           }
                           <button onClick={() => setMediaUrls(prev => prev.filter((_, j) => j !== i))}
                             className="absolute top-1 right-1 p-1 bg-black/60 hover:bg-red-500 rounded text-white opacity-0 group-hover:opacity-100 transition-all"
@@ -1712,7 +1712,7 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
                             <div className="absolute -top-1.5 right-3 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/25">
                               <div className="size-3.5 rounded overflow-hidden border border-white/20 shrink-0">
                                 <img
-                                  src={assignedMedia.uploadedUrl || assignedMedia.previewUrl}
+                                  src={getMediaUrl(assignedMedia.uploadedUrl || assignedMedia.previewUrl)}
                                   alt=""
                                   className="w-full h-full object-cover"
                                 />

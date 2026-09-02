@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-import { cn } from '@/lib/utils';
+import { cn, getMediaUrl } from '@/lib/utils';
 import {
   Clock, AlertCircle, FileEdit, Trash2, Send,
   RefreshCw, Linkedin, Twitter, Youtube, Facebook, Instagram, ExternalLink,
@@ -177,7 +177,7 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
                                     <Play className="size-4 text-white" />
                                   </div>
                                 ) : (
-                                  <img src={media[0]} alt="Media" className="w-full h-full object-cover" />
+                                  <img src={getMediaUrl(media[0])} alt="Media" className="w-full h-full object-cover" />
                                 )}
                                 {media.length > 1 && (
                                   <div className="absolute bottom-0.5 right-0.5 bg-black/70 px-1 rounded text-[9px] font-medium text-white">
@@ -364,9 +364,9 @@ function PostDetailModal({
                 {media.map((url: string, i: number) => (
                   <div key={i} className="aspect-square rounded-xl overflow-hidden border border-white/10 bg-black/50 relative group">
                     {url.match(/\.(mp4|mov|webm)$/i) ? (
-                      <video src={url} className="w-full h-full object-cover" controls />
+                      <video src={getMediaUrl(url)} className="w-full h-full object-cover" controls />
                     ) : (
-                      <img src={url} alt={`Media ${i}`} className="w-full h-full object-cover" />
+                      <img src={getMediaUrl(url)} alt={`Media ${i}`} className="w-full h-full object-cover" />
                     )}
                   </div>
                 ))}
@@ -464,9 +464,9 @@ function PostDetailModal({
                               {pMedia.map((url: string, i: number) => (
                                 <div key={i} className="size-16 rounded-lg overflow-hidden border border-white/10 bg-black/50 shrink-0">
                                   {url.match(/\.(mp4|mov|webm)$/i) ? (
-                                    <video src={url} className="w-full h-full object-cover" />
+                                    <video src={getMediaUrl(url)} className="w-full h-full object-cover" />
                                   ) : (
-                                    <img src={url} className="w-full h-full object-cover" />
+                                    <img src={getMediaUrl(url)} className="w-full h-full object-cover" />
                                   )}
                                 </div>
                               ))}
