@@ -4,38 +4,32 @@ import {
   Shield, 
   AlertTriangle, 
   CheckCircle2, 
-  Clock, 
   Activity,
-  ArrowUpRight,
-  ChevronDown,
-  ChevronUp,
-  ExternalLink,
   Lock,
   RefreshCcw,
-  Calendar
+  Database,
+  Server,
+  Zap,
+  Mail,
+  Flame
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTranslation } from '@/contexts/TranslationContext';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
 
-interface RoadmapItem {
-  id: string;
-  title: string;
-  urgency: 'RED' | 'ORANGE' | 'BLUE';
-  dueDate: string;
-  summary: string;
-  fullContext: string;
-  action: string[];
-}
-
-interface DashboardData {
-  success: boolean;
-  data: RoadmapItem[];
-  metadata: {
-    lastUpdated: string;
-    totalTasks: number;
-    criticalTasks: number;
+interface SystemHealth {
+  status: 'ok' | 'error';
+  timestamp: string;
+  uptime: number;
+  dependencies: {
+    postgres?: string;
+    redis?: string;
+    ai_gemini?: string;
+    ai_veo?: string;
+    firebase?: string;
+    gmail_api?: { status: string; connected: number; rateLimited: number };
+    email_imap?: string;
+    [key: string]: any;
   };
 }
 
@@ -43,30 +37,23 @@ const API_BASE = import.meta.env.VITE_OUTREACH_API_URL || import.meta.env.VITE_A
 
 export default function AdminDashboard() {
   const { isFounder, currentUser } = useAuth();
-  const { t } = useTranslation();
-  const [data, setData] = useState<DashboardData | null>(null);
+  const [health, setHealth] = useState<SystemHealth | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
-  const fetchRoadmap = async () => {
+  const fetchHealth = async () => {
     setIsLoading(true);
     try {
-      const token = await currentUser?.getIdToken(true);
-      const response = await fetch(`${API_BASE}/api/admin/roadmap`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const response = await fetch(`${API_BASE}/api/health`);
       
-      if (!response.ok) {
-        throw new Error('Failed to fetch roadmap data');
+      if (!response.ok && response.status !== 503) {
+        throw new Error('Failed to fetch health data');
       }
       
       const json = await response.json();
-      setData(json);
+      setHealth(json);
     } catch (error) {
-      console.error('[ADMIN_ROADMAP_FETCH]', error);
-      toast.error('Failed to load admin roadmap');
+      console.error('[ADMIN_HEALTH_FETCH]', error);
+      toast.error('Failed to load system diagnostics');
     } finally {
       setIsLoading(false);
     }
@@ -74,40 +61,12 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (isFounder) {
-      fetchRoadmap();
+      fetchHealth();
+      // Poll every 30 seconds
+      const interval = setInterval(fetchHealth, 30000);
+      return () => clearInterval(interval);
     }
   }, [isFounder]);
-
-  const toggleExpand = (id: string) => {
-    const newExpanded = new Set(expandedItems);
-    if (newExpanded.has(id)) {
-      newExpanded.delete(id);
-    } else {
-      newExpanded.add(id);
-    }
-    setExpandedItems(newExpanded);
-  };
-
-  const handleViewRaw = async (file: 'roadmap' | 'security') => {
-    try {
-      const token = await currentUser?.getIdToken(true);
-      const response = await fetch(`${API_BASE}/api/admin/roadmap/raw/${file}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) throw new Error('Failed to fetch file');
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      window.open(url, '_blank');
-      // Cleanup URL after some time
-      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
-    } catch (error) {
-      toast.error('Failed to open secure document');
-    }
-  };
 
   if (!isFounder) {
     return (
@@ -123,6 +82,22 @@ export default function AdminDashboard() {
     );
   }
 
+  const formatUptime = (seconds: number) => {
+    const days = Math.floor(seconds / (3600*24));
+    const hours = Math.floor(seconds % (3600*24) / 3600);
+    const mins = Math.floor(seconds % 3600 / 60);
+    return `${days}d ${hours}h ${mins}m`;
+  };
+
+  const isDegraded = health?.status !== 'ok';
+  
+  // Count how many dependencies are in an error state
+  const criticalCount = health ? Object.entries(health.dependencies).filter(([k, v]) => {
+    if (typeof v === 'string') return v.includes('disconnected') || v.includes('missing') || v.includes('uninitialized') || v.includes('unhealthy');
+    if (typeof v === 'object' && v !== null && v.status) return v.status !== 'ok';
+    return false;
+  }).length : 0;
+
   return (
     <div className="max-w-[1600px] mx-auto p-4 md:p-8 lg:p-10 space-y-8">
       {/* Header */}
@@ -132,22 +107,22 @@ export default function AdminDashboard() {
             <div className="p-2 rounded-lg bg-red-500/10">
               <Shield className="size-6 text-red-500" />
             </div>
-            <h1 className="text-3xl font-bold text-white tracking-tight">Platform Admin Portal</h1>
+            <h1 className="text-3xl font-bold text-white tracking-tight">Platform Diagnostics</h1>
           </div>
-          <p className="text-slate-400 font-medium">Strategic Roadmap & Security Protocol Enforcement</p>
+          <p className="text-slate-400 font-medium">Real-time System Health & Monitoring</p>
         </div>
         
         <div className="flex flex-wrap items-center gap-3">
-          {data?.metadata.lastUpdated && (
+          {health?.timestamp && (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10">
-              <Clock className="size-3.5 text-slate-500" />
+              <Activity className="size-3.5 text-slate-500" />
               <span className="text-xs text-slate-500 font-medium tabular-nums">
-                Last updated: {new Date(data.metadata.lastUpdated).toLocaleTimeString()}
+                Last checked: {new Date(health.timestamp).toLocaleTimeString()}
               </span>
             </div>
           )}
           <button 
-            onClick={fetchRoadmap}
+            onClick={fetchHealth}
             disabled={isLoading}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-medium transition-all group"
           >
@@ -162,17 +137,20 @@ export default function AdminDashboard() {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-6 rounded-2xl bg-surface-dark/50 border border-surface-border backdrop-blur-xl relative overflow-hidden group"
+          className={cn("p-6 rounded-2xl border backdrop-blur-xl relative overflow-hidden group",
+            isDegraded ? "bg-orange-500/5 border-orange-500/20" : "bg-emerald-500/5 border-emerald-500/20"
+          )}
         >
-          <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity pointer-events-none">
-            <Activity className="size-24 text-white" />
+          <div className="absolute top-0 right-0 p-8 opacity-[0.05] group-hover:opacity-[0.1] transition-opacity pointer-events-none">
+            <Activity className={cn("size-24", isDegraded ? "text-orange-500" : "text-emerald-500")} />
           </div>
           <div className="space-y-4">
-            <p className="text-sm font-bold text-slate-500 uppercase tracking-wider">Total Active Tasks</p>
+            <p className={cn("text-sm font-bold uppercase tracking-wider", isDegraded ? "text-orange-400" : "text-emerald-400")}>
+              System Status
+            </p>
             <div className="flex items-baseline gap-3">
-              <span className="text-4xl font-bold text-white">{data?.metadata.totalTasks || 0}</span>
-              <span className="text-sm text-blue-400 font-semibold flex items-center gap-1">
-                Roadmap v3.1 <ArrowUpRight className="size-3" />
+              <span className={cn("text-4xl font-bold", isDegraded ? "text-orange-500" : "text-emerald-500")}>
+                {isDegraded ? 'Degraded' : 'Operational'}
               </span>
             </div>
           </div>
@@ -182,16 +160,24 @@ export default function AdminDashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="p-6 rounded-2xl bg-red-500/5 border border-red-500/20 backdrop-blur-xl relative overflow-hidden group"
+          className={cn("p-6 rounded-2xl border backdrop-blur-xl relative overflow-hidden group",
+            criticalCount > 0 ? "bg-red-500/5 border-red-500/20" : "bg-surface-dark/50 border-surface-border"
+          )}
         >
           <div className="absolute top-0 right-0 p-8 opacity-[0.05] group-hover:opacity-[0.1] transition-opacity pointer-events-none">
-            <AlertTriangle className="size-24 text-red-500" />
+            <AlertTriangle className={cn("size-24", criticalCount > 0 ? "text-red-500" : "text-white")} />
           </div>
           <div className="space-y-4">
-            <p className="text-sm font-bold text-red-400/70 uppercase tracking-wider">Critical Priority</p>
+            <p className={cn("text-sm font-bold uppercase tracking-wider", criticalCount > 0 ? "text-red-400" : "text-slate-400")}>
+              Critical Alerts
+            </p>
             <div className="flex items-baseline gap-3">
-              <span className="text-4xl font-bold text-red-500">{data?.metadata.criticalTasks || 0}</span>
-              <span className="text-sm text-red-400/60 font-semibold">Immediate Action Required</span>
+              <span className={cn("text-4xl font-bold", criticalCount > 0 ? "text-red-500" : "text-white")}>
+                {criticalCount}
+              </span>
+              <span className={cn("text-sm font-semibold", criticalCount > 0 ? "text-red-400/60" : "text-slate-500")}>
+                {criticalCount > 0 ? 'Immediate Action Required' : 'All systems go'}
+              </span>
             </div>
           </div>
         </motion.div>
@@ -200,132 +186,83 @@ export default function AdminDashboard() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="p-6 rounded-2xl bg-teal-500/5 border border-teal-500/20 backdrop-blur-xl relative overflow-hidden group"
+          className="p-6 rounded-2xl bg-blue-500/5 border border-blue-500/20 backdrop-blur-xl relative overflow-hidden group"
         >
           <div className="absolute top-0 right-0 p-8 opacity-[0.05] group-hover:opacity-[0.1] transition-opacity pointer-events-none">
-            <Shield className="size-24 text-teal-500" />
+            <Activity className="size-24 text-blue-500" />
           </div>
           <div className="space-y-4">
-            <p className="text-sm font-bold text-teal-400/70 uppercase tracking-wider">Security Protocol</p>
+            <p className="text-sm font-bold text-blue-400/70 uppercase tracking-wider">Backend Uptime</p>
             <div className="flex items-baseline gap-3">
-              <span className="text-4xl font-bold text-teal-500">Active</span>
-              <span className="text-sm text-teal-400/60 font-semibold flex items-center gap-1">
-                L4 Monitoring <CheckCircle2 className="size-3" />
+              <span className="text-4xl font-bold text-blue-500">
+                {health ? formatUptime(health.uptime) : '--'}
               </span>
             </div>
           </div>
         </motion.div>
       </div>
 
-      {/* Roadmap Items Grid */}
+      {/* Diagnostics Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <AnimatePresence mode="popLayout">
-          {isLoading ? (
+          {isLoading && !health ? (
             Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-[200px] rounded-2xl bg-white/5 border border-white/10 animate-pulse" />
+              <div key={i} className="h-[120px] rounded-2xl bg-white/5 border border-white/10 animate-pulse" />
             ))
-          ) : (
-            data?.data.map((item, index) => (
-              <motion.div
-                layout
-                key={item.id}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: index * 0.05 }}
-                className={cn(
-                  "p-6 rounded-2xl border backdrop-blur-md flex flex-col gap-6 group transition-all duration-300",
-                  item.urgency === 'RED' 
-                    ? "bg-red-500/[0.03] border-red-500/20 hover:border-red-500/40" 
-                    : item.urgency === 'ORANGE'
-                      ? "bg-orange-500/[0.03] border-orange-500/20 hover:border-orange-500/40"
-                      : "bg-blue-500/[0.03] border-blue-500/20 hover:border-blue-500/40"
-                )}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-2 flex-1">
-                    <div className="flex items-center gap-3">
-                      <span className={cn(
-                        "px-2 py-0.5 rounded-md text-[10px] font-bold tracking-wider",
-                        item.urgency === 'RED' 
-                          ? "bg-red-500 text-white" 
-                          : item.urgency === 'ORANGE'
-                            ? "bg-orange-500 text-white"
-                            : "bg-blue-500 text-white"
-                      )}>
-                        {item.urgency}
-                      </span>
-                      <span className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
-                        <Calendar className="size-3" />
-                        Due: {item.dueDate}
-                      </span>
-                    </div>
-                    <h3 className="text-xl font-bold text-white group-hover:text-primary transition-colors leading-tight">
-                      {item.title}
-                    </h3>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <p className="text-slate-400 text-[15px] leading-relaxed">
-                    {item.summary}
-                  </p>
-
-                  <div className="flex flex-col gap-3">
-                    <button
-                      onClick={() => toggleExpand(item.id)}
-                      className="flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-white transition-colors w-fit"
-                    >
-                      {expandedItems.has(item.id) ? (
-                        <>Collapse Context <ChevronUp className="size-4" /></>
-                      ) : (
-                        <>View Full Context <ChevronDown className="size-4" /></>
-                      )}
-                    </button>
-
-                    <AnimatePresence>
-                      {expandedItems.has(item.id) && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          className="overflow-hidden space-y-4"
-                        >
-                          <div className="p-4 rounded-xl bg-white/[0.03] border border-white/10 text-sm text-slate-300 leading-relaxed italic">
-                            "{item.fullContext}"
-                          </div>
-
-                          <div className="space-y-2.5">
-                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                              <Lock className="size-3" /> Action Items
-                            </h4>
-                            <ul className="space-y-2">
-                              {item.action.map((action, i) => (
-                                <li key={i} className="flex items-start gap-3 text-sm text-slate-400 group/item">
-                                  <div className="size-1.5 rounded-full bg-primary/40 mt-1.5 shrink-0 group-hover/item:bg-primary transition-colors" />
-                                  <span>{action}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </div>
-
-                <div className="mt-auto pt-6 border-t border-white/5 flex items-center justify-between">
-                  <div className="flex -space-x-2">
-                    <div className="size-7 rounded-full bg-surface-border border-2 border-[#12141a] flex items-center justify-center text-[10px] font-bold text-slate-400">
-                      AF
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600 uppercase tracking-widest">
-                    <Lock className="size-3" /> Encrypted Access
-                  </div>
-                </div>
-              </motion.div>
-            ))
-          )}
+          ) : health ? (
+            <>
+              {/* PostgreSQL */}
+              <DiagnosticCard 
+                title="PostgreSQL Database" 
+                icon={<Database className="size-5" />} 
+                value={health.dependencies.postgres || 'Unknown'} 
+                isHealthy={health.dependencies.postgres?.includes('connected')}
+                details={health.dependencies.postgres}
+              />
+              {/* Firebase */}
+              <DiagnosticCard 
+                title="Firebase Admin SDK" 
+                icon={<Flame className="size-5" />} 
+                value={health.dependencies.firebase === 'initialized' ? 'Initialized' : 'Error'} 
+                isHealthy={health.dependencies.firebase === 'initialized'}
+                details="Authentication & Firestore connection"
+              />
+              {/* Redis */}
+              <DiagnosticCard 
+                title="Redis Cache / Queue" 
+                icon={<Server className="size-5" />} 
+                value={health.dependencies.redis || 'Unknown'} 
+                isHealthy={health.dependencies.redis?.includes('connected')}
+                details="BullMQ and Caching infrastructure"
+              />
+              {/* AI Gemini */}
+              <DiagnosticCard 
+                title="Google Gemini AI" 
+                icon={<Zap className="size-5" />} 
+                value={health.dependencies.ai_gemini === 'configured' ? 'Configured' : 'Missing API Key'} 
+                isHealthy={health.dependencies.ai_gemini === 'configured'}
+                details="Main AI provider for generation"
+              />
+              {/* Gmail API */}
+              <DiagnosticCard 
+                title="Gmail API Infrastructure" 
+                icon={<Mail className="size-5" />} 
+                value={health.dependencies.gmail_api?.status === 'ok' ? 'Operational' : 'Degraded'} 
+                isHealthy={health.dependencies.gmail_api?.status === 'ok'}
+                details={health.dependencies.gmail_api 
+                  ? `Connected Mailboxes: ${health.dependencies.gmail_api.connected} | Rate Limited: ${health.dependencies.gmail_api.rateLimited}` 
+                  : 'N/A'}
+              />
+              {/* IMAP */}
+              <DiagnosticCard 
+                title="IMAP Reply Tracking" 
+                icon={<Mail className="size-5" />} 
+                value={health.dependencies.email_imap?.includes('healthy') ? 'Healthy' : 'Unhealthy'} 
+                isHealthy={health.dependencies.email_imap?.includes('healthy')}
+                details={health.dependencies.email_imap}
+              />
+            </>
+          ) : null}
         </AnimatePresence>
       </div>
 
@@ -335,21 +272,47 @@ export default function AdminDashboard() {
           <Shield className="size-3" /> 
           Vult Intel Administrator Control Panel — Unauthorized access is prohibited.
         </p>
-        <div className="flex items-center gap-6">
-          <button 
-            onClick={() => handleViewRaw('security')}
-            className="text-xs text-slate-500 hover:text-white transition-colors flex items-center gap-1.5 font-medium"
-          >
-            Security Protocol <ExternalLink className="size-3" />
-          </button>
-          <button 
-            onClick={() => handleViewRaw('roadmap')}
-            className="text-xs text-slate-500 hover:text-white transition-colors flex items-center gap-1.5 font-medium"
-          >
-            Raw Roadmap <ExternalLink className="size-3" />
-          </button>
-        </div>
       </div>
     </div>
+  );
+}
+
+function DiagnosticCard({ title, icon, value, isHealthy, details }: { title: string, icon: React.ReactNode, value: string, isHealthy: boolean | undefined, details?: string }) {
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className={cn(
+        "p-6 rounded-2xl border backdrop-blur-md flex flex-col gap-4 group transition-all duration-300",
+        isHealthy 
+          ? "bg-emerald-500/[0.03] border-emerald-500/20" 
+          : "bg-red-500/[0.03] border-red-500/20"
+      )}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className={cn(
+            "p-2 rounded-lg",
+            isHealthy ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
+          )}>
+            {icon}
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-white leading-tight">{title}</h3>
+            {details && <p className="text-xs text-slate-500 font-medium mt-1">{details}</p>}
+          </div>
+        </div>
+        <span className={cn(
+          "px-2.5 py-1 rounded-md text-xs font-bold tracking-wider flex items-center gap-1.5",
+          isHealthy 
+            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
+            : "bg-red-500/10 text-red-400 border border-red-500/20"
+        )}>
+          {isHealthy ? <CheckCircle2 className="size-3" /> : <AlertTriangle className="size-3" />}
+          {value}
+        </span>
+      </div>
+    </motion.div>
   );
 }
