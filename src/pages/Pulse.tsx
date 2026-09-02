@@ -19,7 +19,8 @@ import {
   BarChart3,
   Zap,
   Trash2,
-  Activity
+  Activity,
+  FileText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
