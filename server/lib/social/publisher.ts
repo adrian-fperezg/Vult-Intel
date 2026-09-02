@@ -18,6 +18,12 @@ export class PartialPublishError extends Error {
   }
 }
 
+// Small utility – waits ms milliseconds before resolving
+const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
+
+// Delay before posting a first comment so the platform has time to index the post
+const COMMENT_DELAY_MS = 20_000;
+
 // ─── PLATFORM PUBLISHERS ──────────────────────────────────────────────────────
 
 async function publishToLinkedIn(account: any, post: any): Promise<string> {
@@ -110,6 +116,7 @@ async function publishToLinkedIn(account: any, post: any): Promise<string> {
   const urn = res.headers.get('x-restli-id') || (data && data.id) || 'linkedin_post';
 
   if (post.first_comment && urn && urn !== 'linkedin_post') {
+    await sleep(COMMENT_DELAY_MS);
     const commentRes = await fetch(`https://api.linkedin.com/rest/socialActions/${urn}/comments`, {
       method: 'POST',
       headers,
@@ -169,6 +176,7 @@ async function publishToFacebook(account: any, post: any): Promise<string> {
     if (feedData.error) throw new Error(feedData.error.message);
     
     if (post.first_comment && feedData.id) {
+      await sleep(COMMENT_DELAY_MS);
       const commentRes = await fetch(`https://graph.facebook.com/v19.0/${feedData.id}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -223,6 +231,7 @@ async function publishToFacebook(account: any, post: any): Promise<string> {
       if (data.error) throw new Error(data.error.message);
 
       if (post.first_comment && data.id) {
+        await sleep(COMMENT_DELAY_MS);
         const commentRes = await fetch(`https://graph.facebook.com/v19.0/${data.id}/comments`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -251,6 +260,7 @@ async function publishToFacebook(account: any, post: any): Promise<string> {
     if (data.error) throw new Error(data.error.message);
 
     if (post.first_comment && data.id) {
+      await sleep(COMMENT_DELAY_MS);
       const commentRes = await fetch(`https://graph.facebook.com/v19.0/${data.id}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -402,6 +412,7 @@ async function publishToInstagram(account: any, post: any): Promise<string> {
   if (pubData.error) throw new Error(pubData.error.message);
   
   if (post.first_comment && pubData.id) {
+    await sleep(COMMENT_DELAY_MS);
     const commentRes = await fetch(`https://graph.facebook.com/v19.0/${pubData.id}/comments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -479,6 +490,7 @@ async function publishToTwitter(account: any, post: any): Promise<string> {
   }
 
   if (post.first_comment && tweetId !== 'tweet') {
+    await sleep(COMMENT_DELAY_MS);
     try {
       await twitterClient.v2.tweet({
         text: post.first_comment.slice(0, 280),
@@ -604,6 +616,42 @@ async function publishToThreads(account: any, post: any): Promise<string> {
   });
   const pubData = await pubRes.json() as any;
   if (pubData.error || !pubRes.ok) throw new Error(pubData.error?.message || JSON.stringify(pubData));
+
+  // First comment: post a reply thread after a delay so the main post is indexed
+  if (post.first_comment && pubData.id) {
+    await sleep(COMMENT_DELAY_MS);
+    try {
+      // Create a reply container
+      const replyContainerRes = await fetch(`https://graph.threads.net/v1.0/${threadsUserId}/threads`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          media_type: 'TEXT',
+          text: post.first_comment,
+          reply_to_id: pubData.id,
+          access_token: token
+        })
+      });
+      const replyContainer = await replyContainerRes.json() as any;
+      if (replyContainer.error || !replyContainer.id) {
+        throw new PartialPublishError('First comment failed: ' + (replyContainer.error?.message || JSON.stringify(replyContainer)), pubData.id);
+      }
+      // Publish the reply
+      const replyPubRes = await fetch(`https://graph.threads.net/v1.0/${threadsUserId}/threads_publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ creation_id: replyContainer.id, access_token: token }).toString()
+      });
+      const replyPubData = await replyPubRes.json() as any;
+      if (replyPubData.error) {
+        throw new PartialPublishError('First comment publish failed: ' + replyPubData.error.message, pubData.id);
+      }
+    } catch (e: any) {
+      if (e.name === 'PartialPublishError') throw e;
+      throw new PartialPublishError('First comment failed: ' + e.message, pubData.id);
+    }
+  }
+
   return pubData.id;
 }
 
@@ -623,6 +671,7 @@ async function publishToAccount(account: any, post: any): Promise<string> {
   const postForAccount = {
     ...post,
     body: account.custom_body || post.body,
+    first_comment: account.first_comment || post.first_comment || null,
     media_urls: platformOptions.media_urls?.length ? platformOptions.media_urls : post.media_urls
   };
   
