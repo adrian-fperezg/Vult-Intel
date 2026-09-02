@@ -28,7 +28,7 @@ interface SystemHealth {
     ai_veo?: string;
     firebase?: string;
     gmail_api?: { status: string; connected: number; rateLimited: number };
-    email_imap?: string;
+    email_imap?: { status: string; error?: string };
     [key: string]: any;
   };
 }
@@ -94,7 +94,7 @@ export default function AdminDashboard() {
   // Count how many dependencies are in an error state
   const criticalCount = health ? Object.entries(health.dependencies).filter(([k, v]) => {
     if (typeof v === 'string') return v.includes('disconnected') || v.includes('missing') || v.includes('uninitialized') || v.includes('unhealthy');
-    if (typeof v === 'object' && v !== null && v.status) return v.status !== 'ok';
+    if (typeof v === 'object' && v !== null && v.status) return v.status !== 'ok' && v.status !== 'connected';
     return false;
   }).length : 0;
 
@@ -257,9 +257,9 @@ export default function AdminDashboard() {
               <DiagnosticCard 
                 title="IMAP Reply Tracking" 
                 icon={<Mail className="size-5" />} 
-                value={health.dependencies.email_imap?.includes('healthy') ? 'Healthy' : 'Unhealthy'} 
-                isHealthy={health.dependencies.email_imap?.includes('healthy')}
-                details={health.dependencies.email_imap}
+                value={health.dependencies.email_imap?.status === 'connected' ? 'Healthy' : 'Unhealthy'} 
+                isHealthy={health.dependencies.email_imap?.status === 'connected'}
+                details={health.dependencies.email_imap?.error || health.dependencies.email_imap?.status}
               />
             </>
           ) : null}
