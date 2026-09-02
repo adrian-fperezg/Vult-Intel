@@ -267,48 +267,12 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         <div className="max-w-7xl mx-auto p-6 md:p-8 flex flex-col lg:flex-row gap-8 items-start min-h-full">
           
-          {/* LEFT COLUMN: HISTORY / PUBLISHED */}
-          <div className="flex-1 w-full lg:w-1/2 flex flex-col gap-4">
-            <div className="flex items-center gap-2 mb-2 sticky top-0 bg-[#0d1117] py-2 z-10">
-              <div className="size-2 rounded-full bg-emerald-500" />
-              <h2 className="text-sm font-bold uppercase tracking-widest text-slate-300">
-                {t('queue.history', { defaultValue: 'History' })} 
-                <span className="text-slate-500 font-normal ml-2 lowercase">({publishedPosts.length} published)</span>
-              </h2>
-            </div>
-            
-            {publishedPosts.length === 0 ? (
-              <div className="text-center py-16 border border-dashed border-white/10 rounded-2xl bg-white/[0.01]">
-                <p className="text-[13px] text-slate-500">No published posts yet.</p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-4 relative">
-                {/* Visual timeline line */}
-                <div className="absolute left-6 top-6 bottom-6 w-px bg-emerald-500/10 pointer-events-none" />
-                
-                {publishedPosts.map(post => (
-                  <PostCard 
-                    key={post.id} 
-                    post={post} 
-                    style={STATUS_STYLES.published} 
-                    onClick={() => setActivePostId(post.id)}
-                    onEdit={onEdit}
-                    onRefresh={onRefresh}
-                    api={api}
-                    workingId={workingId}
-                    setWorkingId={setWorkingId}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* RIGHT COLUMN: QUEUE / SCHEDULED */}
+          {/* LEFT COLUMN: QUEUE / SCHEDULED */}
           <div className="flex-1 w-full lg:w-1/2 flex flex-col gap-4">
             <div className="flex items-center gap-2 mb-2 sticky top-0 bg-[#0d1117] py-2 z-10">
               <div className="size-2 rounded-full bg-violet-500" />
               <h2 className="text-sm font-bold uppercase tracking-widest text-slate-300">
-                {t('queue.scheduled', { defaultValue: 'Queue' })} 
+                Scheduled Queue 
                 <span className="text-slate-500 font-normal ml-2 lowercase">({queuePosts.length} upcoming)</span>
               </h2>
             </div>
@@ -339,6 +303,42 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
                     />
                   );
                 })}
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT COLUMN: HISTORY / PUBLISHED */}
+          <div className="flex-1 w-full lg:w-1/2 flex flex-col gap-4">
+            <div className="flex items-center gap-2 mb-2 sticky top-0 bg-[#0d1117] py-2 z-10">
+              <div className="size-2 rounded-full bg-emerald-500" />
+              <h2 className="text-sm font-bold uppercase tracking-widest text-slate-300">
+                Published History 
+                <span className="text-slate-500 font-normal ml-2 lowercase">({publishedPosts.length} published)</span>
+              </h2>
+            </div>
+            
+            {publishedPosts.length === 0 ? (
+              <div className="text-center py-16 border border-dashed border-white/10 rounded-2xl bg-white/[0.01]">
+                <p className="text-[13px] text-slate-500">No published posts yet.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4 relative">
+                {/* Visual timeline line */}
+                <div className="absolute left-6 top-6 bottom-6 w-px bg-emerald-500/10 pointer-events-none" />
+                
+                {publishedPosts.map(post => (
+                  <PostCard 
+                    key={post.id} 
+                    post={post} 
+                    style={STATUS_STYLES.published} 
+                    onClick={() => setActivePostId(post.id)}
+                    onEdit={onEdit}
+                    onRefresh={onRefresh}
+                    api={api}
+                    workingId={workingId}
+                    setWorkingId={setWorkingId}
+                  />
+                ))}
               </div>
             )}
           </div>
