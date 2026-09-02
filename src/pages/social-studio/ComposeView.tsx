@@ -145,6 +145,7 @@ interface ComposeViewProps {
   loadingAccounts: boolean;
   onPostCreated: () => void;
   onNavigateToAccounts: () => void;
+  initialPost?: any; // NEW
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -1095,6 +1096,91 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
     });
   };
 
+  useEffect(() => {
+    if (initialPost) {
+      setBody(initialPost.body || '');
+      // Parse media_urls safely
+      let m: string[] = [];
+      try {
+        m = typeof initialPost.media_urls === 'string' ? JSON.parse(initialPost.media_urls) : initialPost.media_urls;
+      } catch (e) {}
+      setMediaUrls(Array.isArray(m) ? m.filter(u => typeof u === 'string') : []);
+      
+      setLinkUrl(initialPost.link_url || '');
+      setShowLinkInput(!!initialPost.link_url);
+      
+      if (initialPost.scheduled_at) {
+        // datetime-local expects YYYY-MM-DDThh:mm format in local time
+        const date = new Date(initialPost.scheduled_at);
+        const offset = date.getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(date.getTime() - offset)).toISOString().slice(0, 16);
+        setScheduledAt(localISOTime);
+      }
+      
+      const newSelected = new Set<string>();
+      const newNetStates: Record<string, NetworkState> = {};
+      const newMediaMapping: MediaMapping = {};
+      
+      let initialTargets = [];
+      try {
+        initialTargets = typeof initialPost.targets === 'string' ? JSON.parse(initialPost.targets) : initialPost.targets;
+      } catch (e) {}
+      
+      if (Array.isArray(initialTargets)) {
+        initialTargets.forEach((t: any) => {
+          newSelected.add(t.social_account_id);
+          let po: any = {};
+          if (t.platform_options) {
+            try { po = typeof t.platform_options === 'string' ? JSON.parse(t.platform_options) : t.platform_options; } catch(e) {}
+          }
+          
+          const platform = t.platform;
+          const defaultState = defaultNetworkState(platform);
+          
+          newNetStates[t.social_account_id] = {
+            ...defaultState,
+            customBody: t.custom_body, // can be null/undefined, meaning fallback to global
+            firstComment: t.first_comment || '',
+            contentType: po.contentType || defaultState.contentType,
+            twitterReplySettings: po.replySettings || defaultState.twitterReplySettings,
+            twitterThread: po.thread || defaultState.twitterThread,
+            twitterPoll: po.poll || defaultState.twitterPoll,
+            linkedinVisibility: po.visibility || defaultState.linkedinVisibility,
+            linkedinPoll: po.poll || defaultState.linkedinPoll,
+            instagramAltText: po.altText || defaultState.instagramAltText,
+            instagramLocation: po.location || defaultState.instagramLocation,
+            instagramCollabAccount: po.collabAccount || defaultState.instagramCollabAccount,
+            youtubeVisibility: po.visibility || defaultState.youtubeVisibility,
+            youtubePoll: po.poll || defaultState.youtubePoll,
+            tiktokPrivacy: po.privacy || defaultState.tiktokPrivacy,
+            tiktokAllowComments: po.allowComments ?? defaultState.tiktokAllowComments,
+            tiktokAllowDuet: po.allowDuet ?? defaultState.tiktokAllowDuet,
+            tiktokAllowStitch: po.allowStitch ?? defaultState.tiktokAllowStitch,
+            threadsReplySettings: po.replySettings || defaultState.threadsReplySettings
+          };
+          
+          if (po.media_urls && Array.isArray(po.media_urls) && po.media_urls.length > 0) {
+            newMediaMapping[t.social_account_id] = {
+              previewUrl: po.media_urls[0],
+              uploadedUrl: po.media_urls[0],
+              fileName: 'Custom Media'
+            };
+          }
+        });
+      }
+      
+      setSelectedAccountIds(newSelected);
+      setNetworkStates(newNetStates);
+      setMediaMapping(newMediaMapping);
+      
+      if (newSelected.size > 0 && Array.isArray(initialTargets)) {
+        // If any target has custom body or thread or specific media, turn on customize mode
+        const hasCustom = initialTargets.some((t: any) => t.custom_body || t.first_comment || (t.platform_options && t.platform_options.includes('media_urls')));
+        setCustomizePerNetwork(hasCustom);
+      }
+    }
+  }, [initialPost]);
+
   // Lowest char limit across selected platforms
   const lowestCharLimit = (() => {
     const limits = Array.from(selectedAccountIds)
@@ -1354,7 +1440,7 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
         }
       }
 
-      const post = await api.createPost({
+      const payload = {
         body,
         link_url: linkUrl || undefined,
         media_urls: mediaUrls.length > 0 ? mediaUrls : undefined,
@@ -1365,7 +1451,14 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
         network_first_comments: Object.keys(network_first_comments).length > 0 ? network_first_comments : undefined,
         network_options: Object.keys(network_options).length > 0 ? network_options : undefined,
         network_media_urls: Object.keys(network_media_urls).length > 0 ? network_media_urls : undefined,
-      });
+      };
+
+      let post;
+      if (initialPost?.id) {
+        post = await api.updatePost(initialPost.id, payload);
+      } else {
+        post = await api.createPost(payload);
+      }
 
       if (mode === 'now') {
         try {

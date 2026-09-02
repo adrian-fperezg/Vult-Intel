@@ -32,6 +32,7 @@ export default function SocialStudioLayout() {
   const [posts, setPosts] = useState<any[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(true);
   const [loadingPosts, setLoadingPosts] = useState(true);
+  const [postToEdit, setPostToEdit] = useState<any>(null); // NEW
 
   const activeTab = (searchParams.get('tab') as Tab) || 'compose';
   const setTab = (tab: Tab) => setSearchParams({ tab });
@@ -110,7 +111,10 @@ export default function SocialStudioLayout() {
           return (
             <button
               key={tab.id}
-              onClick={() => setTab(tab.id)}
+              onClick={() => {
+                setTab(tab.id);
+                if (tab.id !== 'compose') setPostToEdit(null); // Clear on tab switch
+              }}
               className={cn(
                 "relative flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium transition-all duration-150 border-b-2",
                 isActive
@@ -142,8 +146,13 @@ export default function SocialStudioLayout() {
                 <ComposeView
                   accounts={accounts}
                   loadingAccounts={loadingAccounts}
-                  onPostCreated={loadPosts}
+                  onPostCreated={() => {
+                    setPostToEdit(null);
+                    setTab('queue');
+                    loadPosts();
+                  }}
                   onNavigateToAccounts={() => setTab('accounts')}
+                  initialPost={postToEdit}
                 />
               )}
               {activeTab === 'queue' && (
@@ -152,6 +161,10 @@ export default function SocialStudioLayout() {
                   loading={loadingPosts}
                   onRefresh={loadPosts}
                   api={api}
+                  onEdit={(post) => {
+                    setPostToEdit(post);
+                    setTab('compose');
+                  }}
                 />
               )}
               {activeTab === 'calendar' && (

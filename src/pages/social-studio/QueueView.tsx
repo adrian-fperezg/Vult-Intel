@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { safeParseArray, safeFormatDate } from '@/utils/socialParsers';
 import { STATUS_STYLES, KNOWN_STATUSES } from '@/constants/socialStatus';
+import { useTranslation } from '@/contexts/TranslationContext';
 
 // ─── Platform icon map ────────────────────────────────────────────────────────
 
@@ -30,6 +31,7 @@ interface QueueViewProps {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function QueueView({ posts, loading, onRefresh, api, onEdit }: QueueViewProps) {
+  const { t } = useTranslation();
   // P2.11: store only the ID, derive post on each render
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const [workingId, setWorkingId] = useState<string | null>(null);
@@ -49,14 +51,14 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm('Are you sure you want to delete this post?')) return;
-    wrapAction(id, () => api.deletePost(id), 'Post deleted');
+    if (!confirm(t('queue.confirmDelete', 'Are you sure you want to delete this post?'))) return;
+    wrapAction(id, () => api.deletePost(id), t('queue.postDeleted', 'Post deleted'));
   };
 
-  const handlePublishNow = (id: string) => wrapAction(id, () => api.publishNow(id), '🚀 Published!');
-  const handlePause = (id: string) => wrapAction(id, () => api.pausePost(id), 'Post paused');
-  const handleResume = (id: string) => wrapAction(id, () => api.resumePost(id), 'Post resumed');
-  const handleRetry = (id: string) => wrapAction(id, () => api.retryPost(id), 'Retrying post...');
+  const handlePublishNow = (id: string) => wrapAction(id, () => api.publishNow(id), '🚀 ' + t('queue.published', 'Published!'));
+  const handlePause = (id: string) => wrapAction(id, () => api.pausePost(id), t('queue.postPaused', 'Post paused'));
+  const handleResume = (id: string) => wrapAction(id, () => api.resumePost(id), t('queue.postResumed', 'Post resumed'));
+  const handleRetry = (id: string) => wrapAction(id, () => api.retryPost(id), t('queue.retrying', 'Retrying post...'));
 
   if (loading) return (
     <div className="flex items-center justify-center h-full">
@@ -149,7 +151,7 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
 
                             {/* Body Excerpt */}
                             <p className="text-[13px] text-slate-200 leading-relaxed line-clamp-2 pr-6">
-                              {post.body || <span className="italic text-slate-500">No text content...</span>}
+                              {post.body || <span className="italic text-slate-500">{t('queue.noTextContent', 'No text content...')}</span>}
                             </p>
 
                             {/* Error inline alert if failed */}
@@ -188,47 +190,45 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
                         </div>
 
                         {/* P1.5: pointer-events-none when invisible to prevent mobile tap-through */}
-                        <div
-                          className="absolute inset-y-0 right-0 pr-4 flex items-center opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity"
+                        <div className="absolute inset-y-0 right-0 pr-4 flex items-center opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity"
                           onClick={e => e.stopPropagation()}
                         >
                           <div className="flex items-center gap-1.5 bg-[#161b22] p-1.5 rounded-xl border border-white/10 shadow-xl">
 
                             {post.status === 'scheduled' && (
                               <>
-                                <button onClick={() => handlePause(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-amber-500/10 text-slate-400 hover:text-amber-400" title="Pause">
+                                <button onClick={() => handlePause(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-amber-500/10 text-slate-400 hover:text-amber-400" title={t('queue.pause', 'Pause')}>
                                   <Pause className="size-3.5" />
                                 </button>
                                 <button onClick={() => {
                                   if (onEdit) onEdit(post);
-                                  else toast("Edit coming soon");
-                                }} className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white" title="Edit">
+                                }} className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white" title={t('queue.edit', 'Edit')}>
                                   <FileEdit className="size-3.5" />
                                 </button>
                               </>
                             )}
 
                             {post.status === 'paused' && (
-                              <button onClick={() => handleResume(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-blue-500/10 text-slate-400 hover:text-blue-400" title="Resume">
+                              <button onClick={() => handleResume(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-blue-500/10 text-slate-400 hover:text-blue-400" title={t('queue.resume', 'Resume')}>
                                 <Play className="size-3.5" />
                               </button>
                             )}
 
                             {post.status === 'failed' && (
-                              <button onClick={() => handleRetry(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-violet-500/10 text-slate-400 hover:text-violet-400" title="Retry">
+                              <button onClick={() => handleRetry(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-violet-500/10 text-slate-400 hover:text-violet-400" title={t('queue.retry', 'Retry')}>
                                 <RefreshCw className="size-3.5" />
                               </button>
                             )}
 
                             {(post.status === 'draft' || post.status === 'scheduled') && (
-                              <button onClick={() => handlePublishNow(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-400" title="Publish Now">
+                              <button onClick={() => handlePublishNow(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-400" title={t('queue.publishNow', 'Publish Now')}>
                                 <Send className="size-3.5" />
                               </button>
                             )}
 
                             <div className="w-[1px] h-4 bg-white/10 mx-1" />
 
-                            <button onClick={() => handleDelete(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-red-500/10 text-slate-400 hover:text-red-400" title="Delete">
+                            <button onClick={() => handleDelete(post.id)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-red-500/10 text-slate-400 hover:text-red-400" title={t('queue.delete', 'Delete')}>
                               <Trash2 className="size-3.5" />
                             </button>
                           </div>
@@ -257,7 +257,6 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
             onRetry={() => handleRetry(activePost.id)}
             onEdit={() => {
               if (onEdit) onEdit(activePost);
-              else toast("Edit coming soon");
             }}
           />
         )}
@@ -272,6 +271,7 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
 function PostDetailModal({
   post, onClose, workingId, onDelete, onPublishNow, onPause, onResume, onRetry, onEdit
 }: any) {
+  const { t } = useTranslation();
   const [showRawError, setShowRawError] = useState(false);
   // P1.1: safe parsing in modal
   const targets = safeParseArray<any>(post.targets);
@@ -300,14 +300,13 @@ function PostDetailModal({
               <style.icon className={cn("size-4", style.color)} />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-white">Post Details</h2>
+              <h2 className="text-sm font-semibold text-white">{t('queue.postDetails', 'Post Details')}</h2>
               <div className="text-[11px] text-slate-400 mt-0.5">
-                {/* P1.1: safe date formatting */}
                 {post.scheduled_at
-                  ? `Scheduled for ${safeFormatDate(post.scheduled_at, 'MMMM d, yyyy h:mm a')}`
+                  ? `${t('queue.scheduledFor', 'Scheduled for')} ${safeFormatDate(post.scheduled_at, 'MMMM d, yyyy h:mm a')}`
                   : post.published_at
-                    ? `Published on ${safeFormatDate(post.published_at, 'MMMM d, yyyy')}`
-                    : 'No date scheduled'}
+                    ? `${t('queue.publishedOn', 'Published on')} ${safeFormatDate(post.published_at, 'MMMM d, yyyy')}`
+                    : t('queue.noDate', 'No date scheduled')}
               </div>
             </div>
           </div>
@@ -325,7 +324,7 @@ function PostDetailModal({
               <div className="flex gap-3">
                 <AlertCircle className="size-5 text-red-400 shrink-0" />
                 <div>
-                  <h3 className="text-[13px] font-semibold text-red-200">Publishing Failed</h3>
+                  <h3 className="text-[13px] font-semibold text-red-200">{t('queue.publishingFailed', 'Publishing Failed')}</h3>
                   <p className="text-[12px] text-red-300 mt-1">{post.error_message}</p>
                 </div>
               </div>
@@ -337,7 +336,7 @@ function PostDetailModal({
                     className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-300 font-medium"
                   >
                     {showRawError ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
-                    View raw error details
+                    {t('queue.viewRawError', 'View raw error details')}
                   </button>
                   {showRawError && (
                     <pre className="mt-2 p-3 bg-black/40 rounded-lg text-[10px] text-red-300 overflow-x-auto border border-red-500/10 whitespace-pre-wrap break-all">
@@ -351,16 +350,16 @@ function PostDetailModal({
 
           {/* Body */}
           <div>
-            <h4 className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-2">Content</h4>
+            <h4 className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-2">{t('queue.content', 'Content')}</h4>
             <div className="bg-white/[0.02] border border-white/5 rounded-xl p-4 text-[13px] text-slate-300 leading-relaxed whitespace-pre-wrap">
-              {post.body || <span className="italic text-slate-600">No body text</span>}
+              {post.body || <span className="italic text-slate-600">{t('queue.noBodyText', 'No body text')}</span>}
             </div>
           </div>
 
           {/* Media Grid */}
           {media.length > 0 && (
             <div>
-              <h4 className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-2">Media ({media.length})</h4>
+              <h4 className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-2">{t('queue.media', 'Media')} ({media.length})</h4>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {media.map((url: string, i: number) => (
                   <div key={i} className="aspect-square rounded-xl overflow-hidden border border-white/10 bg-black/50 relative group">
@@ -377,33 +376,34 @@ function PostDetailModal({
 
           {/* Targets */}
           <div>
-            <h4 className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-2">Platforms</h4>
+            <h4 className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-2">{t('queue.platforms', 'Platforms')}</h4>
             <div className="space-y-3">
-              {targets.map((t: any) => {
-                const Icon = PLATFORM_ICONS[t.platform] || ExternalLink;
-                const isFailed = t.status === 'failed';
-                const isPub = t.status === 'published';
+              {targets.map((tItem: any) => {
+                const Icon = PLATFORM_ICONS[tItem.platform] || ExternalLink;
+                const isFailed = tItem.status === 'failed';
+                const isPub = tItem.status === 'published';
                 
                 // Parse platform_options safely
                 let po: any = {};
-                if (t.platform_options) {
+                if (tItem.platform_options) {
                   try {
-                    po = typeof t.platform_options === 'string' ? JSON.parse(t.platform_options) : t.platform_options;
+                    po = typeof tItem.platform_options === 'string' ? JSON.parse(tItem.platform_options) : tItem.platform_options;
                   } catch (e) {}
                 }
-                const customBody = t.custom_body;
-                const firstComment = t.first_comment;
-                const pMedia = po.media_urls && Array.isArray(po.media_urls) ? po.media_urls : [];
+                // Use fallback to global content as requested
+                const displayBody = tItem.custom_body || post.body;
+                const firstComment = tItem.first_comment || post.first_comment;
+                const pMedia = po.media_urls && Array.isArray(po.media_urls) && po.media_urls.length > 0 ? po.media_urls : media;
                 const thread = po.thread && Array.isArray(po.thread) ? po.thread : [];
 
                 return (
-                  <div key={t.id} className="flex flex-col bg-white/[0.02] border border-white/5 rounded-xl p-4">
+                  <div key={tItem.id} className="flex flex-col bg-white/[0.02] border border-white/5 rounded-xl p-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2.5">
                         <div className="size-7 rounded-full bg-[#1e2329] border border-slate-700 flex items-center justify-center">
                           <Icon className="size-3.5 text-slate-300" />
                         </div>
-                        <span className="text-[13px] font-medium text-slate-200 capitalize">{t.platform}</span>
+                        <span className="text-[13px] font-medium text-slate-200 capitalize">{tItem.platform}</span>
                       </div>
                       <div className={cn(
                         "text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full border",
@@ -411,30 +411,32 @@ function PostDetailModal({
                         isPub ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
                         "bg-white/5 text-slate-400 border-white/10"
                       )}>
-                        {t.status}
+                        {tItem.status}
                       </div>
                     </div>
 
-                    {isFailed && t.error_message && (
+                    {isFailed && tItem.error_message && (
                       <div className="mt-2 text-[11px] text-red-300 bg-red-500/5 p-2 rounded-lg border border-red-500/10">
-                        {t.error_message}
+                        {tItem.error_message}
                       </div>
                     )}
 
-                    {/* Tailored content block */}
-                    {(customBody || firstComment || thread.length > 0 || pMedia.length > 0) && (
+                    {/* Tailored/Global content block for this platform */}
+                    {(displayBody || firstComment || thread.length > 0 || pMedia.length > 0) && (
                       <div className="space-y-3 pt-3 mt-2 border-t border-white/5">
-                        {customBody && (
+                        {displayBody && (
                           <div>
-                            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">Custom Copy</span>
+                            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">
+                              {tItem.custom_body ? t('queue.customCopy', 'Custom Copy') : t('queue.copy', 'Copy')}
+                            </span>
                             <div className="text-[12px] text-slate-300 whitespace-pre-wrap bg-black/20 p-2.5 rounded-lg border border-white/5">
-                              {customBody}
+                              {displayBody}
                             </div>
                           </div>
                         )}
                         {thread.length > 0 && (
                           <div>
-                            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">Thread Tweets</span>
+                            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">{t('queue.threadTweets', 'Thread Tweets')}</span>
                             <div className="space-y-2">
                               {thread.map((tw: string, idx: number) => (
                                 <div key={idx} className="text-[12px] text-slate-300 whitespace-pre-wrap bg-black/20 p-2.5 rounded-lg border border-white/5 relative pl-7">
@@ -447,7 +449,7 @@ function PostDetailModal({
                         )}
                         {firstComment && (
                           <div>
-                            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">First Comment</span>
+                            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">{t('queue.firstComment', 'First Comment')}</span>
                             <div className="text-[12px] text-slate-300 whitespace-pre-wrap bg-black/20 p-2.5 rounded-lg border border-white/5">
                               {firstComment}
                             </div>
@@ -455,7 +457,9 @@ function PostDetailModal({
                         )}
                         {pMedia.length > 0 && (
                           <div>
-                            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">Custom Media ({pMedia.length})</span>
+                            <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold block mb-1">
+                              {po.media_urls?.length ? t('queue.customMedia', 'Custom Media') : t('queue.media', 'Media')} ({pMedia.length})
+                            </span>
                             <div className="flex flex-wrap gap-2">
                               {pMedia.map((url: string, i: number) => (
                                 <div key={i} className="size-16 rounded-lg overflow-hidden border border-white/10 bg-black/50 shrink-0">
