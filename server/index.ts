@@ -1917,11 +1917,11 @@ Estructura JSON Requerida:
 const JSON_ENFORCEMENT_DIRECTIVE = "\n\nCRITICAL: Your entire response MUST be a single, valid JSON object. Do not include any introductory text, markdown code blocks (like ```json), or follow-up commentary. Only raw JSON.";
 
 app.post("/api/outreach/radar/deep-scan", async (req: AuthRequest, res) => {
-  const projectId = req.projectId;
+  const projectId = req.projectId; // Optional — frontend generates its own if absent
   const { url, language } = req.body;
 
-  if (!projectId) return res.status(400).json({ error: "Project ID is required" });
   if (!url) return res.status(400).json({ error: "URL is required" });
+
 
   try {
     const geminiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;

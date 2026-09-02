@@ -67,9 +67,24 @@ export interface Project {
 export async function runFullScan(url: string, uid?: string | null, projectId?: string): Promise<Project> {
   try {
     const user = auth.currentUser;
-    if (!user) throw new Error("Authentication required for deep scan.");
+    if (!user) {
+      throw new Error("Debes iniciar sesión de nuevo para ejecutar el scan. Tu sesión no está activa.");
+    }
 
-    const idToken = await user.getIdToken();
+    let idToken: string;
+    try {
+      // forceRefresh:true ensures we always get a fresh, valid token.
+      // Without it, Firebase serves a cached token that may be expired or
+      // in a transitional state, causing the backend to reject with 401.
+      idToken = await user.getIdToken(true);
+    } catch (tokenErr: any) {
+      throw new Error(`No se pudo obtener el token de autenticación. Intenta cerrar sesión y volver a entrar. (${tokenErr.message})`);
+    }
+
+    if (!idToken) {
+      throw new Error("Token de autenticación vacío. Por favor, recarga la página e inicia sesión de nuevo.");
+    }
+
     const apiUrl = '/api/outreach/radar/deep-scan';
 
     console.log("-> scanService: Sending proxy request to backend for Deep Scan...");
