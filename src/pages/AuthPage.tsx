@@ -16,19 +16,10 @@ export default function AuthPage() {
     const { theme, language } = useSettings();
     const navigate = useNavigate();
 
-    const handleSuccessfulLogin = () => {
-        const hostname = window.location.hostname;
-        if (hostname === 'vultintel.com' || hostname === 'www.vultintel.com') {
-            window.location.href = 'https://app.vultintel.com/projects-hub';
-        } else {
-            navigate('/projects-hub');
-        }
-    };
-
     // If user is already logged in, redirect to projects-hub
     useEffect(() => {
         if (currentUser) {
-            handleSuccessfulLogin();
+            navigate('/projects-hub');
         }
     }, [currentUser, navigate]);
 
@@ -45,7 +36,7 @@ export default function AuthPage() {
                 await register(email, password);
                 if (window.posthog) window.posthog.capture('user_signed_up', { method: 'email' });
             }
-            handleSuccessfulLogin();
+            navigate('/projects-hub');
         } catch (err: any) {
             setError(err.message || 'Error occurred during authentication');
         } finally {
@@ -59,7 +50,7 @@ export default function AuthPage() {
             setError('');
             await loginWithGoogle();
             if (window.posthog) window.posthog.capture('user_logged_in', { method: 'google' });
-            handleSuccessfulLogin();
+            navigate('/projects-hub');
         } catch (err: any) {
             setError('Failed to log in with Google');
         } finally {

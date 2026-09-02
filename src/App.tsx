@@ -38,18 +38,7 @@ function RouteTracker() {
   return null;
 }
 
-function DomainRedirect({ to }: { to: string }) {
-  useEffect(() => {
-    window.location.href = to;
-  }, [to]);
-  return null;
-}
-
 export default function App() {
-  const hostname = window.location.hostname;
-  const isMarketingDomain = hostname === 'vultintel.com' || hostname === 'www.vultintel.com';
-  const isAppDomain = hostname === 'app.vultintel.com' || hostname.includes('localhost') || hostname.includes('127.0.0.1');
-
   return (
     <GlobalErrorBoundary>
       <BrowserRouter>
@@ -64,82 +53,37 @@ export default function App() {
           }}
         />
         <RouteTracker />
-        
-        {isMarketingDomain ? (
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/auth" element={<AuthPage />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/unsubscribe" element={<Unsubscribe />} />
-            <Route path="/unsubscribe/:token" element={<Unsubscribe />} />
-            {/* Redirect all other routes (like app routes) to the app domain */}
-            <Route path="*" element={<DomainRedirect to={`https://app.vultintel.com${window.location.pathname}${window.location.search}`} />} />
-          </Routes>
-        ) : isAppDomain ? (
-          <Routes>
-            <Route path="/auth" element={<AuthPage />} />
-            <Route path="/pending-checkout" element={<PendingCheckout />} />
-            
-            {/* Redirect root of app domain directly to projects hub */}
-            <Route path="/" element={<Navigate to="/projects-hub" replace />} />
-            
-            <Route element={<Layout />}>
-              <Route path="projects-hub" element={<Pulse />} />
-              <Route path="content-generator" element={<ContentGenerator />} />
-              <Route path="deep-scan/:projectId" element={<DeepScan />} />
-              <Route path="deep-scan" element={<DeepScan />} />
-              <Route path="web-growth-plan" element={<WebGrowthPlan />} />
-              <Route path="visual-workflows" element={<Workflows />} />
-              <Route path="global-brand-strategy" element={<GlobalBrandStrategy />} />
-              <Route path="persona-studio" element={<PersonaStudioLayout />} />
-              <Route path="intel-radar" element={<IntelRadar />} />
-              <Route path="campaign-architect" element={<CampaignArchitectLayout />} />
-              <Route path="growth-mastermind" element={<GrowthMastermind />} />
-              <Route path="settings" element={<Settings />} />
-              <Route path="outreach" element={<OutreachLayout />} />
-              <Route path="veo-studio" element={<VeoStudioLayout />} />
-              <Route path="social-studio" element={<SocialStudioLayout />} />
-              <Route path="vult-pulse" element={<VultPulse />} />
-              <Route path="admin" element={<AdminDashboard />} />
-            </Route>
-            
-            {/* Catch-all route to redirect back to projects hub or 404 */}
-            <Route path="*" element={<Navigate to="/projects-hub" replace />} />
-          </Routes>
-        ) : (
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/auth" element={<AuthPage />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/unsubscribe" element={<Unsubscribe />} />
-            <Route path="/unsubscribe/:token" element={<Unsubscribe />} />
-            <Route path="/pending-checkout" element={<PendingCheckout />} />
-            
-            <Route element={<Layout />}>
-              <Route path="projects-hub" element={<Pulse />} />
-              <Route path="content-generator" element={<ContentGenerator />} />
-              <Route path="deep-scan/:projectId" element={<DeepScan />} />
-              <Route path="deep-scan" element={<DeepScan />} />
-              <Route path="web-growth-plan" element={<WebGrowthPlan />} />
-              <Route path="visual-workflows" element={<Workflows />} />
-              <Route path="global-brand-strategy" element={<GlobalBrandStrategy />} />
-              <Route path="persona-studio" element={<PersonaStudioLayout />} />
-              <Route path="intel-radar" element={<IntelRadar />} />
-              <Route path="campaign-architect" element={<CampaignArchitectLayout />} />
-              <Route path="growth-mastermind" element={<GrowthMastermind />} />
-              <Route path="settings" element={<Settings />} />
-              <Route path="outreach" element={<OutreachLayout />} />
-              <Route path="veo-studio" element={<VeoStudioLayout />} />
-              <Route path="social-studio" element={<SocialStudioLayout />} />
-              <Route path="vult-pulse" element={<VultPulse />} />
-              <Route path="admin" element={<AdminDashboard />} />
-            </Route>
-            
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        )}
+        <Routes>
+          <Route path="/" element={<Landing />} />
+          <Route path="/auth" element={<AuthPage />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/unsubscribe" element={<Unsubscribe />} />
+          <Route path="/unsubscribe/:token" element={<Unsubscribe />} />
+          <Route path="/pending-checkout" element={<PendingCheckout />} />
+
+          <Route element={<Layout />}>
+            <Route path="projects-hub" element={<Pulse />} />
+            <Route path="content-generator" element={<ContentGenerator />} />
+            <Route path="deep-scan/:projectId" element={<DeepScan />} />
+            <Route path="deep-scan" element={<DeepScan />} />
+            <Route path="web-growth-plan" element={<WebGrowthPlan />} />
+            <Route path="visual-workflows" element={<Workflows />} />
+            <Route path="global-brand-strategy" element={<GlobalBrandStrategy />} />
+            <Route path="persona-studio" element={<PersonaStudioLayout />} />
+            <Route path="intel-radar" element={<IntelRadar />} />
+            <Route path="campaign-architect" element={<CampaignArchitectLayout />} />
+            <Route path="growth-mastermind" element={<GrowthMastermind />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="outreach" element={<OutreachLayout />} />
+            <Route path="veo-studio" element={<VeoStudioLayout />} />
+            <Route path="social-studio" element={<SocialStudioLayout />} />
+            <Route path="vult-pulse" element={<VultPulse />} />
+            <Route path="admin" element={<AdminDashboard />} />
+          </Route>
+          {/* Catch-all route to redirect back to Landing or 404 */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </BrowserRouter>
     </GlobalErrorBoundary>
   );
