@@ -39,6 +39,8 @@ interface DashboardData {
   };
 }
 
+const API_BASE = import.meta.env.VITE_OUTREACH_API_URL || import.meta.env.VITE_API_URL || 'https://vult-intel-backend-production.up.railway.app';
+
 export default function AdminDashboard() {
   const { isFounder, currentUser } = useAuth();
   const { t } = useTranslation();
@@ -50,7 +52,7 @@ export default function AdminDashboard() {
     setIsLoading(true);
     try {
       const token = await currentUser?.getIdToken(true);
-      const response = await fetch('/api/admin/roadmap', {
+      const response = await fetch(`${API_BASE}/api/admin/roadmap`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -89,7 +91,7 @@ export default function AdminDashboard() {
   const handleViewRaw = async (file: 'roadmap' | 'security') => {
     try {
       const token = await currentUser?.getIdToken(true);
-      const response = await fetch(`/api/admin/roadmap/raw/${file}`, {
+      const response = await fetch(`${API_BASE}/api/admin/roadmap/raw/${file}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

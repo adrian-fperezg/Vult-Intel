@@ -6,6 +6,8 @@ import { isFounder as checkIsFounder } from '@/utils/founderUtils';
 import { safeJsonParse } from '@/utils/jsonUtils';
 import { getLanguageDirective } from '@/utils/aiLanguageUtils';
 
+const API_BASE = import.meta.env.VITE_OUTREACH_API_URL || import.meta.env.VITE_API_URL || 'https://vult-intel-backend-production.up.railway.app';
+
 // All AI requests are routed through the authenticated backend proxy (/api/generate-content)
 // which validates Firebase Auth token + active Stripe subscription before executing Gemini calls.
 
@@ -162,8 +164,7 @@ async function callSecureAIProxy(model: string, contents: any, config?: any, too
       headers['x-project-id'] = projectId;
     }
     
-    const baseUrl = import.meta.env.VITE_API_URL || '';
-    const response = await fetch(`${baseUrl}/api/generate-content`, {
+    const response = await fetch(`${API_BASE}/api/generate-content`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ model, contents, config, tools })
@@ -209,7 +210,7 @@ export async function generateImage(prompt: string, uid?: string | null, project
       headers['x-project-id'] = projectId;
     }
 
-    const response = await fetch('/api/ai/generate-image', {
+    const response = await fetch(`${API_BASE}/api/ai/generate-image`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ prompt, aspectRatio: "1:1" })
@@ -241,7 +242,7 @@ async function pollVeoJob(jobId: string, idToken: string, projectId: string, tim
   const pollInterval = 5000; // 5 seconds
 
   while (Date.now() - startTime < timeoutMs) {
-    const response = await fetch(`/api/veo-studio/job-status/${jobId}`, {
+    const response = await fetch(`${API_BASE}/api/veo-studio/job-status/${jobId}`, {
       headers: {
         'Authorization': `Bearer ${idToken}`,
         'x-project-id': projectId
@@ -449,7 +450,7 @@ export async function generateSpeech(text: string, voice: string = 'Kore', proje
       headers['x-project-id'] = projectId;
     }
 
-    const response = await fetch('/api/ai/generate-speech', {
+    const response = await fetch(`${API_BASE}/api/ai/generate-speech`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ text, voice })
@@ -1225,7 +1226,7 @@ export async function generatePersonaFromReport(fullScanText: string, projectId:
     const idToken = await user.getIdToken(true);
     const sysLang = localStorage.getItem('vult_language') || 'es';
 
-    const response = await fetch('/api/outreach/brand-strategy/persona', {
+    const response = await fetch(`${API_BASE}/api/outreach/brand-strategy/persona`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -1255,7 +1256,7 @@ export async function generateBrandStrategyFromReport(fullScanText: string, sysL
 
     const idToken = await user.getIdToken(true);
 
-    const response = await fetch('/api/outreach/brand-strategy/strategy', {
+    const response = await fetch(`${API_BASE}/api/outreach/brand-strategy/strategy`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',

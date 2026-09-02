@@ -85,7 +85,8 @@ export async function runFullScan(url: string, uid?: string | null, projectId?: 
       throw new Error("Token de autenticación vacío. Por favor, recarga la página e inicia sesión de nuevo.");
     }
 
-    const apiUrl = '/api/outreach/radar/deep-scan';
+    const apiBase = import.meta.env.VITE_OUTREACH_API_URL || 'https://vult-intel-backend-production.up.railway.app';
+    const apiUrl = `${apiBase}/api/outreach/radar/deep-scan`;
 
     console.log("-> scanService: Sending proxy request to backend for Deep Scan...");
 

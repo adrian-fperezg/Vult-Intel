@@ -136,8 +136,9 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 8080;
 
 app.use(cors({
-  origin: ['https://vultintel.com', 'https://www.vultintel.com', 'http://localhost:3000'],
+  origin: ['https://vultintel.com', 'https://www.vultintel.com', 'https://app.vultintel.com', 'https://vult-intel.web.app', 'http://localhost:3000'],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-project-id'],
   credentials: true
 }));
 

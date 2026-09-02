@@ -35,7 +35,8 @@ class GlobalErrorBoundary extends Component<Props, State> {
     console.error(`Uncaught global frontend error:`, error, errorInfo);
     
     // Post to the backend bridge to trigger discord/slack alerts
-    fetch('/api/alerts/frontend-crash', {
+    const apiBase = import.meta.env.VITE_OUTREACH_API_URL || import.meta.env.VITE_API_URL || 'https://vult-intel-backend-production.up.railway.app';
+    fetch(`${apiBase}/api/alerts/frontend-crash`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
