@@ -21,7 +21,7 @@ export interface PulseFlow {
 
 export interface PulseContact {
   platformId: string;
-  platform: 'facebook' | 'instagram';
+  platform: 'facebook' | 'instagram' | 'threads';
   pageId: string;
   name: string;
   lastInteraction: any; // Firestore Timestamp
@@ -31,7 +31,7 @@ export interface PulseConversation {
   id: string; // pageId_senderId
   contactId: string;
   pageId: string;
-  platform: 'facebook' | 'instagram';
+  platform: 'facebook' | 'instagram' | 'threads';
   updatedAt: any; // Firestore Timestamp
 }
 

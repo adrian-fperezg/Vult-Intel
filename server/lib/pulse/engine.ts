@@ -6,7 +6,7 @@ interface WebhookEvent {
   pageId: string;
   senderId: string;
   messageText: string;
-  platform: 'facebook' | 'instagram';
+  platform: 'facebook' | 'instagram' | 'threads';
 }
 
 export async function runPulseEngine(event: WebhookEvent) {

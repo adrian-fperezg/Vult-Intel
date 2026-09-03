@@ -6,7 +6,7 @@ import { db } from '@/lib/firebase';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { PulseContact } from '@/types/pulse';
 
-type Platform = 'instagram' | 'facebook' | 'whatsapp';
+type Platform = 'instagram' | 'facebook' | 'whatsapp' | 'threads';
 
 interface Contact extends PulseContact {
     id: string;
@@ -27,12 +27,14 @@ const PLATFORM_ICONS: Record<Platform, React.ReactNode> = {
     instagram: <Instagram className="size-3.5 text-pink-400" />,
     facebook:  <Facebook className="size-3.5 text-blue-400" />,
     whatsapp:  <MessageCircle className="size-3.5 text-emerald-400" />,
+    threads:   <MessageCircle className="size-3.5 text-slate-100" />,
 };
 
 const PLATFORM_LABELS: Record<Platform, string> = {
     instagram: 'Instagram',
     facebook:  'Facebook',
     whatsapp:  'WhatsApp',
+    threads:   'Threads',
 };
 
 const ALL_TAGS = ['Lead', 'Customer', 'Hot', 'Cold', 'VIP'];
@@ -98,7 +100,7 @@ export default function ContactsView() {
 
                 {/* Platform Filter */}
                 <div className="flex items-center gap-1">
-                    {(['all', 'instagram', 'facebook', 'whatsapp'] as const).map(p => (
+                    {(['all', 'instagram', 'facebook', 'whatsapp', 'threads'] as const).map(p => (
                         <button
                             key={p}
                             onClick={() => setFilterPlatform(p)}

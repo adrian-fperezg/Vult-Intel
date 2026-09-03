@@ -31,8 +31,8 @@ router.get('/', (req, res) => {
 router.post('/', async (req, res) => {
   const body = req.body;
 
-  // Check if this is a page/instagram subscription
-  if (body.object === 'page' || body.object === 'instagram') {
+  // Check if this is a page/instagram/threads subscription
+  if (body.object === 'page' || body.object === 'instagram' || body.object === 'threads') {
     // Acknowledge receipt immediately to avoid Meta retries (they expect a 200 OK within 20 seconds)
     res.status(200).send('EVENT_RECEIVED');
 
@@ -56,12 +56,11 @@ router.post('/', async (req, res) => {
             console.log(`[Vult Pulse] Received message from ${senderId}: "${messageText}" to page ${pageId}`);
 
             // Pass to the Vult Pulse Engine for processing
-            // (Fire and forget, since we already responded 200)
             runPulseEngine({
               pageId,
               senderId,
               messageText,
-              platform: body.object === 'instagram' ? 'instagram' : 'facebook'
+              platform: body.object === 'instagram' ? 'instagram' : body.object === 'threads' ? 'threads' : 'facebook'
             }).catch(err => {
               console.error('[Vult Pulse Engine Error]', err);
             });

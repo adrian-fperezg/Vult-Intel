@@ -6,7 +6,7 @@ import { db } from '@/lib/firebase';
 import { collection, onSnapshot, doc, query, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
 import { PulseConversation, PulseMessage } from '@/types/pulse';
 
-type Platform = 'instagram' | 'facebook' | 'whatsapp';
+type Platform = 'instagram' | 'facebook' | 'whatsapp' | 'threads';
 
 interface Conversation extends PulseConversation {
     name?: string;
@@ -18,6 +18,7 @@ const PLATFORM_ICONS: Record<Platform, React.ReactNode> = {
     instagram: <Instagram className="size-3.5 text-pink-400" />,
     facebook:  <Facebook className="size-3.5 text-blue-400" />,
     whatsapp:  <MessageCircle className="size-3.5 text-emerald-400" />,
+    threads: <MessageCircle className="size-3.5 text-slate-100" />,
 };
 
 const TAG_COLORS: Record<string, string> = {
