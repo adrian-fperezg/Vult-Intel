@@ -479,21 +479,24 @@ function FlowCanvasContent({ flow, onClose }: FlowCanvasProps) {
                 </div>
             </div>
 
-            {/* ReactFlow Canvas */}
-            <div className="flex-1">
-                <ReactFlow
-                    nodes={nodes}
-                    edges={edges}
-                    onNodesChange={onNodesChange}
-                    onEdgesChange={onEdgesChange}
-                    onConnect={onConnect}
-                    nodeTypes={NODE_TYPES}
-                    fitView
-                    fitViewOptions={{ padding: 0.3 }}
-                    defaultEdgeOptions={{ animated: false }}
-                    proOptions={{ hideAttribution: true }}
-                >
-                    <Background variant={BackgroundVariant.Dots} color="#ffffff08" gap={24} size={1} />
+            {/* Content Area */}
+            <div className="flex-1 flex overflow-hidden">
+                <FlowSidebar />
+                {/* ReactFlow Canvas */}
+                <div className="flex-1 h-full" ref={reactFlowWrapper} onDrop={onDrop} onDragOver={onDragOver}>
+                    <ReactFlow
+                        nodes={nodes}
+                        edges={edges}
+                        onNodesChange={onNodesChange}
+                        onEdgesChange={onEdgesChange}
+                        onConnect={onConnect}
+                        nodeTypes={NODE_TYPES}
+                        fitView
+                        fitViewOptions={{ padding: 0.3 }}
+                        defaultEdgeOptions={{ animated: false }}
+                        proOptions={{ hideAttribution: true }}
+                    >
+                        <Background variant={BackgroundVariant.Dots} color="#ffffff08" gap={24} size={1} />
                     <Controls className="!bg-[#161b22] !border-white/10 !shadow-xl" />
                     <MiniMap
                         className="!bg-[#161b22] !border-white/10 !rounded-xl"
@@ -516,6 +519,7 @@ function FlowCanvasContent({ flow, onClose }: FlowCanvasProps) {
                         </div>
                     </Panel>
                 </ReactFlow>
+            </div>
             </div>
         </div>
     );
