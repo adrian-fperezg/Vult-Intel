@@ -323,13 +323,16 @@ const NODE_TYPES = {
 };
 
 const INITIAL_NODES: Node[] = [
-    { id: '1', type: 'trigger_keyword',   position: { x: 300, y: 50  }, data: { label: 'Keyword: hola' } },
-    { id: '2', type: 'message',   position: { x: 270, y: 200 }, data: { label: '👋 Hey {name}! Thanks for following! We help brands grow with AI-powered marketing. Want to see how?' } },
-    { id: '3', type: 'delay',     position: { x: 300, y: 390 }, data: { time: '2', unit: 'hours' } },
-    { id: '4', type: 'condition', position: { x: 280, y: 530 }, data: { conditionType: 'replied' } },
-    { id: '5', type: 'message',   position: { x: 100, y: 690 }, data: { label: '🚀 Amazing! Here\'s a free 14-day trial just for you: vultintel.com/trial' } },
-    { id: '6', type: 'message',   position: { x: 440, y: 690 }, data: { label: '💜 No worries! Here\'s our free marketing guide anyway: vultintel.com/guide' } },
-    { id: '7', type: 'action',    position: { x: 100, y: 880 }, data: { actionType: 'add_tag' } },
+    { id: '1', type: 'trigger_keyword', position: { x: 300, y: 50 }, data: { label: 'Keyword: talento' } },
+    { id: '2', type: 'message', position: { x: 300, y: 200 }, data: { label: '👋 ¡Hola {name}! Gracias por contactar a Happier Talent. ¿Estás buscando talento top para tu empresa o buscas empleo? 🚀' } },
+    { id: '3', type: 'delay', position: { x: 330, y: 350 }, data: { time: '5', unit: 'minutes' } },
+    { id: '4', type: 'condition', position: { x: 310, y: 480 }, data: { conditionType: 'replied' } },
+    { id: '5', type: 'randomizer', position: { x: 100, y: 650 }, data: {} },
+    { id: '6', type: 'message', position: { x: -80, y: 820 }, data: { label: '🔥 ¡Perfecto! Como empresa, tenemos a los mejores candidatos pre-filtrados. Agenda una llamada aquí: happiertalent.com/empresas' } },
+    { id: '7', type: 'message', position: { x: 280, y: 820 }, data: { label: '⭐ ¡Genial! Como candidato, sube tu CV a nuestra plataforma y te contactaremos: happiertalent.com/candidatos' } },
+    { id: '8', type: 'action', position: { x: 100, y: 1000 }, data: { actionType: 'add_tag' } },
+    { id: '9', type: 'webhook', position: { x: 100, y: 1150 }, data: { url: 'https://hook.zapier.com/talent' } },
+    { id: '10', type: 'ai', position: { x: 600, y: 650 }, data: {} },
 ];
 
 const INITIAL_EDGES: Edge[] = [
@@ -337,8 +340,12 @@ const INITIAL_EDGES: Edge[] = [
     { id: 'e2-3', source: '2', target: '3', animated: false, style: { stroke: '#475569', strokeWidth: 1.5 } },
     { id: 'e3-4', source: '3', target: '4', animated: false, style: { stroke: '#475569', strokeWidth: 1.5 } },
     { id: 'e4-5', source: '4', sourceHandle: 'yes', target: '5', animated: true, style: { stroke: '#34d399', strokeWidth: 1.5 }, label: 'Yes', labelStyle: { fill: '#34d399', fontSize: 11, fontWeight: 700 } },
-    { id: 'e4-6', source: '4', sourceHandle: 'no',  target: '6', animated: false, style: { stroke: '#f87171', strokeWidth: 1.5 }, label: 'No', labelStyle: { fill: '#f87171', fontSize: 11, fontWeight: 700 } },
-    { id: 'e5-7', source: '5', target: '7', animated: false, style: { stroke: '#475569', strokeWidth: 1.5 } },
+    { id: 'e4-10', source: '4', sourceHandle: 'no', target: '10', animated: true, style: { stroke: '#f87171', strokeWidth: 1.5 }, label: 'No Reply', labelStyle: { fill: '#f87171', fontSize: 11, fontWeight: 700 } },
+    { id: 'e5-6', source: '5', sourceHandle: 'a', target: '6', animated: false, style: { stroke: '#ec4899', strokeWidth: 1.5 }, label: 'A', labelStyle: { fill: '#ec4899', fontSize: 11 } },
+    { id: 'e5-7', source: '5', sourceHandle: 'b', target: '7', animated: false, style: { stroke: '#ec4899', strokeWidth: 1.5 }, label: 'B', labelStyle: { fill: '#ec4899', fontSize: 11 } },
+    { id: 'e6-8', source: '6', target: '8', animated: false, style: { stroke: '#475569', strokeWidth: 1.5 } },
+    { id: 'e7-8', source: '7', target: '8', animated: false, style: { stroke: '#475569', strokeWidth: 1.5 } },
+    { id: 'e8-9', source: '8', target: '9', animated: true, style: { stroke: '#10b981', strokeWidth: 1.5 } },
 ];
 
 const NODE_PALETTE = [
