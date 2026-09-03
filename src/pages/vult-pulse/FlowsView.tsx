@@ -43,6 +43,12 @@ export default function FlowsView() {
         });
     };
 
+    const deleteFlow = async (id: string) => {
+        if (!currentUser) return;
+        if (!confirm('Are you sure you want to delete this flow?')) return;
+        await deleteDoc(doc(db, 'customers', currentUser.uid, 'pulse_flows', id));
+    };
+
     const createNewFlow = async () => {
         if (!currentUser) return;
         const newFlowRef = doc(collection(db, 'customers', currentUser.uid, 'pulse_flows'));
@@ -168,6 +174,12 @@ export default function FlowsView() {
                                             className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-500/10 border border-violet-500/20 text-violet-400 rounded-lg text-xs font-semibold hover:bg-violet-500/20 transition-all"
                                         >
                                             <Edit className="size-3" /> Edit
+                                        </button>
+                                        <button
+                                            onClick={() => deleteFlow(flow.id)}
+                                            className="size-8 flex items-center justify-center rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all"
+                                        >
+                                            <Trash2 className="size-3.5" />
                                         </button>
                                     </div>
                                 </div>

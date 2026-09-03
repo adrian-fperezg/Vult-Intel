@@ -140,6 +140,8 @@ export default function FlowCanvas({ flow, onClose }: FlowCanvasProps) {
     const [nodes, setNodes, onNodesChange] = useNodesState(flow.canvas?.nodes?.length ? flow.canvas.nodes : INITIAL_NODES);
     const [edges, setEdges, onEdgesChange] = useEdgesState(flow.canvas?.edges?.length ? flow.canvas.edges : INITIAL_EDGES);
     const [saved, setSaved] = useState(false);
+    const [flowName, setFlowName] = useState(flow.name);
+    const [triggerKeyword, setTriggerKeyword] = useState(flow.triggerKeyword || 'hola');
 
     const onConnect = useCallback((connection: Connection) => {
         setEdges(eds => addEdge({ ...connection, animated: false, style: { stroke: '#475569', strokeWidth: 1.5 } }, eds));
@@ -158,6 +160,8 @@ export default function FlowCanvas({ flow, onClose }: FlowCanvasProps) {
     const handleSave = async () => {
         if (!currentUser) return;
         await updateDoc(doc(db, 'customers', currentUser.uid, 'pulse_flows', flow.id), {
+            name: flowName,
+            triggerKeyword,
             canvas: { nodes, edges },
             updatedAt: new Date().toISOString()
         });
@@ -178,10 +182,20 @@ export default function FlowCanvas({ flow, onClose }: FlowCanvasProps) {
                     </button>
                     <div className="h-5 w-px bg-white/10" />
                     <div>
-                        <h3 className="text-white font-bold text-lg">{flow.name}</h3>
-                        <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Trigger:</span>
-                            <span className="text-xs text-violet-400 font-medium bg-violet-500/10 px-2 py-0.5 rounded-md border border-violet-500/20">{flow.triggerType === 'Keyword' ? `Keyword "${flow.triggerKeyword}"` : flow.triggerType}</span>
+                        <input
+                            type="text"
+                            value={flowName}
+                            onChange={(e) => setFlowName(e.target.value)}
+                            className="bg-transparent text-white font-bold text-lg border-b border-transparent hover:border-white/20 focus:border-violet-500 focus:outline-none px-1"
+                        />
+                        <div className="flex items-center gap-2 mt-0.5 px-1">
+                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Trigger Keyword:</span>
+                            <input
+                                type="text"
+                                value={triggerKeyword}
+                                onChange={(e) => setTriggerKeyword(e.target.value)}
+                                className="bg-transparent text-xs text-violet-400 font-medium border-b border-transparent hover:border-violet-500/50 focus:border-violet-500 focus:outline-none"
+                            />
                         </div>
                     </div>
                 </div>
