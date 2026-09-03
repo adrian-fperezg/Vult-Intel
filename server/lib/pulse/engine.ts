@@ -56,8 +56,11 @@ export async function runPulseEngine(event: WebhookEvent) {
   // 4. Parse the ReactFlow Nodes/Edges to find the first Message
   const { nodes = [], edges = [] } = matchedFlow.canvas || {};
   
-  const triggerNode = nodes.find((n: any) => n.type === 'trigger');
-  if (!triggerNode) return;
+  const triggerNode = nodes.find((n: any) => n.type === 'trigger' || n.type === 'trigger_keyword');
+  if (!triggerNode) {
+    console.warn(`[Pulse Engine] No trigger node found in flow ${matchedFlow.id}`);
+    return;
+  }
 
   // Find the edge connecting from the trigger
   const nextEdge = edges.find((e: any) => e.source === triggerNode.id);
