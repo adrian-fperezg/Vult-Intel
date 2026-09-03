@@ -26,7 +26,7 @@ export const NODE_TYPES = [
 
     // Actions
     { category: 'actions', type: 'action',  label: 'CRM Action',   desc: 'Add tags, subscribe to sequence', color: 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10', icon: <MousePointer className="size-4" /> },
-    { category: 'actions', type: 'webhook', label: 'API Request',  desc: 'Send data to Zapier/Make', color: 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10', icon: <Webhook className="size-4" /> },
+    { category: 'actions', type: 'webhook', label: 'API Request',  desc: 'Send data to external tools', color: 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10', icon: <Webhook className="size-4" /> },
     { category: 'actions', type: 'ai',      label: 'AI Handover',  desc: 'Let AI Agent take over chat', color: 'border-cyan-500/30 text-cyan-400 bg-cyan-500/10', icon: <Bot className="size-4" /> },
 ];
 

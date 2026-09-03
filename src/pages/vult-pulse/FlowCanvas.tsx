@@ -283,7 +283,7 @@ function WebhookNode({ data }: { data: any }) {
             </div>
             <input 
                 type="text" 
-                placeholder="https://hook.zapier.com/..." 
+                placeholder="https://your-api.com/webhook..." 
                 className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-2 text-slate-300 text-[10px] focus:outline-none focus:border-emerald-500/50"
             />
         </div>
@@ -331,7 +331,7 @@ const INITIAL_NODES: Node[] = [
     { id: '6', type: 'message', position: { x: -80, y: 820 }, data: { label: '🔥 ¡Perfecto! Como empresa, tenemos a los mejores candidatos pre-filtrados. Agenda una llamada aquí: happiertalent.com/empresas' } },
     { id: '7', type: 'message', position: { x: 280, y: 820 }, data: { label: '⭐ ¡Genial! Como candidato, sube tu CV a nuestra plataforma y te contactaremos: happiertalent.com/candidatos' } },
     { id: '8', type: 'action', position: { x: 100, y: 1000 }, data: { actionType: 'add_tag' } },
-    { id: '9', type: 'webhook', position: { x: 100, y: 1150 }, data: { url: 'https://hook.zapier.com/talent' } },
+    { id: '9', type: 'webhook', position: { x: 100, y: 1150 }, data: { url: 'https://api.vultintel.com/webhook' } },
     { id: '10', type: 'ai', position: { x: 600, y: 650 }, data: {} },
 ];
 
