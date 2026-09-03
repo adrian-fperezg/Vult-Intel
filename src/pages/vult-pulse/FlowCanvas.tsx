@@ -434,6 +434,19 @@ function FlowCanvasContent({ flow, onClose }: FlowCanvasProps) {
         setTimeout(() => setSaved(false), 2000);
     };
 
+    const handlePublish = async () => {
+        if (!currentUser) return;
+        await updateDoc(doc(db, 'customers', currentUser.uid, 'pulse_flows', flow.id), {
+            name: flowName,
+            triggerKeyword,
+            status: 'active',
+            canvas: { nodes, edges },
+            updatedAt: new Date().toISOString()
+        });
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+    };
+
     return (
         <div className="absolute inset-0 bg-[#0d1117] z-50 flex flex-col">
             {/* Canvas Toolbar */}
@@ -480,7 +493,10 @@ function FlowCanvasContent({ flow, onClose }: FlowCanvasProps) {
                     >
                         <Save className="size-3.5" /> {saved ? 'Saved!' : 'Save'}
                     </button>
-                    <button className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs font-bold hover:bg-emerald-500/20 transition-all">
+                    <button 
+                        onClick={handlePublish}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs font-bold hover:bg-emerald-500/20 transition-all"
+                    >
                         <Play className="size-3.5" /> Publish
                     </button>
                 </div>
