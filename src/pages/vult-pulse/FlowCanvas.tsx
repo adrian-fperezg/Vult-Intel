@@ -428,7 +428,7 @@ function FlowCanvasContent({ flow, onClose }: FlowCanvasProps) {
     };
 
     return (
-        <div className="fixed inset-0 bg-[#0d1117] z-50 flex flex-col">
+        <div className="absolute inset-0 bg-[#0d1117] z-50 flex flex-col">
             {/* Canvas Toolbar */}
             <div className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-white/5 bg-[#161b22]">
                 <div className="flex items-center gap-4">
