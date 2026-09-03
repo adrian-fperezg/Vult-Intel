@@ -1,11 +1,12 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useRef } from 'react';
 import ReactFlow, {
     Node, Edge, addEdge, Connection, useNodesState, useEdgesState,
-    Background, Controls, MiniMap, Panel, BackgroundVariant, Handle, Position
+    Background, Controls, MiniMap, Panel, BackgroundVariant, Handle, Position, useReactFlow, ReactFlowProvider
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { MessageCircle, GitBranch, Clock, Zap, MousePointer, X, ChevronDown, Save, Play, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import FlowSidebar from './FlowSidebar';
 
 // ─── Custom Node Components ───────────────────────────────────────────────────
 
@@ -23,36 +24,79 @@ function TriggerNode({ data }: { data: any }) {
     );
 }
 
-function MessageNode({ data }: { data: any }) {
+function MessageNode({ id, data }: { id: string, data: any }) {
+    const { setNodes } = useReactFlow();
+
+    const updateText = (evt: React.ChangeEvent<HTMLTextAreaElement>) => {
+        setNodes((nds) =>
+            nds.map((n) => {
+                if (n.id === id) {
+                    n.data = { ...n.data, label: evt.target.value };
+                }
+                return n;
+            })
+        );
+    };
+
     return (
-        <div className="bg-[#1c2128] border border-blue-500/30 rounded-2xl px-5 py-4 min-w-[220px] max-w-[280px] shadow-lg hover:border-blue-500/50 transition-colors">
+        <div className="bg-[#1c2128] border border-blue-500/30 rounded-2xl px-4 py-4 min-w-[240px] max-w-[280px] shadow-lg hover:border-blue-500/50 transition-colors">
             <Handle type="target" position={Position.Top} className="!bg-blue-400 !border-blue-300 !size-3" />
             <Handle type="source" position={Position.Bottom} className="!bg-blue-400 !border-blue-300 !size-3" />
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-3">
                 <div className="size-6 rounded-lg bg-blue-500/20 flex items-center justify-center">
                     <MessageCircle className="size-3.5 text-blue-400" />
                 </div>
                 <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Send Message</span>
             </div>
-            <p className="text-slate-300 text-xs leading-relaxed">{data.label}</p>
+            <textarea 
+                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-2 text-slate-300 text-xs leading-relaxed focus:outline-none focus:border-blue-500/50 resize-none"
+                rows={3}
+                value={data.label}
+                onChange={updateText}
+                placeholder="Type your message here..."
+            />
+            <button className="w-full mt-2 py-1.5 rounded-lg border border-dashed border-white/20 text-slate-400 text-[10px] font-bold hover:bg-white/5 hover:text-white transition-colors">
+                + Add Button
+            </button>
         </div>
     );
 }
 
-function ConditionNode({ data }: { data: any }) {
+function ConditionNode({ id, data }: { id: string, data: any }) {
+    const { setNodes } = useReactFlow();
+
+    const updateCondition = (evt: React.ChangeEvent<HTMLSelectElement>) => {
+        setNodes((nds) =>
+            nds.map((n) => {
+                if (n.id === id) {
+                    n.data = { ...n.data, conditionType: evt.target.value };
+                }
+                return n;
+            })
+        );
+    };
+
     return (
-        <div className="bg-[#1c2128] border border-amber-500/30 rounded-2xl px-5 py-4 min-w-[200px] shadow-lg hover:border-amber-500/50 transition-colors">
+        <div className="bg-[#1c2128] border border-amber-500/30 rounded-2xl px-4 py-4 min-w-[220px] shadow-lg hover:border-amber-500/50 transition-colors">
             <Handle type="target" position={Position.Top} className="!bg-amber-400 !border-amber-300 !size-3" />
             <Handle type="source" position={Position.Bottom} id="yes" className="!bg-emerald-400 !border-emerald-300 !size-3 !left-[35%]" />
             <Handle type="source" position={Position.Bottom} id="no" className="!bg-red-400 !border-red-300 !size-3 !left-[65%]" />
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-3">
                 <div className="size-6 rounded-lg bg-amber-500/20 flex items-center justify-center">
                     <GitBranch className="size-3.5 text-amber-400" />
                 </div>
                 <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest">Condition</span>
             </div>
-            <p className="text-slate-300 text-xs">{data.label}</p>
-            <div className="flex gap-4 mt-2 text-[9px] font-bold">
+            <select 
+                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-2 text-slate-300 text-xs focus:outline-none focus:border-amber-500/50 appearance-none"
+                value={data.conditionType || 'replied'}
+                onChange={updateCondition}
+            >
+                <option value="replied">Did they reply?</option>
+                <option value="has_tag">Has Tag</option>
+                <option value="clicked_button">Clicked Button</option>
+            </select>
+            <div className="flex gap-4 mt-3 px-1 text-[9px] font-bold">
                 <span className="text-emerald-400">YES ↙</span>
                 <span className="text-red-400 ml-auto">NO ↘</span>
             </div>
@@ -60,33 +104,95 @@ function ConditionNode({ data }: { data: any }) {
     );
 }
 
-function DelayNode({ data }: { data: any }) {
+function DelayNode({ id, data }: { id: string, data: any }) {
+    const { setNodes } = useReactFlow();
+
+    const updateTime = (evt: React.ChangeEvent<HTMLInputElement>) => {
+        setNodes((nds) =>
+            nds.map((n) => {
+                if (n.id === id) {
+                    n.data = { ...n.data, time: evt.target.value };
+                }
+                return n;
+            })
+        );
+    };
+
+    const updateUnit = (evt: React.ChangeEvent<HTMLSelectElement>) => {
+        setNodes((nds) =>
+            nds.map((n) => {
+                if (n.id === id) {
+                    n.data = { ...n.data, unit: evt.target.value };
+                }
+                return n;
+            })
+        );
+    };
+
     return (
-        <div className="bg-[#1c2128] border border-slate-500/30 rounded-2xl px-5 py-4 min-w-[180px] shadow-lg hover:border-slate-500/50 transition-colors">
+        <div className="bg-[#1c2128] border border-slate-500/30 rounded-2xl px-4 py-4 min-w-[200px] shadow-lg hover:border-slate-500/50 transition-colors">
             <Handle type="target" position={Position.Top} className="!bg-slate-400 !border-slate-300 !size-3" />
             <Handle type="source" position={Position.Bottom} className="!bg-slate-400 !border-slate-300 !size-3" />
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-3">
                 <div className="size-6 rounded-lg bg-slate-500/20 flex items-center justify-center">
                     <Clock className="size-3.5 text-slate-400" />
                 </div>
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Delay</span>
             </div>
-            <p className="text-white font-bold text-sm">{data.label}</p>
+            <div className="flex gap-2">
+                <input 
+                    type="number"
+                    value={data.time || '1'}
+                    onChange={updateTime}
+                    className="w-16 bg-[#0d1117] border border-white/10 rounded-lg p-2 text-white font-bold text-xs text-center focus:outline-none focus:border-slate-500/50"
+                />
+                <select 
+                    value={data.unit || 'hours'}
+                    onChange={updateUnit}
+                    className="flex-1 bg-[#0d1117] border border-white/10 rounded-lg p-2 text-slate-300 text-xs focus:outline-none focus:border-slate-500/50 appearance-none"
+                >
+                    <option value="minutes">Minutes</option>
+                    <option value="hours">Hours</option>
+                    <option value="days">Days</option>
+                </select>
+            </div>
         </div>
     );
 }
 
-function ActionNode({ data }: { data: any }) {
+function ActionNode({ id, data }: { id: string, data: any }) {
+    const { setNodes } = useReactFlow();
+
+    const updateAction = (evt: React.ChangeEvent<HTMLSelectElement>) => {
+        setNodes((nds) =>
+            nds.map((n) => {
+                if (n.id === id) {
+                    n.data = { ...n.data, actionType: evt.target.value };
+                }
+                return n;
+            })
+        );
+    };
+
     return (
-        <div className="bg-[#1c2128] border border-emerald-500/30 rounded-2xl px-5 py-4 min-w-[200px] shadow-lg hover:border-emerald-500/50 transition-colors">
+        <div className="bg-[#1c2128] border border-emerald-500/30 rounded-2xl px-4 py-4 min-w-[200px] shadow-lg hover:border-emerald-500/50 transition-colors">
             <Handle type="target" position={Position.Top} className="!bg-emerald-400 !border-emerald-300 !size-3" />
-            <div className="flex items-center gap-2 mb-2">
+            <Handle type="source" position={Position.Bottom} className="!bg-emerald-400 !border-emerald-300 !size-3" />
+            <div className="flex items-center gap-2 mb-3">
                 <div className="size-6 rounded-lg bg-emerald-500/20 flex items-center justify-center">
                     <MousePointer className="size-3.5 text-emerald-400" />
                 </div>
                 <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Action</span>
             </div>
-            <p className="text-slate-300 text-xs">{data.label}</p>
+            <select 
+                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-2 text-slate-300 text-xs focus:outline-none focus:border-emerald-500/50 appearance-none"
+                value={data.actionType || 'add_tag'}
+                onChange={updateAction}
+            >
+                <option value="add_tag">Add Tag: Lead</option>
+                <option value="notify_sales">Notify Sales Team</option>
+                <option value="remove_tag">Remove Tag</option>
+            </select>
         </div>
     );
 }
@@ -135,17 +241,52 @@ interface FlowCanvasProps {
     onClose: () => void;
 }
 
-export default function FlowCanvas({ flow, onClose }: FlowCanvasProps) {
+function FlowCanvasContent({ flow, onClose }: FlowCanvasProps) {
     const { currentUser } = useAuth();
+    const reactFlowWrapper = useRef<HTMLDivElement>(null);
     const [nodes, setNodes, onNodesChange] = useNodesState(flow.canvas?.nodes?.length ? flow.canvas.nodes : INITIAL_NODES);
     const [edges, setEdges, onEdgesChange] = useEdgesState(flow.canvas?.edges?.length ? flow.canvas.edges : INITIAL_EDGES);
     const [saved, setSaved] = useState(false);
     const [flowName, setFlowName] = useState(flow.name);
     const [triggerKeyword, setTriggerKeyword] = useState(flow.triggerKeyword || 'hola');
+    const { screenToFlowPosition } = useReactFlow();
 
     const onConnect = useCallback((connection: Connection) => {
         setEdges(eds => addEdge({ ...connection, animated: false, style: { stroke: '#475569', strokeWidth: 1.5 } }, eds));
     }, [setEdges]);
+
+    const onDragOver = useCallback((event: React.DragEvent) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+    }, []);
+
+    const onDrop = useCallback(
+        (event: React.DragEvent) => {
+            event.preventDefault();
+
+            const type = event.dataTransfer.getData('application/reactflow');
+
+            // check if the dropped element is valid
+            if (typeof type === 'undefined' || !type) {
+                return;
+            }
+
+            const position = screenToFlowPosition({
+                x: event.clientX,
+                y: event.clientY,
+            });
+            
+            const newNode: Node = {
+                id: `node-${Date.now()}`,
+                type,
+                position,
+                data: { label: type === 'message' ? '' : type === 'delay' ? 'Wait 1 hour' : type === 'condition' ? 'If user clicked...' : 'Add tag: Lead' }
+            };
+
+            setNodes((nds) => nds.concat(newNode));
+        },
+        [screenToFlowPosition, setNodes]
+    );
 
     const addNode = (type: string) => {
         const newNode: Node = {
@@ -198,23 +339,6 @@ export default function FlowCanvas({ flow, onClose }: FlowCanvasProps) {
                             />
                         </div>
                     </div>
-                </div>
-
-                {/* Node Palette */}
-                <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-600 font-semibold mr-1">Add step:</span>
-                    {NODE_PALETTE.map(n => (
-                        <button
-                            key={n.type}
-                            onClick={() => addNode(n.type)}
-                            className={cn(
-                                "flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all hover:scale-105 active:scale-95",
-                                n.color
-                            )}
-                        >
-                            {n.icon} {n.label}
-                        </button>
-                    ))}
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -277,5 +401,13 @@ export default function FlowCanvas({ flow, onClose }: FlowCanvasProps) {
                 </ReactFlow>
             </div>
         </div>
+    );
+}
+
+export default function FlowCanvas(props: FlowCanvasProps) {
+    return (
+        <ReactFlowProvider>
+            <FlowCanvasContent {...props} />
+        </ReactFlowProvider>
     );
 }
