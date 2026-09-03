@@ -1,33 +1,19 @@
-import { useState } from 'react';
-import { Users, Search, Filter, MoreVertical, Tag, Download, Instagram, Facebook, MessageCircle, ChevronDown, Check, Trash2, Send } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Users, Search, Filter, MoreVertical, Tag, Download, Instagram, Facebook, MessageCircle, ChevronDown, Check, Trash2, Send, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { PulseContact } from '@/types/pulse';
 
 type Platform = 'instagram' | 'facebook' | 'whatsapp';
 
-interface Contact {
+interface Contact extends PulseContact {
     id: string;
-    name: string;
-    handle: string;
-    platform: Platform;
-    tags: string[];
-    lastActive: string;
-    subscribedDate: string;
-    status: 'active' | 'unsubscribed';
-    messagesReceived: number;
+    tags?: string[];
+    status?: 'active' | 'unsubscribed';
+    messagesReceived?: number;
 }
-
-const MOCK_CONTACTS: Contact[] = [
-    { id: '1', name: 'Sofia Martínez', handle: '@sofia.mkt', platform: 'instagram', tags: ['Lead', 'Hot'], lastActive: '2 min ago', subscribedDate: 'Jul 1, 2026', status: 'active', messagesReceived: 12 },
-    { id: '2', name: 'Carlos Herrera', handle: '@c.herrera', platform: 'facebook', tags: ['Customer'], lastActive: '1h ago', subscribedDate: 'Jun 29, 2026', status: 'active', messagesReceived: 7 },
-    { id: '3', name: 'Ana López', handle: '@analopez_', platform: 'instagram', tags: ['Lead'], lastActive: '3h ago', subscribedDate: 'Jun 28, 2026', status: 'active', messagesReceived: 5 },
-    { id: '4', name: 'Diego Ruiz', handle: '@diegoruiz', platform: 'whatsapp', tags: ['VIP', 'Customer'], lastActive: 'Yesterday', subscribedDate: 'Jun 25, 2026', status: 'active', messagesReceived: 21 },
-    { id: '5', name: 'Laura Gómez', handle: '@lauragomez', platform: 'instagram', tags: ['Lead', 'Cold'], lastActive: '2d ago', subscribedDate: 'Jun 22, 2026', status: 'active', messagesReceived: 3 },
-    { id: '6', name: 'Marcos Vidal', handle: '@marcosvidal', platform: 'facebook', tags: [], lastActive: '5d ago', subscribedDate: 'Jun 18, 2026', status: 'unsubscribed', messagesReceived: 8 },
-    { id: '7', name: 'Isabel Torres', handle: '@isabelto', platform: 'instagram', tags: ['Hot', 'VIP'], lastActive: '10 min ago', subscribedDate: 'Jul 2, 2026', status: 'active', messagesReceived: 4 },
-    { id: '8', name: 'Javier Mora', handle: '@javiermora_', platform: 'whatsapp', tags: ['Lead'], lastActive: '4h ago', subscribedDate: 'Jun 30, 2026', status: 'active', messagesReceived: 9 },
-    { id: '9', name: 'Valentina Cruz', handle: '@vcruz', platform: 'instagram', tags: ['Customer'], lastActive: '1d ago', subscribedDate: 'Jun 26, 2026', status: 'active', messagesReceived: 15 },
-    { id: '10', name: 'Rodrigo Pérez', handle: '@rperez', platform: 'facebook', tags: ['Cold'], lastActive: '6d ago', subscribedDate: 'Jun 15, 2026', status: 'active', messagesReceived: 2 },
-];
 
 const TAG_COLORS: Record<string, string> = {
     'Lead':       'bg-blue-500/15 text-blue-400 border-blue-500/20',
@@ -52,15 +38,31 @@ const PLATFORM_LABELS: Record<Platform, string> = {
 const ALL_TAGS = ['Lead', 'Customer', 'Hot', 'Cold', 'VIP'];
 
 export default function ContactsView() {
+    const { currentUser } = useAuth();
+    const [contacts, setContacts] = useState<Contact[]>([]);
+    const [loading, setLoading] = useState(true);
+    
     const [search, setSearch] = useState('');
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [filterPlatform, setFilterPlatform] = useState<Platform | 'all'>('all');
     const [filterTag, setFilterTag] = useState<string>('all');
 
-    const filtered = MOCK_CONTACTS.filter(c => {
-        const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || c.handle.toLowerCase().includes(search.toLowerCase());
+    useEffect(() => {
+        if (!currentUser) return;
+        const contactsRef = collection(db, 'customers', currentUser.uid, 'pulse_contacts');
+        const unsub = onSnapshot(contactsRef, (snap) => {
+            const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Contact));
+            data.sort((a, b) => new Date(b.lastInteraction?.toDate?.() || 0).getTime() - new Date(a.lastInteraction?.toDate?.() || 0).getTime());
+            setContacts(data);
+            setLoading(false);
+        });
+        return () => unsub();
+    }, [currentUser]);
+
+    const filtered = contacts.filter(c => {
+        const matchSearch = (c.name || c.id).toLowerCase().includes(search.toLowerCase());
         const matchPlatform = filterPlatform === 'all' || c.platform === filterPlatform;
-        const matchTag = filterTag === 'all' || c.tags.includes(filterTag);
+        const matchTag = filterTag === 'all' || (c.tags && c.tags.includes(filterTag));
         return matchSearch && matchPlatform && matchTag;
     });
 
@@ -167,90 +169,80 @@ export default function ContactsView() {
                         </tr>
                     </thead>
                     <tbody>
-                        {filtered.map(contact => {
-                            const isSelected = selectedIds.has(contact.id);
-                            return (
-                                <tr
-                                    key={contact.id}
-                                    className={cn(
-                                        "border-b border-white/4 transition-colors group",
-                                        isSelected ? "bg-violet-500/5" : "hover:bg-white/2"
-                                    )}
-                                >
-                                    <td className="px-6 py-3.5">
+                        {filtered.map(contact => (
+                            <tr key={contact.id} className="border-b border-white/5 hover:bg-white/3 transition-colors group">
+                                <td className="px-6 py-4">
+                                    <div className="flex items-center gap-3">
                                         <button
                                             onClick={() => toggleSelect(contact.id)}
                                             className={cn(
                                                 "size-4 rounded flex items-center justify-center border transition-all",
-                                                isSelected ? "bg-violet-500 border-violet-500" : "border-white/20 bg-transparent"
+                                                selectedIds.has(contact.id) ? "bg-violet-500 border-violet-500" : "border-white/20 hover:border-white/40"
                                             )}
                                         >
-                                            {isSelected && <Check className="size-3 text-white" />}
+                                            {selectedIds.has(contact.id) && <Check className="size-3 text-white" />}
                                         </button>
-                                    </td>
-                                    <td className="px-4 py-3.5">
-                                        <div className="flex items-center gap-3">
-                                            <div className="size-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                                                {contact.name.charAt(0)}
-                                            </div>
-                                            <div>
-                                                <p className="text-white font-medium text-sm">{contact.name}</p>
-                                                <p className="text-slate-500 text-xs">{contact.handle}</p>
-                                            </div>
+                                        <div className="size-9 rounded-full bg-slate-800 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                                            {(contact.name || '?').charAt(0)}
                                         </div>
-                                    </td>
-                                    <td className="px-4 py-3.5">
-                                        <div className="flex items-center gap-1.5">
-                                            {PLATFORM_ICONS[contact.platform]}
-                                            <span className="text-slate-400 text-xs">{PLATFORM_LABELS[contact.platform]}</span>
+                                        <div>
+                                            <p className="text-white font-medium text-sm">{contact.name}</p>
+                                            <p className="text-xs text-slate-500">{contact.platform}</p>
                                         </div>
-                                    </td>
-                                    <td className="px-4 py-3.5">
-                                        <div className="flex flex-wrap gap-1">
-                                            {contact.tags.map(tag => (
-                                                <span key={tag} className={cn("px-2 py-0.5 rounded-full text-[10px] font-bold border", TAG_COLORS[tag] || 'bg-slate-500/10 text-slate-400 border-slate-500/20')}>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                    <div className="flex items-center gap-1.5">
+                                        {PLATFORM_ICONS[contact.platform]}
+                                        <span className="text-slate-300 text-sm capitalize">{contact.platform}</span>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {contact.tags && contact.tags.length > 0 ? (
+                                            contact.tags.map(tag => (
+                                                <span key={tag} className={cn("px-2 py-0.5 rounded text-[10px] font-bold uppercase", TAG_COLORS[tag] || 'bg-slate-500/15 text-slate-400')}>
                                                     {tag}
                                                 </span>
-                                            ))}
-                                        </div>
-                                    </td>
-                                    <td className="px-4 py-3.5 text-slate-400 text-sm">{contact.messagesReceived}</td>
-                                    <td className="px-4 py-3.5 text-slate-400 text-xs">{contact.lastActive}</td>
-                                    <td className="px-4 py-3.5 text-slate-500 text-xs">{contact.subscribedDate}</td>
-                                    <td className="px-4 py-3.5">
-                                        <span className={cn(
-                                            "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                                            contact.status === 'active'
-                                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                                                : "bg-slate-500/10 text-slate-500 border border-slate-500/20"
-                                        )}>
-                                            {contact.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-3.5">
-                                        <button className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-slate-300 transition-all">
-                                            <MoreVertical className="size-4" />
-                                        </button>
-                                    </td>
-                                </tr>
-                            );
-                        })}
+                                            ))
+                                        ) : (
+                                            <span className="text-xs text-slate-500">—</span>
+                                        )}
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4 text-sm text-slate-400">
+                                    {contact.lastInteraction?.toDate?.() ? contact.lastInteraction.toDate().toLocaleDateString() : 'N/A'}
+                                </td>
+                                <td className="px-6 py-4">
+                                    <span className={cn(
+                                        "px-2 py-1 rounded-full text-xs font-medium border",
+                                        contact.status === 'active' || !contact.status ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                                    )}>
+                                        {(contact.status || 'active').charAt(0).toUpperCase() + (contact.status || 'active').slice(1)}
+                                    </span>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                    <button className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-white/5 rounded-lg transition-all opacity-0 group-hover:opacity-100">
+                                        <MoreVertical className="size-4" />
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                        {filtered.length === 0 && !loading && (
+                            <div className="flex flex-col items-center justify-center py-24 text-slate-500">
+                                <Users className="size-10 mb-3 opacity-30" />
+                                <p className="font-semibold">No contacts found</p>
+                                <p className="text-xs mt-1">Try adjusting your filters</p>
+                            </div>
+                        )}
                     </tbody>
                 </table>
-
-                {filtered.length === 0 && (
-                    <div className="flex flex-col items-center justify-center py-24 text-slate-500">
-                        <Users className="size-10 mb-3 opacity-30" />
-                        <p className="font-semibold">No contacts found</p>
-                        <p className="text-xs mt-1">Try adjusting your filters</p>
-                    </div>
-                )}
             </div>
 
             {/* Footer */}
             <div className="shrink-0 px-6 py-3 border-t border-white/5 flex items-center justify-between">
-                <p className="text-xs text-slate-500">{filtered.length} of {MOCK_CONTACTS.length} contacts</p>
-                <p className="text-xs text-slate-600">{MOCK_CONTACTS.filter(c => c.status === 'active').length} active subscribers</p>
+                <p className="text-xs text-slate-500">{filtered.length} of {contacts.length} contacts</p>
+                <p className="text-xs text-slate-600">{contacts.filter(c => c.status === 'active' || !c.status).length} active subscribers</p>
             </div>
         </div>
     );

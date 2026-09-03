@@ -121,6 +121,7 @@ import { extractDomain, generateVerificationToken, verifyDomainDns } from "./lib
 import { stripe, verifyStripeSignature } from "./lib/stripe.js";
 
 import { gmailWebhookHandler } from "./api/webhooks/gmailWebhook.js";
+import metaWebhookRouter from "./routes/webhooks/meta.js";
 import { AnalyticsData, AiReportResponse } from "../shared/types/outreach";
 import { sendAlert } from "./lib/notifier.js";
 import { checkDNS } from "./utils/dnsChecker.js";
@@ -7727,6 +7728,7 @@ app.use("/api/outreach/hunter", hunterRoutes);
 // ─── SOCIAL STUDIO ────────────────────────────────────────────────────────────
 app.use("/api/social/auth", socialOAuthRoutes);
 app.use("/api/social", verifyFirebaseToken, socialRoutes);
+app.use("/api/webhooks/meta", metaWebhookRouter);
 
 // ─── ADMIN ROADMAP ────────────────────────────────────────────────────────────
 app.use("/api/admin/roadmap", roadmapRoutes);

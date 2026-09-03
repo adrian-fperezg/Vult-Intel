@@ -125,14 +125,20 @@ const NODE_PALETTE = [
     { type: 'action',    label: 'Action',       color: 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10', icon: <MousePointer className="size-4" /> },
 ];
 
+import { PulseFlow } from '@/types/pulse';
+import { db } from '@/lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+import { useAuth } from '@/contexts/AuthContext';
+
 interface FlowCanvasProps {
-    flowName: string;
+    flow: PulseFlow;
     onClose: () => void;
 }
 
-export default function FlowCanvas({ flowName, onClose }: FlowCanvasProps) {
-    const [nodes, setNodes, onNodesChange] = useNodesState(INITIAL_NODES);
-    const [edges, setEdges, onEdgesChange] = useEdgesState(INITIAL_EDGES);
+export default function FlowCanvas({ flow, onClose }: FlowCanvasProps) {
+    const { currentUser } = useAuth();
+    const [nodes, setNodes, onNodesChange] = useNodesState(flow.canvas?.nodes?.length ? flow.canvas.nodes : INITIAL_NODES);
+    const [edges, setEdges, onEdgesChange] = useEdgesState(flow.canvas?.edges?.length ? flow.canvas.edges : INITIAL_EDGES);
     const [saved, setSaved] = useState(false);
 
     const onConnect = useCallback((connection: Connection) => {
@@ -149,7 +155,12 @@ export default function FlowCanvas({ flowName, onClose }: FlowCanvasProps) {
         setNodes(nds => [...nds, newNode]);
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
+        if (!currentUser) return;
+        await updateDoc(doc(db, 'customers', currentUser.uid, 'pulse_flows', flow.id), {
+            canvas: { nodes, edges },
+            updatedAt: new Date().toISOString()
+        });
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
     };
@@ -167,8 +178,11 @@ export default function FlowCanvas({ flowName, onClose }: FlowCanvasProps) {
                     </button>
                     <div className="h-5 w-px bg-white/10" />
                     <div>
-                        <h2 className="text-white font-bold text-sm">{flowName}</h2>
-                        <p className="text-xs text-slate-500">Flow Builder</p>
+                        <h3 className="text-white font-bold text-lg">{flow.name}</h3>
+                        <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Trigger:</span>
+                            <span className="text-xs text-violet-400 font-medium bg-violet-500/10 px-2 py-0.5 rounded-md border border-violet-500/20">{flow.triggerType === 'Keyword' ? `Keyword "${flow.triggerKeyword}"` : flow.triggerType}</span>
+                        </div>
                     </div>
                 </div>
 

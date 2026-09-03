@@ -1,82 +1,85 @@
-import { useState } from 'react';
-import { Plus, Zap, MoreVertical, Play, Pause, Copy, Trash2, Users, MessageCircle, TrendingUp, Clock, CheckCircle2, AlertCircle, Edit } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Zap, MoreVertical, Play, Pause, Copy, Trash2, Users, MessageCircle, TrendingUp, Clock, CheckCircle2, AlertCircle, Edit, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import FlowCanvas from './FlowCanvas';
+import { useAuth } from '@/contexts/AuthContext';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { PulseFlow, PulseFlowStatus } from '@/types/pulse';
 
-type FlowStatus = 'active' | 'draft' | 'paused';
-
-interface Flow {
-    id: string;
-    name: string;
-    triggerType: string;
-    status: FlowStatus;
-    subscribers: number;
-    completionRate: number;
-    conversionRate: number;
-    messages: number;
-    lastEdited: string;
-}
-
-const MOCK_FLOWS: Flow[] = [
-    {
-        id: '1', name: 'Welcome Series',          triggerType: 'New Follower',
-        status: 'active',  subscribers: 1204, completionRate: 83, conversionRate: 37, messages: 3, lastEdited: '2d ago'
-    },
-    {
-        id: '2', name: 'Lead Qualifier',           triggerType: 'Keyword "info"',
-        status: 'active',  subscribers: 530,  completionRate: 79, conversionRate: 37, messages: 5, lastEdited: '5d ago'
-    },
-    {
-        id: '3', name: 'Cart Recovery Flow',       triggerType: 'Link Click',
-        status: 'active',  subscribers: 310,  completionRate: 79, conversionRate: 43, messages: 4, lastEdited: '1w ago'
-    },
-    {
-        id: '4', name: 'Re-engagement (30d)',      triggerType: 'Inactivity Trigger',
-        status: 'paused',  subscribers: 220,  completionRate: 75, conversionRate: 25, messages: 2, lastEdited: '2w ago'
-    },
-    {
-        id: '5', name: 'Product Launch Campaign',  triggerType: 'Story Mention',
-        status: 'draft',   subscribers: 0,    completionRate: 0,  conversionRate: 0,  messages: 6, lastEdited: 'Just now'
-    },
-];
-
-const STATUS_META: Record<FlowStatus, { label: string; className: string; icon: React.ReactNode }> = {
+const STATUS_META: Record<PulseFlowStatus, { label: string; className: string; icon: React.ReactNode }> = {
     active: { label: 'Active', className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', icon: <CheckCircle2 className="size-3" /> },
     paused: { label: 'Paused', className: 'bg-amber-500/10 text-amber-400 border-amber-500/20',       icon: <AlertCircle className="size-3" /> },
     draft:  { label: 'Draft',  className: 'bg-slate-500/10 text-slate-400 border-slate-500/20',       icon: <Clock className="size-3" /> },
 };
 
 export default function FlowsView() {
-    const [flows, setFlows] = useState<Flow[]>(MOCK_FLOWS);
+    const { currentUser } = useAuth();
+    const [flows, setFlows] = useState<PulseFlow[]>([]);
+    const [loading, setLoading] = useState(true);
     const [openCanvasId, setOpenCanvasId] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!currentUser) return;
+        const flowsRef = collection(db, 'customers', currentUser.uid, 'pulse_flows');
+        const unsub = onSnapshot(flowsRef, (snap) => {
+            const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as PulseFlow));
+            // Sort by last updated
+            data.sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
+            setFlows(data);
+            setLoading(false);
+        });
+        return () => unsub();
+    }, [currentUser]);
 
     const openFlow = flows.find(f => f.id === openCanvasId);
 
-    const toggleStatus = (id: string) => {
-        setFlows(prev => prev.map(f => {
-            if (f.id !== id) return f;
-            return { ...f, status: f.status === 'active' ? 'paused' : f.status === 'paused' ? 'active' : 'active' };
-        }));
+    const toggleStatus = async (id: string, currentStatus: PulseFlowStatus) => {
+        if (!currentUser) return;
+        const newStatus = currentStatus === 'active' ? 'paused' : 'active';
+        await updateDoc(doc(db, 'customers', currentUser.uid, 'pulse_flows', id), {
+            status: newStatus,
+            updatedAt: new Date().toISOString()
+        });
     };
 
-    const createNewFlow = () => {
-        const id = `flow-${Date.now()}`;
-        setFlows(prev => [
-            ...prev,
-            {
-                id, name: 'New Flow', triggerType: 'Choose Trigger',
-                status: 'draft', subscribers: 0, completionRate: 0,
-                conversionRate: 0, messages: 0, lastEdited: 'Just now'
-            }
-        ]);
-        setOpenCanvasId(id);
+    const createNewFlow = async () => {
+        if (!currentUser) return;
+        const newFlowRef = doc(collection(db, 'customers', currentUser.uid, 'pulse_flows'));
+        const now = new Date().toISOString();
+        const newFlow: PulseFlow = {
+            id: newFlowRef.id,
+            name: 'New Automation Flow',
+            triggerType: 'Keyword',
+            triggerKeyword: 'info',
+            status: 'draft',
+            subscribers: 0,
+            completionRate: 0,
+            conversionRate: 0,
+            messages: 0,
+            lastEdited: 'Just now',
+            canvas: { nodes: [], edges: [] },
+            createdAt: now,
+            updatedAt: now
+        };
+        await setDoc(newFlowRef, newFlow);
+        setOpenCanvasId(newFlowRef.id);
     };
+
+    if (loading) {
+        return (
+            <div className="flex-1 flex items-center justify-center">
+                <Loader2 className="size-5 text-violet-500 animate-spin mr-2" />
+                <span className="text-slate-400 text-sm">Loading flows...</span>
+            </div>
+        );
+    }
 
     return (
         <>
             {openFlow && (
                 <FlowCanvas
-                    flowName={openFlow.name}
+                    flow={openFlow}
                     onClose={() => setOpenCanvasId(null)}
                 />
             )}
@@ -133,11 +136,11 @@ export default function FlowsView() {
                                             <h3 className="text-white font-bold">{flow.name}</h3>
                                             <div className="flex items-center gap-2 mt-0.5">
                                                 <span className="text-[10px] text-slate-600 font-semibold uppercase tracking-wider">Trigger:</span>
-                                                <span className="text-xs text-slate-400">{flow.triggerType}</span>
+                                                <span className="text-xs text-slate-500">{flow.triggerType === 'Keyword' ? `Keyword "${flow.triggerKeyword}"` : flow.triggerType}</span>
                                                 <span className="text-slate-600">·</span>
                                                 <span className="text-xs text-slate-500">{flow.messages} steps</span>
                                                 <span className="text-slate-600">·</span>
-                                                <span className="text-xs text-slate-500">Edited {flow.lastEdited}</span>
+                                                <span className="text-xs text-slate-500">Edited {new Date(flow.updatedAt).toLocaleDateString()}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -149,9 +152,13 @@ export default function FlowsView() {
 
                                         {flow.status !== 'draft' && (
                                             <button
-                                                onClick={() => toggleStatus(flow.id)}
-                                                title={flow.status === 'active' ? 'Pause' : 'Resume'}
-                                                className="p-1.5 text-slate-500 hover:text-white hover:bg-white/5 rounded-lg transition-all"
+                                                onClick={() => toggleStatus(flow.id, flow.status)}
+                                                className={cn(
+                                                    "size-8 rounded-lg flex items-center justify-center transition-colors shadow-sm",
+                                                    flow.status === 'active'
+                                                        ? 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20'
+                                                        : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
+                                                )}
                                             >
                                                 {flow.status === 'active' ? <Pause className="size-4" /> : <Play className="size-4" />}
                                             </button>

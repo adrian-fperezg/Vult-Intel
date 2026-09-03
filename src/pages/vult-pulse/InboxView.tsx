@@ -1,70 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Instagram, Facebook, MessageCircle, Send, Paperclip, Smile, Tag, MoreVertical, Check, CheckCheck, Clock } from 'lucide-react';
+import { Search, Instagram, Facebook, MessageCircle, Send, Paperclip, Smile, Tag, MoreVertical, Check, CheckCheck, Clock, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot, doc, query, orderBy, addDoc, serverTimestamp } from 'firebase/firestore';
+import { PulseConversation, PulseMessage } from '@/types/pulse';
 
 type Platform = 'instagram' | 'facebook' | 'whatsapp';
 
-interface Message {
-    id: string;
-    from: 'contact' | 'me';
-    text: string;
-    timestamp: string;
-    status?: 'sent' | 'delivered' | 'read';
+interface Conversation extends PulseConversation {
+    name?: string;
+    lastMessage?: string;
+    unread?: number;
 }
-
-interface Conversation {
-    id: string;
-    name: string;
-    handle: string;
-    platform: Platform;
-    lastMessage: string;
-    lastTime: string;
-    unread: number;
-    tags: string[];
-    messages: Message[];
-}
-
-const MOCK_CONVERSATIONS: Conversation[] = [
-    {
-        id: '1', name: 'Sofia Martínez', handle: '@sofia.mkt', platform: 'instagram', lastMessage: 'Cuánto cuesta el plan pro?', lastTime: '2m', unread: 2, tags: ['Hot'],
-        messages: [
-            { id: 'm1', from: 'me', text: '👋 Hola Sofia! Gracias por seguirnos. Somos Vult Intel — AI para marketing. ¿En qué podemos ayudarte?', timestamp: '10:00 AM', status: 'read' },
-            { id: 'm2', from: 'contact', text: 'Hola! Vi su anuncio. Me interesa saber más sobre la plataforma', timestamp: '10:02 AM' },
-            { id: 'm3', from: 'me', text: 'Con gusto! Vult Intel te ayuda a crear estrategias de marketing con IA. Tienes acceso a análisis de marca, generador de contenido, y mucho más 🚀', timestamp: '10:02 AM', status: 'read' },
-            { id: 'm4', from: 'contact', text: 'Cuánto cuesta el plan pro?', timestamp: '10:05 AM' },
-        ]
-    },
-    {
-        id: '2', name: 'Diego Ruiz', handle: '@diegoruiz', platform: 'whatsapp', lastMessage: 'Ok perfecto, lo pruebo!', lastTime: '1h', unread: 0, tags: ['VIP', 'Customer'],
-        messages: [
-            { id: 'm1', from: 'contact', text: 'Buenas! Tengo una duda con la factura', timestamp: 'Yesterday 4:00 PM' },
-            { id: 'm2', from: 'me', text: 'Claro Diego, cuéntame. Te ayudo de inmediato.', timestamp: 'Yesterday 4:01 PM', status: 'read' },
-            { id: 'm3', from: 'contact', text: 'Es que no me llegó el recibo del mes pasado', timestamp: 'Yesterday 4:05 PM' },
-            { id: 'm4', from: 'me', text: 'Ya lo reviso! Te lo reenvío en un momento ✅', timestamp: 'Yesterday 4:06 PM', status: 'read' },
-            { id: 'm5', from: 'contact', text: 'Ok perfecto, lo pruebo!', timestamp: 'Yesterday 4:20 PM' },
-        ]
-    },
-    {
-        id: '3', name: 'Ana López', handle: '@analopez_', platform: 'instagram', lastMessage: 'Muchas gracias!', lastTime: '3h', unread: 0, tags: ['Lead'],
-        messages: [
-            { id: 'm1', from: 'contact', text: 'Hola! Quiero el ebook de marketing gratuito', timestamp: '8:00 AM' },
-            { id: 'm2', from: 'me', text: '¡Genial! Aquí tienes el link para descargarlo 👉 vultintel.com/guide', timestamp: '8:00 AM', status: 'read' },
-            { id: 'm3', from: 'contact', text: 'Muchas gracias!', timestamp: '8:05 AM' },
-        ]
-    },
-    {
-        id: '4', name: 'Isabel Torres', handle: '@isabelto', platform: 'instagram', lastMessage: 'Tiene prueba gratuita?', lastTime: '10m', unread: 1, tags: ['Hot'],
-        messages: [
-            { id: 'm1', from: 'contact', text: 'Vi el anuncio. Tiene prueba gratuita?', timestamp: '9:55 AM' },
-        ]
-    },
-    {
-        id: '5', name: 'Carlos Herrera', handle: '@c.herrera', platform: 'facebook', lastMessage: 'Ok entendido', lastTime: '1d', unread: 0, tags: ['Customer'],
-        messages: [
-            { id: 'm1', from: 'contact', text: 'Ok entendido', timestamp: 'Yesterday 2:00 PM' },
-        ]
-    },
-];
 
 const PLATFORM_ICONS: Record<Platform, React.ReactNode> = {
     instagram: <Instagram className="size-3.5 text-pink-400" />,
@@ -85,39 +33,63 @@ const QUICK_REPLIES = [
 ];
 
 export default function InboxView() {
-    const [activeConvoId, setActiveConvoId] = useState<string>('1');
+    const { currentUser } = useAuth();
+    const [activeConvoId, setActiveConvoId] = useState<string | null>(null);
     const [search, setSearch] = useState('');
     const [inputText, setInputText] = useState('');
-    const [conversations, setConversations] = useState(MOCK_CONVERSATIONS);
+    const [conversations, setConversations] = useState<Conversation[]>([]);
+    const [messages, setMessages] = useState<PulseMessage[]>([]);
+    const [loading, setLoading] = useState(true);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    const activeConvo = conversations.find(c => c.id === activeConvoId)!;
+    // Fetch conversations
+    useEffect(() => {
+        if (!currentUser) return;
+        const convosRef = collection(db, 'customers', currentUser.uid, 'pulse_conversations');
+        const unsub = onSnapshot(convosRef, (snap) => {
+            const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Conversation));
+            data.sort((a, b) => new Date(b.updatedAt?.toDate?.() || 0).getTime() - new Date(a.updatedAt?.toDate?.() || 0).getTime());
+            setConversations(data);
+            setLoading(false);
+            if (data.length > 0 && !activeConvoId) {
+                setActiveConvoId(data[0].id);
+            }
+        });
+        return () => unsub();
+    }, [currentUser]);
+
+    // Fetch messages for active conversation
+    useEffect(() => {
+        if (!currentUser || !activeConvoId) return;
+        const msgsRef = collection(db, 'customers', currentUser.uid, 'pulse_conversations', activeConvoId, 'messages');
+        const q = query(msgsRef, orderBy('timestamp', 'asc'));
+        const unsub = onSnapshot(q, (snap) => {
+            const msgs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as PulseMessage));
+            setMessages(msgs);
+            // Scroll to bottom when new messages arrive
+            setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+        });
+        return () => unsub();
+    }, [currentUser, activeConvoId]);
+
+    const activeConvo = conversations.find(c => c.id === activeConvoId);
 
     const filteredConvos = conversations.filter(c =>
-        c.name.toLowerCase().includes(search.toLowerCase()) ||
-        c.handle.toLowerCase().includes(search.toLowerCase())
+        (c.name || '').toLowerCase().includes(search.toLowerCase()) ||
+        c.contactId.toLowerCase().includes(search.toLowerCase())
     );
 
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [activeConvoId]);
-
-    const sendMessage = () => {
-        if (!inputText.trim()) return;
-        setConversations(prev => prev.map(c => {
-            if (c.id !== activeConvoId) return c;
-            return {
-                ...c,
-                lastMessage: inputText,
-                lastTime: 'now',
-                unread: 0,
-                messages: [
-                    ...c.messages,
-                    { id: `m${Date.now()}`, from: 'me' as const, text: inputText, timestamp: 'Now', status: 'sent' as const }
-                ]
-            };
-        }));
+    const sendMessage = async () => {
+        if (!inputText.trim() || !currentUser || !activeConvoId) return;
+        const text = inputText;
         setInputText('');
+        
+        const msgsRef = collection(db, 'customers', currentUser.uid, 'pulse_conversations', activeConvoId, 'messages');
+        await addDoc(msgsRef, {
+            text,
+            sender: 'bot', // Or 'admin'
+            timestamp: serverTimestamp()
+        });
     };
 
     return (
@@ -141,10 +113,7 @@ export default function InboxView() {
                     {filteredConvos.map(convo => (
                         <button
                             key={convo.id}
-                            onClick={() => {
-                                setActiveConvoId(convo.id);
-                                setConversations(prev => prev.map(c => c.id === convo.id ? { ...c, unread: 0 } : c));
-                            }}
+                            onClick={() => setActiveConvoId(convo.id)}
                             className={cn(
                                 "w-full flex items-start gap-3 px-4 py-3.5 border-b border-white/4 text-left transition-all hover:bg-white/3",
                                 activeConvoId === convo.id && "bg-violet-500/8 border-l-2 border-l-violet-500"
@@ -162,105 +131,103 @@ export default function InboxView() {
 
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between mb-0.5">
-                                    <p className={cn("text-sm font-semibold truncate", convo.unread > 0 ? "text-white" : "text-slate-300")}>
-                                        {convo.name}
+                                    <p className={cn("text-sm font-semibold truncate", (convo.unread || 0) > 0 ? "text-white" : "text-slate-300")}>
+                                        {convo.name || convo.contactId}
                                     </p>
-                                    <span className="text-[10px] text-slate-500 shrink-0 ml-2">{convo.lastTime}</span>
                                 </div>
                                 <p className="text-xs text-slate-500 truncate">{convo.lastMessage}</p>
                                 <div className="flex items-center gap-1 mt-1">
-                                    {convo.tags.map(tag => (
-                                        <span key={tag} className={cn("px-1.5 py-0.5 rounded text-[9px] font-bold", TAG_COLORS[tag])}>
-                                            {tag}
-                                        </span>
-                                    ))}
+                                    {/* Tags omitted for now */}
                                 </div>
                             </div>
-
-                            {convo.unread > 0 && (
-                                <span className="shrink-0 size-5 rounded-full bg-violet-500 text-white text-[10px] font-black flex items-center justify-center">
-                                    {convo.unread}
+                            <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap">
+                                    {convo.updatedAt?.toDate?.() ? convo.updatedAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                                 </span>
-                            )}
+                                {!!convo.unread && convo.unread > 0 && (
+                                    <span className="shrink-0 size-5 rounded-full bg-violet-500 text-white text-[10px] font-black flex items-center justify-center">
+                                        {convo.unread}
+                                    </span>
+                                )}
+                            </div>
                         </button>
                     ))}
                 </div>
             </div>
 
             {/* Right pane — conversation */}
-            {activeConvo && (
-                <div className="flex-1 flex flex-col overflow-hidden">
-                    {/* Conversation Header */}
-                    <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-white/5 bg-[#0d1117]">
-                        <div className="flex items-center gap-3">
-                            <div className="size-9 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
-                                {activeConvo.name.charAt(0)}
-                            </div>
-                            <div>
-                                <p className="text-white font-bold text-sm">{activeConvo.name}</p>
-                                <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                                    {PLATFORM_ICONS[activeConvo.platform]}
-                                    {activeConvo.handle}
-                                </div>
-                            </div>
+            <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Conversation Header */}
+                <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-white/5 bg-[#0d1117]">
+                    <div className="flex items-center gap-3">
+                        <div className="size-9 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold">
+                            {activeConvo?.name?.charAt(0) || '?'}
                         </div>
-                        <div className="flex items-center gap-2">
-                            {activeConvo.tags.map(tag => (
-                                <span key={tag} className={cn("px-2.5 py-1 rounded-full text-xs font-bold", TAG_COLORS[tag])}>
-                                    {tag}
-                                </span>
-                            ))}
-                            <button className="text-slate-500 hover:text-slate-300 transition-colors p-1.5 hover:bg-white/5 rounded-lg">
-                                <Tag className="size-4" />
-                            </button>
-                            <button className="text-slate-500 hover:text-slate-300 transition-colors p-1.5 hover:bg-white/5 rounded-lg">
-                                <MoreVertical className="size-4" />
-                            </button>
+                        <div>
+                            <h3 className="text-white font-bold text-sm truncate">{activeConvo?.name || activeConvo?.contactId}</h3>
+                            <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                {activeConvo && PLATFORM_ICONS[activeConvo.platform]}
+                                {activeConvo?.contactId}
+                            </div>
                         </div>
                     </div>
+                </div>
 
-                    {/* Messages */}
-                    <div className="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-3">
-                        {activeConvo.messages.map(msg => (
-                            <div key={msg.id} className={cn("flex", msg.from === 'me' ? 'justify-end' : 'justify-start')}>
-                                <div className={cn(
-                                    "max-w-[72%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
-                                    msg.from === 'me'
-                                        ? "bg-violet-600 text-white rounded-tr-sm"
-                                        : "bg-[#1c2128] text-slate-200 rounded-tl-sm border border-white/5"
-                                )}>
-                                    <p>{msg.text}</p>
-                                    <div className={cn("flex items-center gap-1 mt-1", msg.from === 'me' ? "justify-end" : "justify-start")}>
-                                        <span className={cn("text-[10px]", msg.from === 'me' ? "text-violet-300" : "text-slate-500")}>
-                                            {msg.timestamp}
-                                        </span>
-                                        {msg.from === 'me' && msg.status && (
-                                            <span className="text-violet-300">
-                                                {msg.status === 'read' ? <CheckCheck className="size-3" /> : <Check className="size-3" />}
-                                            </span>
-                                        )}
+                {/* Messages */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    {!activeConvo ? (
+                        <div className="h-full flex flex-col items-center justify-center text-slate-500">
+                            <MessageCircle className="size-8 mb-2 opacity-50" />
+                            <p>Select a conversation</p>
+                        </div>
+                    ) : messages.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-slate-500">
+                            <p>No messages yet.</p>
+                        </div>
+                    ) : (
+                        messages.map((msg, i) => {
+                            const isMe = msg.sender === 'bot';
+                            // Simple clustering
+                            const prevMsg = messages[i - 1];
+                            const isFirstInCluster = !prevMsg || prevMsg.sender !== msg.sender;
+                            
+                            const timeStr = msg.timestamp?.toDate?.() ? msg.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                            
+                            return (
+                                <div key={msg.id} className={cn("flex flex-col max-w-[75%]", isMe ? "ml-auto items-end" : "mr-auto items-start", !isFirstInCluster && "mt-1")}>
+                                    <div className={cn(
+                                        "px-4 py-2 text-sm",
+                                        isMe ? "bg-violet-600 text-white rounded-2xl rounded-tr-sm" : "bg-[#161b22] text-slate-200 rounded-2xl rounded-tl-sm border border-white/5"
+                                    )}>
+                                        {msg.text}
                                     </div>
+                                    {isFirstInCluster && (
+                                        <div className="flex items-center gap-1 mt-1 px-1">
+                                            <span className="text-[10px] text-slate-500">{timeStr}</span>
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
-                        ))}
-                        <div ref={messagesEndRef} />
-                    </div>
+                            );
+                        })
+                    )}
+                    <div ref={messagesEndRef} />
+                </div>
 
-                    {/* Quick Replies */}
-                    <div className="shrink-0 px-6 py-2 border-t border-white/4 flex items-center gap-2 overflow-x-auto no-scrollbar">
-                        <span className="text-[10px] text-slate-600 font-semibold shrink-0">Quick:</span>
-                        {QUICK_REPLIES.map((r, i) => (
-                            <button
-                                key={i}
-                                onClick={() => setInputText(r)}
-                                className="shrink-0 px-3 py-1 bg-white/4 hover:bg-violet-500/10 border border-white/8 hover:border-violet-500/20 rounded-full text-xs text-slate-400 hover:text-violet-300 transition-all"
-                            >
-                                {r.length > 30 ? r.slice(0, 28) + '…' : r}
-                            </button>
-                        ))}
-                    </div>
+                {/* Quick Replies */}
+                <div className="shrink-0 px-6 py-2 border-t border-white/4 flex items-center gap-2 overflow-x-auto no-scrollbar">
+                    <span className="text-[10px] text-slate-600 font-semibold shrink-0">Quick:</span>
+                    {QUICK_REPLIES.map((r, i) => (
+                        <button
+                            key={i}
+                            onClick={() => setInputText(r)}
+                            className="shrink-0 px-3 py-1 bg-white/4 hover:bg-violet-500/10 border border-white/8 hover:border-violet-500/20 rounded-full text-xs text-slate-400 hover:text-violet-300 transition-all"
+                        >
+                            {r.length > 30 ? r.slice(0, 28) + '…' : r}
+                        </button>
+                    ))}
+                </div>
 
-                    {/* Input */}
+                {/* Input */}
                     <div className="shrink-0 px-6 py-4 border-t border-white/5 bg-[#0d1117]">
                         <div className="flex items-center gap-3 bg-[#161b22] border border-white/8 rounded-2xl px-4 py-2 focus-within:border-violet-500/40 transition-all">
                             <button className="text-slate-500 hover:text-slate-300 transition-colors shrink-0">
@@ -287,7 +254,6 @@ export default function InboxView() {
                         </div>
                     </div>
                 </div>
-            )}
         </div>
     );
 }
