@@ -4,25 +4,35 @@ import ReactFlow, {
     Background, Controls, MiniMap, Panel, BackgroundVariant, Handle, Position, useReactFlow, ReactFlowProvider
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { MessageCircle, GitBranch, Clock, Zap, MousePointer, X, ChevronDown, Save, Play, Eye } from 'lucide-react';
+import { 
+    MessageCircle, GitBranch, Clock, Zap, MousePointer, X, ChevronDown, Save, Play, Eye,
+    Hash, MessageSquare, AtSign, Megaphone, Video, Image as ImageIcon, LayoutList, Shuffle, Webhook, Bot
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import FlowSidebar from './FlowSidebar';
 
 // ─── Custom Node Components ───────────────────────────────────────────────────
 
-function TriggerNode({ data }: { data: any }) {
+function BaseTriggerNode({ data, icon: Icon, title, color }: { data: any, icon: any, title: string, color: string }) {
     return (
-        <div className="bg-violet-600 border-2 border-violet-400 rounded-2xl px-5 py-4 min-w-[200px] shadow-xl shadow-violet-500/30">
+        <div className={`bg-[#1c2128] border ${color} rounded-2xl px-5 py-4 min-w-[200px] shadow-lg`}>
             <Handle type="source" position={Position.Bottom} className="!bg-violet-300 !border-violet-200 !size-3" />
-            <div className="flex items-center gap-2.5 mb-1">
-                <Zap className="size-4 text-violet-200" />
-                <span className="text-[10px] font-black text-violet-200 uppercase tracking-widest">Trigger</span>
+            <div className="flex items-center gap-2.5 mb-2">
+                <div className={`size-6 rounded-lg bg-violet-500/20 flex items-center justify-center`}>
+                    <Icon className="size-3.5 text-violet-400" />
+                </div>
+                <span className="text-[10px] font-black text-violet-400 uppercase tracking-widest">{title}</span>
             </div>
-            <p className="text-white font-bold text-sm">{data.label}</p>
-            <p className="text-violet-200 text-xs mt-0.5">{data.sub || 'When this happens...'}</p>
+            <p className="text-white font-bold text-sm">{data.label || 'Configure Trigger'}</p>
         </div>
     );
 }
+
+function TriggerKeywordNode({ data }: { data: any }) { return <BaseTriggerNode data={data} icon={Hash} title="Keyword" color="border-violet-500/30" />; }
+function TriggerCommentNode({ data }: { data: any }) { return <BaseTriggerNode data={data} icon={MessageSquare} title="Comment" color="border-violet-500/30" />; }
+function TriggerStoryNode({ data }: { data: any }) { return <BaseTriggerNode data={data} icon={AtSign} title="Story Mention" color="border-violet-500/30" />; }
+function TriggerAdNode({ data }: { data: any }) { return <BaseTriggerNode data={data} icon={Megaphone} title="Meta Ad" color="border-violet-500/30" />; }
+function TriggerLiveNode({ data }: { data: any }) { return <BaseTriggerNode data={data} icon={Video} title="Live Stream" color="border-violet-500/30" />; }
 
 function MessageNode({ id, data }: { id: string, data: any }) {
     const { setNodes } = useReactFlow();
@@ -58,6 +68,49 @@ function MessageNode({ id, data }: { id: string, data: any }) {
             <button className="w-full mt-2 py-1.5 rounded-lg border border-dashed border-white/20 text-slate-400 text-[10px] font-bold hover:bg-white/5 hover:text-white transition-colors">
                 + Add Button
             </button>
+        </div>
+    );
+}
+
+function MediaNode({ data }: { data: any }) {
+    return (
+        <div className="bg-[#1c2128] border border-blue-500/30 rounded-2xl px-4 py-4 min-w-[200px] shadow-lg">
+            <Handle type="target" position={Position.Top} className="!bg-blue-400 !border-blue-300 !size-3" />
+            <Handle type="source" position={Position.Bottom} className="!bg-blue-400 !border-blue-300 !size-3" />
+            <div className="flex items-center gap-2 mb-3">
+                <div className="size-6 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                    <ImageIcon className="size-3.5 text-blue-400" />
+                </div>
+                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Media</span>
+            </div>
+            <div className="h-24 bg-[#0d1117] rounded-lg border border-dashed border-white/20 flex flex-col items-center justify-center text-slate-500 hover:border-blue-500/50 hover:text-blue-400 cursor-pointer transition-colors">
+                <ImageIcon className="size-6 mb-2" />
+                <span className="text-[10px] font-bold">Upload Media</span>
+            </div>
+        </div>
+    );
+}
+
+function CarouselNode({ data }: { data: any }) {
+    return (
+        <div className="bg-[#1c2128] border border-blue-500/30 rounded-2xl px-4 py-4 min-w-[240px] shadow-lg">
+            <Handle type="target" position={Position.Top} className="!bg-blue-400 !border-blue-300 !size-3" />
+            <Handle type="source" position={Position.Bottom} className="!bg-blue-400 !border-blue-300 !size-3" />
+            <div className="flex items-center gap-2 mb-3">
+                <div className="size-6 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                    <LayoutList className="size-3.5 text-blue-400" />
+                </div>
+                <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Carousel</span>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                {[1, 2].map(i => (
+                    <div key={i} className="w-32 shrink-0 bg-[#0d1117] rounded-lg border border-white/10 p-2">
+                        <div className="h-20 bg-white/5 rounded flex items-center justify-center mb-2"><ImageIcon className="size-4 text-slate-600" /></div>
+                        <div className="h-3 w-3/4 bg-white/10 rounded mb-1"></div>
+                        <div className="h-2 w-1/2 bg-white/5 rounded"></div>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }
@@ -160,6 +213,27 @@ function DelayNode({ id, data }: { id: string, data: any }) {
     );
 }
 
+function RandomizerNode({ id, data }: { id: string, data: any }) {
+    return (
+        <div className="bg-[#1c2128] border border-pink-500/30 rounded-2xl px-4 py-4 min-w-[200px] shadow-lg">
+            <Handle type="target" position={Position.Top} className="!bg-pink-400 !border-pink-300 !size-3" />
+            <Handle type="source" position={Position.Bottom} id="a" className="!bg-pink-400 !border-pink-300 !size-3 !left-[35%]" />
+            <Handle type="source" position={Position.Bottom} id="b" className="!bg-pink-400 !border-pink-300 !size-3 !left-[65%]" />
+            <div className="flex items-center gap-2 mb-3">
+                <div className="size-6 rounded-lg bg-pink-500/20 flex items-center justify-center">
+                    <Shuffle className="size-3.5 text-pink-400" />
+                </div>
+                <span className="text-[10px] font-black text-pink-400 uppercase tracking-widest">A/B Split</span>
+            </div>
+            <div className="flex justify-between items-center bg-[#0d1117] rounded-lg border border-white/10 p-2 text-xs font-bold text-slate-300">
+                <span>A: 50%</span>
+                <span className="text-slate-600">|</span>
+                <span>B: 50%</span>
+            </div>
+        </div>
+    );
+}
+
 function ActionNode({ id, data }: { id: string, data: any }) {
     const { setNodes } = useReactFlow();
 
@@ -197,22 +271,65 @@ function ActionNode({ id, data }: { id: string, data: any }) {
     );
 }
 
+function WebhookNode({ data }: { data: any }) {
+    return (
+        <div className="bg-[#1c2128] border border-emerald-500/30 rounded-2xl px-4 py-4 min-w-[220px] shadow-lg">
+            <Handle type="target" position={Position.Top} className="!bg-emerald-400 !border-emerald-300 !size-3" />
+            <div className="flex items-center gap-2 mb-3">
+                <div className="size-6 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                    <Webhook className="size-3.5 text-emerald-400" />
+                </div>
+                <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">API Request</span>
+            </div>
+            <input 
+                type="text" 
+                placeholder="https://hook.zapier.com/..." 
+                className="w-full bg-[#0d1117] border border-white/10 rounded-lg p-2 text-slate-300 text-[10px] focus:outline-none focus:border-emerald-500/50"
+            />
+        </div>
+    );
+}
+
+function AINode({ data }: { data: any }) {
+    return (
+        <div className="bg-[#1c2128] border border-cyan-500/30 rounded-2xl px-4 py-4 min-w-[200px] shadow-lg">
+            <Handle type="target" position={Position.Top} className="!bg-cyan-400 !border-cyan-300 !size-3" />
+            <div className="flex items-center gap-2 mb-3">
+                <div className="size-6 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                    <Bot className="size-3.5 text-cyan-400" />
+                </div>
+                <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">AI Handover</span>
+            </div>
+            <p className="text-xs text-slate-400 leading-tight">Conversation is passed to the Vult AI Agent.</p>
+        </div>
+    );
+}
+
 const NODE_TYPES = {
-    trigger:   TriggerNode,
-    message:   MessageNode,
+    trigger_keyword: TriggerKeywordNode,
+    trigger_comment: TriggerCommentNode,
+    trigger_story: TriggerStoryNode,
+    trigger_ad: TriggerAdNode,
+    trigger_live: TriggerLiveNode,
+    message: MessageNode,
+    media: MediaNode,
+    carousel: CarouselNode,
     condition: ConditionNode,
-    delay:     DelayNode,
-    action:    ActionNode,
+    delay: DelayNode,
+    randomizer: RandomizerNode,
+    action: ActionNode,
+    webhook: WebhookNode,
+    ai: AINode,
 };
 
 const INITIAL_NODES: Node[] = [
-    { id: '1', type: 'trigger',   position: { x: 300, y: 50  }, data: { label: 'New Follower',     sub: 'Instagram · When someone follows you' } },
+    { id: '1', type: 'trigger_keyword',   position: { x: 300, y: 50  }, data: { label: 'Keyword: hola' } },
     { id: '2', type: 'message',   position: { x: 270, y: 200 }, data: { label: '👋 Hey {name}! Thanks for following! We help brands grow with AI-powered marketing. Want to see how?' } },
-    { id: '3', type: 'delay',     position: { x: 300, y: 370 }, data: { label: 'Wait 2 hours' } },
-    { id: '4', type: 'condition', position: { x: 280, y: 500 }, data: { label: 'Did they reply?' } },
-    { id: '5', type: 'message',   position: { x: 100, y: 660 }, data: { label: '🚀 Amazing! Here\'s a free 14-day trial just for you: vultintel.com/trial' } },
-    { id: '6', type: 'message',   position: { x: 440, y: 660 }, data: { label: '💜 No worries! Here\'s our free marketing guide anyway: vultintel.com/guide' } },
-    { id: '7', type: 'action',    position: { x: 100, y: 820 }, data: { label: 'Add tag: Hot Lead · Notify sales team' } },
+    { id: '3', type: 'delay',     position: { x: 300, y: 390 }, data: { time: '2', unit: 'hours' } },
+    { id: '4', type: 'condition', position: { x: 280, y: 530 }, data: { conditionType: 'replied' } },
+    { id: '5', type: 'message',   position: { x: 100, y: 690 }, data: { label: '🚀 Amazing! Here\'s a free 14-day trial just for you: vultintel.com/trial' } },
+    { id: '6', type: 'message',   position: { x: 440, y: 690 }, data: { label: '💜 No worries! Here\'s our free marketing guide anyway: vultintel.com/guide' } },
+    { id: '7', type: 'action',    position: { x: 100, y: 880 }, data: { actionType: 'add_tag' } },
 ];
 
 const INITIAL_EDGES: Edge[] = [
