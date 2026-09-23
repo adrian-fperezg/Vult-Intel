@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { SafeImage } from '@/components/ui/SafeImage';
 import { getMediaUrl } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -47,13 +47,14 @@ interface AccountAnalytics {
   displayName: string;
   username: string;
   avatarUrl: string | null;
-  followers: number;
-  prevFollowers: number;
-  impressions: number;
-  prevImpressions: number;
-  engagements: number;
-  prevEngagements: number;
-  reach: number;
+  // null = the platform does not expose this metric for the account
+  followers: number | null;
+  prevFollowers: number | null;
+  impressions: number | null;
+  prevImpressions: number | null;
+  engagements: number | null;
+  prevEngagements: number | null;
+  reach: number | null;
   engagementRate: number;
   dailySeries: DayMetric[];
   topPosts: TopPost[];
@@ -67,9 +68,10 @@ interface Summary {
   totalEngagements: number;
   totalReach: number;
   engagementRate: number;
-  followerGrowth: { value: number; pct: number };
-  impressionsGrowth: { value: number; pct: number };
-  engagementsGrowth: { value: number; pct: number };
+  // null when no account reports both periods
+  followerGrowth: { value: number; pct: number } | null;
+  impressionsGrowth: { value: number; pct: number } | null;
+  engagementsGrowth: { value: number; pct: number } | null;
 }
 
 interface PostHistory {
@@ -102,11 +104,13 @@ const PLATFORM_META: Record<string, { label: string; color: string; chartColor: 
   youtube:   { label: 'YouTube',   color: 'text-red-400',    chartColor: '#f87171', icon: Youtube,   bg: 'bg-red-500/10 border-red-500/20' },
   twitter:   { label: 'Twitter/X', color: 'text-slate-300',  chartColor: '#94a3b8', icon: Twitter,   bg: 'bg-slate-500/10 border-slate-500/20' },
   threads:   { label: 'Threads',   color: 'text-slate-300',  chartColor: '#94a3b8', icon: Hash,      bg: 'bg-slate-500/10 border-slate-500/20' },
+  tiktok:    { label: 'TikTok',    color: 'text-white',      chartColor: '#e2e8f0', icon: Hash,      bg: 'bg-white/5 border-white/10' },
 };
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 
-function fmtNum(n: number): string {
+function fmtNum(n: number | null | undefined): string {
+  if (n === null || n === undefined) return '—';
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return n.toLocaleString();
@@ -223,6 +227,17 @@ export default function AnalyticsView() {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 10;
 
+  // Ignore responses that arrive after the user switched project.
+  const projectRef = useRef(activeProjectId);
+  projectRef.current = activeProjectId;
+
+  useEffect(() => {
+    setSelectedAccounts(new Set());
+    setAllAccountsRef([]);
+    setData(null);
+    setPage(1);
+  }, [activeProjectId]);
+
   const fetchAnalytics = useCallback(async () => {
     // P0.6: don't hang in skeleton state when there's no project
     if (!activeProjectId) {
@@ -238,9 +253,14 @@ export default function AnalyticsView() {
       if (selectedAccounts.size > 0) {
         params.set('account_ids', Array.from(selectedAccounts).join(','));
       }
+      const requestedProject = activeProjectId;
       const res = await fetch(`${BASE_URL}/analytics?${params.toString()}`, { headers: h });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Failed to load analytics (${res.status})`);
+      }
       const json = await res.json();
+      if (projectRef.current !== requestedProject) return;
       setData(json);
       // P0.5: only update reference list when showing all accounts (no filter)
       if (selectedAccounts.size === 0) {
@@ -618,12 +638,13 @@ export default function AnalyticsView() {
                         { label: 'Impressions', value: acc.impressions, prev: acc.prevImpressions },
                         { label: 'Engagements', value: acc.engagements, prev: acc.prevEngagements },
                       ].map(m => {
-                        const pct = m.prev > 0 ? Math.round(((m.value - m.prev) / m.prev) * 100) : 0;
+                        const comparable = m.value !== null && m.prev !== null && m.prev > 0;
+                        const pct = comparable ? Math.round(((m.value! - m.prev!) / m.prev!) * 100) : 0;
                         return (
                           <div key={m.label} className="bg-white/[0.02] rounded-lg p-2 border border-white/5">
                             <p className="text-[14px] font-bold text-white tabular-nums leading-none">{fmtNum(m.value)}</p>
                             <p className="text-[10px] text-slate-600 mt-0.5">{m.label}</p>
-                            {m.prev > 0 && <GrowthBadge pct={pct} />}
+                            {comparable && <GrowthBadge pct={pct} />}
                           </div>
                         );
                       })}
