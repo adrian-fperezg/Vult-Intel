@@ -17,7 +17,7 @@ const PLATFORMS = [
     color: 'text-red-400',
     bg: 'bg-red-500/8 border-red-500/15',
     activeBg: 'bg-red-500/10 border-red-500/20',
-    description: 'Publish to your YouTube community posts',
+    description: 'Upload videos to your YouTube channel',
     envKey: 'GOOGLE_CLIENT_ID',
     available: true,
   },
@@ -147,7 +147,8 @@ export default function AccountsView({ accounts, loading: _loading, onRefresh, a
   };
 
   const handleSync = async (platformId: string) => {
-    const accountToSync = accounts.find(a => a.platform === platformId);
+    // For Meta, sync with the Facebook login row (it holds the token that lists all pages).
+    const accountToSync = accounts.find(a => a.platform === platformId && !a.channel_id) || accounts.find(a => a.platform === platformId);
     if (!accountToSync) return;
 
     setSyncingId(platformId);
@@ -166,10 +167,21 @@ export default function AccountsView({ accounts, loading: _loading, onRefresh, a
     }
   };
 
-  const handleConnect = (platformId: string) => {
-    const url = api.getConnectUrl(platformId);
-    window.location.href = url;
+  const [connectingId, setConnectingId] = useState<string | null>(null);
+
+  const handleConnect = async (platformId: string) => {
+    setConnectingId(platformId);
+    try {
+      window.location.href = await api.getConnectUrl(platformId);
+    } catch (err: any) {
+      toast.error(err.message);
+      setConnectingId(null);
+    }
   };
+
+  // Provider status comes from the backend env; fall back to the static flag until it loads.
+  const isAvailable = (platform: typeof PLATFORMS[number]) =>
+    platform.id in providersStatus ? providersStatus[platform.id] : platform.available;
 
   return (
     <div className="h-full overflow-y-auto custom-scrollbar bg-[#090b0f]">
@@ -230,13 +242,13 @@ export default function AccountsView({ accounts, loading: _loading, onRefresh, a
                             <CheckCircle2 className="size-3" />
                             <span className="text-[10px] font-bold uppercase tracking-wider">Active</span>
                           </div>
-                          {account.token_expires_at && new Date(account.token_expires_at) < new Date() && (
+                          {!account.has_refresh_token && account.token_expires_at && new Date(account.token_expires_at) < new Date() && (
                             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 whitespace-nowrap">
                               <AlertTriangle className="size-3 shrink-0" />
                               <span className="text-[10px] font-bold uppercase tracking-wider">Expired: Reconnect</span>
                             </div>
                           )}
-                          {account.token_expires_at && new Date(account.token_expires_at) >= new Date() && new Date(account.token_expires_at).getTime() - Date.now() < 5 * 24 * 60 * 60 * 1000 && (
+                          {!account.has_refresh_token && account.token_expires_at && new Date(account.token_expires_at) >= new Date() && new Date(account.token_expires_at).getTime() - Date.now() < 5 * 24 * 60 * 60 * 1000 && (
                             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 whitespace-nowrap">
                               <AlertTriangle className="size-3 shrink-0" />
                               <span className="text-[10px] font-bold uppercase tracking-wider">Expiring Soon</span>
@@ -249,7 +261,12 @@ export default function AccountsView({ accounts, loading: _loading, onRefresh, a
                         <p className="text-[15px] font-bold text-white truncate" title={account.display_name || account.username}>
                           {account.display_name || account.username}
                         </p>
-                        <p className="text-[12px] text-slate-400 capitalize mt-0.5">{account.platform}</p>
+                        <p className="text-[12px] text-slate-400 capitalize mt-0.5">
+                          {account.platform}
+                          {account.platform === 'facebook' && !account.channel_id && (
+                            <span className="normal-case text-slate-500"> · Profile login (used to sync Pages, can't publish)</span>
+                          )}
+                        </p>
                       </div>
 
                       <div className="flex items-center gap-2 pt-4 border-t border-white/5">
@@ -308,8 +325,8 @@ export default function AccountsView({ accounts, loading: _loading, onRefresh, a
                       </div>
                     </div>
 
-                    <div className="shrink-0 flex items-center z-10">
-                      {connected ? (
+                    <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 z-10">
+                      {connected && (
                         <button
                           onClick={() => handleSync(platform.id)}
                           disabled={isSyncingThis}
@@ -318,28 +335,29 @@ export default function AccountsView({ accounts, loading: _loading, onRefresh, a
                           <RefreshCw className={cn("size-3.5", isSyncingThis && "animate-spin")} />
                           {isSyncingThis ? 'Syncing...' : `Sync ${platform.name}`}
                         </button>
-                      ) : (
-                        (platform.available || providersStatus[platform.id]) ? (
-                          <button
-                            onClick={() => handleConnect(platform.id)}
-                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-white/10 hover:bg-white/15 border border-white/10 text-white text-[13px] font-bold transition-colors"
-                          >
-                            <Link2 className="size-3.5" /> Connect
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => setExpandedSetup(expandedSetup === platform.id ? null : platform.id)}
-                            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-white/10 text-slate-500 hover:text-slate-300 text-[12px] font-semibold transition-colors"
-                          >
-                            <Lock className="size-3" /> Setup Required
-                          </button>
-                        )
+                      )}
+                      {isAvailable(platform) ? (
+                        <button
+                          onClick={() => handleConnect(platform.id)}
+                          disabled={connectingId === platform.id}
+                          className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-white/10 hover:bg-white/15 border border-white/10 text-white text-[13px] font-bold transition-colors disabled:opacity-60"
+                        >
+                          <Link2 className="size-3.5" />
+                          {connectingId === platform.id ? 'Redirecting...' : connected ? 'Add account' : 'Connect'}
+                        </button>
+                      ) : !connected && (
+                        <button
+                          onClick={() => setExpandedSetup(expandedSetup === platform.id ? null : platform.id)}
+                          className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-white/10 text-slate-500 hover:text-slate-300 text-[12px] font-semibold transition-colors"
+                        >
+                          <Lock className="size-3" /> Setup Required
+                        </button>
                       )}
                     </div>
                   </div>
 
                   {/* Setup guide */}
-                  {expandedSetup === platform.id && !(platform.available || providersStatus[platform.id]) && (
+                  {expandedSetup === platform.id && !isAvailable(platform) && (
                     <div className="px-5 pb-5 pt-0 border-t border-white/5 space-y-3 mt-0">
                       <p className="text-[13px] text-slate-400 leading-relaxed pt-4">{platform.setupGuide}</p>
                       {platform.setupUrl && (

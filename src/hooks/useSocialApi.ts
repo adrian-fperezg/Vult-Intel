@@ -64,7 +64,10 @@ export function useSocialApi() {
     const res = await fetch(`${BASE_URL}/posts/${id}`, {
       method: 'PATCH', headers: h, body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error(`Failed to update post: ${res.status}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Failed to update post: ${res.status}`);
+    }
     return res.json();
   }, [headers]);
 
@@ -85,9 +88,19 @@ export function useSocialApi() {
     return res.json();
   }, [headers]);
 
-  const getConnectUrl = useCallback((platform: string, source: string = 'social-studio') => {
-    return `${BACKEND_URL}/api/social/auth/${platform}?project_id=${activeProjectId}&user_id=${currentUser?.uid || ''}&source=${source}`;
-  }, [activeProjectId, currentUser?.uid]);
+  // Asks the backend (authenticated) for the provider's consent URL. The account
+  // is connected to the currently selected project.
+  const getConnectUrl = useCallback(async (platform: string, source: string = 'social-studio'): Promise<string> => {
+    if (!activeProjectId) throw new Error('Select a project first');
+    const h = await headers();
+    const res = await fetch(`${BACKEND_URL}/api/social/auth/${platform}/start`, {
+      method: 'POST', headers: h,
+      body: JSON.stringify({ project_id: activeProjectId, source }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.url) throw new Error(data.error || `Failed to start ${platform} connection: ${res.status}`);
+    return data.url as string;
+  }, [headers, activeProjectId]);
 
   const connectTokenAccount = useCallback(async (platform: string, credentials: any) => {
     const h = await headers();
@@ -116,7 +129,10 @@ export function useSocialApi() {
       headers: uploadHeaders,
       body: formData,
     });
-    if (!res.ok) throw new Error(`Failed to upload media: ${res.status}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Failed to upload media: ${res.status}`);
+    }
     const data = await res.json();
     return data.urls as string[];
   }, [headers]);

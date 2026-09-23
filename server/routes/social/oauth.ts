@@ -1,5 +1,5 @@
 import express, { Router } from 'express';
-import { AuthRequest } from '../../middleware.js';
+import { AuthRequest, verifyFirebaseToken } from '../../middleware.js';
 import db from '../../db.js';
 import { encryptToken } from '../../lib/outreach/encrypt.js';
 import fetch from 'node-fetch';
@@ -7,6 +7,8 @@ import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import redis from '../../redis.js';
 import { TwitterApi } from 'twitter-api-v2';
+import admin from '../../lib/firebase.js';
+import { META_GRAPH_VERSION, META_GRAPH_URL } from '../../lib/social/utils.js';
 
 const router = Router();
 
@@ -28,15 +30,36 @@ const getBackendUrl = () => {
 };
 
 const getFrontendUrl = () => {
-  let url = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.VITE_APP_URL;
+  let url = process.env.FRONTEND_URL;
   if (!url) {
-    url = process.env.NODE_ENV === 'production' ? 'https://vultintel.com' : 'http://localhost:5173';
+    url = process.env.NODE_ENV === 'production' ? 'https://vultintel.com' : 'http://localhost:3000';
   }
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
     url = `https://${url}`;
   }
   return url.replace(/\/+$/, '');
 };
+
+// Where the user lands after connecting (Social Studio or Vult Pulse).
+const getReturnUrl = (source: string | undefined, params: Record<string, string>) => {
+  const base = source === 'vult-pulse'
+    ? `${getFrontendUrl()}/vult-pulse?tab=settings`
+    : `${getFrontendUrl()}/social-studio?tab=accounts`;
+  return `${base}&${new URLSearchParams(params).toString()}`;
+};
+
+// Twitter posting uses OAuth 1.0a, which needs the app's API Key/Secret (consumer keys).
+const getTwitterAppKeys = () => ({
+  appKey: (process.env.TWITTER_API_KEY || process.env.TWITTER_CLIENT_ID || '').trim(),
+  appSecret: (process.env.TWITTER_API_SECRET || process.env.TWITTER_CLIENT_SECRET || '').trim(),
+});
+
+const OAUTH_STATE_TTL_SECONDS = 600;
+
+async function userOwnsProject(userId: string, projectId: string): Promise<boolean> {
+  const snap = await admin.firestore().doc(`customers/${userId}/projects/${projectId}`).get();
+  return snap.exists;
+}
 
 const PLATFORMS: Record<string, {
   name: string;
@@ -58,9 +81,9 @@ const PLATFORMS: Record<string, {
   },
   facebook: {
     name: 'Facebook',
-    authUrl: 'https://www.facebook.com/v19.0/dialog/oauth',
-    tokenUrl: 'https://graph.facebook.com/v19.0/oauth/access_token',
-    userInfoUrl: 'https://graph.facebook.com/me?fields=id,name,picture',
+    authUrl: `https://www.facebook.com/${META_GRAPH_VERSION}/dialog/oauth`,
+    tokenUrl: `${META_GRAPH_URL}/oauth/access_token`,
+    userInfoUrl: `${META_GRAPH_URL}/me?fields=id,name,picture`,
     scopes: 'pages_show_list,pages_read_engagement,pages_manage_metadata,pages_read_user_content,pages_manage_ads,pages_messaging,pages_manage_posts,public_profile',
     clientIdEnv: 'FACEBOOK_APP_ID',
     clientSecretEnv: 'FACEBOOK_APP_SECRET',
@@ -85,7 +108,7 @@ const PLATFORMS: Record<string, {
   },
   tiktok: {
     name: 'TikTok',
-    authUrl: 'https://www.tiktok.com/v2/auth/authorize',
+    authUrl: 'https://www.tiktok.com/v2/auth/authorize/',
     tokenUrl: 'https://open.tiktokapis.com/v2/oauth/token/',
     userInfoUrl: 'https://open.tiktokapis.com/v2/user/info/?fields=open_id,union_id,avatar_url,display_name',
     scopes: 'user.info.basic,video.publish,video.upload',
@@ -94,27 +117,27 @@ const PLATFORMS: Record<string, {
   },
   instagram_dm: {
     name: 'Instagram DM',
-    authUrl: 'https://www.facebook.com/v19.0/dialog/oauth',
-    tokenUrl: 'https://graph.facebook.com/v19.0/oauth/access_token',
-    userInfoUrl: 'https://graph.facebook.com/me?fields=id,name,picture',
+    authUrl: `https://www.facebook.com/${META_GRAPH_VERSION}/dialog/oauth`,
+    tokenUrl: `${META_GRAPH_URL}/oauth/access_token`,
+    userInfoUrl: `${META_GRAPH_URL}/me?fields=id,name,picture`,
     scopes: 'instagram_manage_messages,pages_manage_metadata,pages_read_engagement,pages_show_list,public_profile',
     clientIdEnv: 'FACEBOOK_APP_ID',
     clientSecretEnv: 'FACEBOOK_APP_SECRET',
   },
   whatsapp: {
     name: 'WhatsApp Business',
-    authUrl: 'https://www.facebook.com/v19.0/dialog/oauth',
-    tokenUrl: 'https://graph.facebook.com/v19.0/oauth/access_token',
-    userInfoUrl: 'https://graph.facebook.com/me?fields=id,name,picture',
+    authUrl: `https://www.facebook.com/${META_GRAPH_VERSION}/dialog/oauth`,
+    tokenUrl: `${META_GRAPH_URL}/oauth/access_token`,
+    userInfoUrl: `${META_GRAPH_URL}/me?fields=id,name,picture`,
     scopes: 'whatsapp_business_management,whatsapp_business_messaging',
     clientIdEnv: 'FACEBOOK_APP_ID',
     clientSecretEnv: 'FACEBOOK_APP_SECRET',
   },
   instagram: {
     name: 'Instagram',
-    authUrl: 'https://www.facebook.com/v19.0/dialog/oauth',
-    tokenUrl: 'https://graph.facebook.com/v19.0/oauth/access_token',
-    userInfoUrl: 'https://graph.facebook.com/me?fields=id,name,picture',
+    authUrl: `https://www.facebook.com/${META_GRAPH_VERSION}/dialog/oauth`,
+    tokenUrl: `${META_GRAPH_URL}/oauth/access_token`,
+    userInfoUrl: `${META_GRAPH_URL}/me?fields=id,name,picture`,
     scopes: 'instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement,business_management',
     clientIdEnv: 'FACEBOOK_APP_ID',
     clientSecretEnv: 'FACEBOOK_APP_SECRET',
@@ -137,62 +160,77 @@ router.get('/providers/status', (req, res) => {
   for (const [key, config] of Object.entries(PLATFORMS)) {
     status[key] = !!(process.env[config.clientIdEnv] && process.env[config.clientSecretEnv]);
   }
+  const twitterKeys = getTwitterAppKeys();
+  status.twitter = !!(twitterKeys.appKey && twitterKeys.appSecret);
   res.json(status);
 });
 
 // ─── OAUTH INITIATION ─────────────────────────────────────────────────────────
-// GET /api/social/auth/:platform?project_id=...&user_id=...
-router.get('/:platform', async (req: AuthRequest, res) => {
+// POST /api/social/auth/:platform/start  { project_id, source }  →  { url }
+// Authenticated: the account is always connected to a project the caller owns.
+// The browser then navigates to `url` (the provider's consent screen).
+router.post('/:platform/start', express.json(), verifyFirebaseToken, async (req: AuthRequest, res) => {
   const { platform } = req.params;
-  const userId = req.user?.uid || (req.query.user_id as string);
-  const pId = (req.headers['x-project-id'] as string) || (req.query.project_id as string);
-  const source = req.query.source as string || 'social-studio';
+  const userId = req.user!.uid;
+  const pId = (req.headers['x-project-id'] as string) || req.body?.project_id;
+  const source = req.body?.source === 'vult-pulse' ? 'vult-pulse' : 'social-studio';
 
   const config = PLATFORMS[platform];
   if (!config) return res.status(400).json({ error: `Unknown platform: ${platform}` });
-  if (!userId) return res.status(401).json({ error: 'Auth required' });
+  if (!pId) return res.status(400).json({ error: 'project_id required' });
 
-  const clientId = process.env[config.clientIdEnv]?.trim();
-  if (!clientId) {
-    return res.status(503).json({ 
-      error: `${config.name} OAuth not configured yet.`,
-      setup_required: true,
-      env_var: config.clientIdEnv
+  try {
+    if (!(await userOwnsProject(userId, pId))) {
+      return res.status(403).json({ error: 'Project not found for this user' });
+    }
+
+    const redirectUri = `${getBackendUrl()}/api/social/auth/${platform}/callback`;
+
+    if (platform === 'twitter') {
+      const { appKey, appSecret } = getTwitterAppKeys();
+      if (!appKey || !appSecret) {
+        return res.status(503).json({ error: 'Twitter/X OAuth not configured yet.', setup_required: true, env_var: 'TWITTER_API_KEY' });
+      }
+      const client = new TwitterApi({ appKey, appSecret });
+      const authLink = await client.generateAuthLink(redirectUri, { linkMode: 'authorize' });
+      await redis.setex(`oauth:twitter:${authLink.oauth_token}`, OAUTH_STATE_TTL_SECONDS, JSON.stringify({
+        oauth_token_secret: authLink.oauth_token_secret,
+        pId, userId, source
+      }));
+      return res.json({ url: authLink.url });
+    }
+
+    const clientId = process.env[config.clientIdEnv]?.trim();
+    if (!clientId || !process.env[config.clientSecretEnv]) {
+      return res.status(503).json({
+        error: `${config.name} OAuth not configured yet.`,
+        setup_required: true,
+        env_var: config.clientIdEnv
+      });
+    }
+
+    // Opaque, single-use state (also protects the callback against CSRF).
+    const state = crypto.randomBytes(24).toString('base64url');
+    await redis.setex(`oauth:social:${state}`, OAUTH_STATE_TTL_SECONDS, JSON.stringify({ pId, userId, platform, source }));
+
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: config.scopes,
+      state,
+      ...(platform === 'youtube' ? { access_type: 'offline', prompt: 'consent' } : {}),
     });
+
+    if (platform === 'tiktok') {
+      params.set('client_key', clientId);
+    }
+
+    res.json({ url: `${config.authUrl}?${params.toString()}` });
+  } catch (err: any) {
+    console.error(`[SOCIAL_OAUTH] ${platform} start error:`, err.message);
+    res.status(500).json({ error: err.message });
   }
-
-  const authSessionId = uuidv4();
-  let codeChallenge: string | undefined;
-  let codeChallengeMethod: string | undefined;
-
-  const redirectUri = `${getBackendUrl()}/api/social/auth/${platform}/callback`;
-
-  if (platform === 'twitter') {
-    const client = new TwitterApi({ appKey: clientId, appSecret: process.env[config.clientSecretEnv]! });
-    const authLink = await client.generateAuthLink(redirectUri, { linkMode: 'authorize' });
-    await redis.setex(`oauth:twitter:${authLink.oauth_token}`, 600, JSON.stringify({
-      oauth_token_secret: authLink.oauth_token_secret,
-      pId, userId, source
-    }));
-    return res.redirect(authLink.url);
-  }
-
-  const state = Buffer.from(JSON.stringify({ pId, userId, platform, source, authSessionId })).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-
-  const params = new URLSearchParams({
-    response_type: 'code',
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    scope: config.scopes,
-    state,
-    ...(platform === 'youtube' ? { access_type: 'offline', prompt: 'consent' } : {}),
-  });
-
-  if (platform === 'tiktok') {
-    params.set('client_key', clientId);
-  }
-
-  res.redirect(`${config.authUrl}?${params.toString()}`);
 });
 
 // ─── OAUTH CALLBACK ───────────────────────────────────────────────────────────
@@ -220,64 +258,65 @@ router.get('/:platform/callback', async (req, res) => {
   const { oauth_token, oauth_verifier } = req.query as Record<string, string>;
 
   if (platform === 'twitter') {
-    const getTwitterRedirect = (src: string, err?: string) => {
-      const base = src === 'vult-pulse' ? `https://vultintel.com/vult-pulse?tab=settings` : `https://vultintel.com/social-studio?tab=accounts`;
-      return err ? `${base}&error=${encodeURIComponent(err)}` : `${base}&success=twitter`;
-    };
-    if (error) return res.redirect(getTwitterRedirect('social-studio', error));
-    if (!oauth_token || !oauth_verifier) return res.redirect(getTwitterRedirect('social-studio', 'twitter_missing_tokens'));
-    
-    const sessionStr = await redis.get(`oauth:twitter:${oauth_token}`);
-    if (!sessionStr) return res.redirect(getTwitterRedirect('social-studio', 'twitter_session_expired'));
-    
+    if (error || req.query.denied) return res.redirect(getReturnUrl('social-studio', { error: String(error || 'twitter_access_denied') }));
+    if (!oauth_token || !oauth_verifier) return res.redirect(getReturnUrl('social-studio', { error: 'twitter_missing_tokens' }));
+
+    const sessionKey = `oauth:twitter:${oauth_token}`;
+    const sessionStr = await redis.get(sessionKey);
+    if (!sessionStr) return res.redirect(getReturnUrl('social-studio', { error: 'twitter_session_expired' }));
+    await redis.del(sessionKey);
+
     const session = JSON.parse(sessionStr);
-    const config = PLATFORMS.twitter;
-    const clientId = process.env[config.clientIdEnv]?.trim();
-    const clientSecret = process.env[config.clientSecretEnv]?.trim();
-    
+
     try {
       const client = new TwitterApi({
-        appKey: clientId!,
-        appSecret: clientSecret!,
+        ...getTwitterAppKeys(),
         accessToken: oauth_token,
         accessSecret: session.oauth_token_secret,
       });
       const { client: loggedClient, accessToken, accessSecret, screenName, userId: twitterUserId } = await client.login(oauth_verifier);
+      let avatarUrl = '';
+      let displayName = screenName;
+      try {
+        const { data } = await loggedClient.v2.me({ 'user.fields': ['profile_image_url', 'name'] });
+        avatarUrl = data.profile_image_url || '';
+        displayName = data.name || screenName;
+      } catch { /* profile details are optional */ }
+
       const finalToken = encryptToken(`${accessToken}:${accessSecret}`);
       await db.run(`
-        INSERT INTO social_accounts (id, project_id, user_id, platform, account_id, username, display_name, access_token)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO social_accounts (id, project_id, user_id, platform, account_id, username, display_name, avatar_url, access_token)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT (project_id, platform, account_id) DO UPDATE SET
           username = EXCLUDED.username,
           display_name = EXCLUDED.display_name,
+          avatar_url = EXCLUDED.avatar_url,
           access_token = EXCLUDED.access_token,
           updated_at = NOW()
-      `, uuidv4(), session.pId, session.userId, 'twitter', twitterUserId, screenName, screenName, finalToken);
-      return res.redirect(getTwitterRedirect(session.source));
+      `, uuidv4(), session.pId, session.userId, 'twitter', twitterUserId, `@${screenName}`, displayName, avatarUrl, finalToken);
+      return res.redirect(getReturnUrl(session.source, { success: 'true', connected: 'twitter' }));
     } catch (err: any) {
       console.error('[TWITTER_OAUTH_ERROR]', err);
-      return res.redirect(getTwitterRedirect(session.source, err.message));
+      return res.redirect(getReturnUrl(session.source, { error: err.message }));
     }
   }
 
-  let stateData: { pId: string; userId: string; platform: string; source?: string; authSessionId?: string } = { pId: '', userId: '', platform: '', source: 'social-studio' };
-  try {
-    if (state) {
-      stateData = JSON.parse(Buffer.from(state, 'base64url').toString());
-    }
-  } catch {
-    return res.status(400).send('Invalid state');
+  if (!state) {
+    return res.redirect(getReturnUrl('social-studio', { error: String(error || 'missing_state') }));
   }
-
-  const getRedirectBaseUrl = () => {
-    const frontend = 'https://vultintel.com';
-    return stateData.source === 'vult-pulse' 
-      ? `${frontend}/vult-pulse?tab=settings`
-      : `${frontend}/social-studio?tab=accounts`;
-  };
+  const stateKey = `oauth:social:${state}`;
+  const stateStr = await redis.get(stateKey);
+  if (!stateStr) {
+    return res.redirect(getReturnUrl('social-studio', { error: 'Connection session expired. Please try again.' }));
+  }
+  await redis.del(stateKey);
+  const stateData: { pId: string; userId: string; platform: string; source?: string } = JSON.parse(stateStr);
+  if (stateData.platform !== platform) {
+    return res.redirect(getReturnUrl(stateData.source, { error: 'OAuth state mismatch' }));
+  }
 
   if (error) {
-    return res.redirect(`${getRedirectBaseUrl()}&error=${encodeURIComponent(error)}`);
+    return res.redirect(getReturnUrl(stateData.source, { error: String(req.query.error_description || error) }));
   }
 
   const config = PLATFORMS[platform];
@@ -286,7 +325,7 @@ router.get('/:platform/callback', async (req, res) => {
   const clientId = process.env[config.clientIdEnv]?.trim();
   const clientSecret = process.env[config.clientSecretEnv]?.trim();
   if (!clientId || !clientSecret) {
-    return res.redirect(`${getRedirectBaseUrl()}&error=not_configured`);
+    return res.redirect(getReturnUrl(stateData.source, { error: 'not_configured' }));
   }
 
   try {
@@ -295,17 +334,14 @@ router.get('/:platform/callback', async (req, res) => {
     // Exchange code for tokens
     const tokenRes = await fetch(config.tokenUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        ...(platform === 'twitter' ? { Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}` } : {}),
-      },
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
         redirect_uri: redirectUri,
-        client_id: clientId,
+        // TikTok names the client id "client_key"
+        ...(platform === 'tiktok' ? { client_key: clientId } : { client_id: clientId }),
         client_secret: clientSecret,
-        ...(platform === 'linkedin' ? {} : { code_verifier: (await redis.get(`oauth:${platform}:${stateData.authSessionId}`)) || '' }),
       }).toString(),
     });
     const tokenData = await tokenRes.json() as any;
@@ -318,7 +354,7 @@ router.get('/:platform/callback', async (req, res) => {
     // Exchange short-lived token for long-lived token (Meta platforms)
     if (platform === 'facebook' || platform === 'instagram' || platform === 'instagram_dm' || platform === 'whatsapp') {
       try {
-        const exchangeRes = await fetch(`https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${clientId}&client_secret=${clientSecret}&fb_exchange_token=${tokenData.access_token}`);
+        const exchangeRes = await fetch(`${META_GRAPH_URL}/oauth/access_token?grant_type=fb_exchange_token&client_id=${clientId}&client_secret=${clientSecret}&fb_exchange_token=${tokenData.access_token}`);
         const exchangeData = await exchangeRes.json() as any;
         if (exchangeData.access_token) {
           tokenData.access_token = exchangeData.access_token;
@@ -404,7 +440,7 @@ router.get('/:platform/callback', async (req, res) => {
           accountsToInsert.push({ accountId: mainId, username: mainUsername, displayName: mainDisplayName, avatarUrl: mainAvatarUrl, channelId: '' });
           
           try {
-            const pagesRes = await fetch('https://graph.facebook.com/v19.0/me/accounts?fields=name,access_token,picture', { headers });
+            const pagesRes = await fetch(`${META_GRAPH_URL}/me/accounts?fields=name,access_token,picture`, { headers });
             const pagesData = await pagesRes.json() as any;
             if (pagesData.data) {
               for (const page of pagesData.data) {
@@ -423,11 +459,9 @@ router.get('/:platform/callback', async (req, res) => {
           }
         } else if (platform === 'instagram') {
           try {
-            const pagesRes = await fetch('https://graph.facebook.com/v19.0/me/accounts?fields=instagram_business_account,name,access_token', { headers });
+            const pagesRes = await fetch(`${META_GRAPH_URL}/me/accounts?fields=instagram_business_account,name,access_token`, { headers });
             const pagesData = await pagesRes.json() as any;
             
-            console.log('[IG_DEBUG] Pages returned from FB:', JSON.stringify(pagesData, null, 2));
-
             const validPages = pagesData.data?.filter((p: any) => p.instagram_business_account) || [];
             
             if (validPages.length > 0) {
@@ -438,7 +472,7 @@ router.get('/:platform/callback', async (req, res) => {
                 let igAvatar = mainAvatarUrl;
                 
                 try {
-                  const igRes = await fetch(`https://graph.facebook.com/v19.0/${igId}?fields=username,name,profile_picture_url&access_token=${tokenData.access_token}`);
+                  const igRes = await fetch(`${META_GRAPH_URL}/${igId}?fields=username,name,profile_picture_url&access_token=${tokenData.access_token}`);
                   const igData = await igRes.json() as any;
                   if (igData.username) igUser = igData.username;
                   if (igData.name) igDisplay = igData.name;
@@ -542,11 +576,13 @@ router.get('/:platform/callback', async (req, res) => {
     }
 
     // Redirect exactly to the requested URL for success
-    const finalUrl = `https://vultintel.com/social-studio?tab=accounts&success=true&connected=${platform}`;
-    res.redirect(finalUrl);
+    if (accountsToInsert.length === 0) {
+      throw new Error(`Could not read the ${config.name} account details. Please try again.`);
+    }
+    res.redirect(getReturnUrl(stateData.source, { success: 'true', connected: platform }));
   } catch (err: any) {
     console.error(`[SOCIAL_OAUTH] ${platform} error:`, err.message);
-    res.redirect(`${getRedirectBaseUrl()}&error=${encodeURIComponent(err.message)}`);
+    res.redirect(getReturnUrl(stateData.source, { error: err.message }));
   }
 });
 

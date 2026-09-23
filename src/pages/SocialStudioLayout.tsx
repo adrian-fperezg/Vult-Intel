@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -25,6 +25,10 @@ const TABS = [
 
 type Tab = (typeof TABS)[number]['id'];
 
+// social_accounts is shared with Vult Pulse (instagram_dm, whatsapp, telegram, twilio);
+// Social Studio only shows the platforms it can publish to.
+const PUBLISHABLE_PLATFORMS = new Set(['linkedin', 'facebook', 'instagram', 'youtube', 'twitter', 'tiktok', 'threads']);
+
 export default function SocialStudioLayout() {
   const [searchParams, setSearchParams] = useSearchParams();
   const api = useSocialApi();
@@ -34,6 +38,10 @@ export default function SocialStudioLayout() {
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [postToEdit, setPostToEdit] = useState<any>(null); // NEW
 
+  // Guards against responses from a previously selected project overwriting the current one.
+  const projectRef = useRef(api.activeProjectId);
+  projectRef.current = api.activeProjectId;
+
   const activeTab = (searchParams.get('tab') as Tab) || 'compose';
   const setTab = (tab: Tab) => setSearchParams({ tab });
 
@@ -42,10 +50,12 @@ export default function SocialStudioLayout() {
       setLoadingAccounts(false);
       return;
     }
+    const requestedProject = api.activeProjectId;
     try {
       setLoadingAccounts(true);
       const data = await api.getAccounts();
-      setAccounts(data || []);
+      if (projectRef.current !== requestedProject) return;
+      setAccounts((data || []).filter((a: any) => PUBLISHABLE_PLATFORMS.has(a.platform)));
     } catch (err: any) {
       if (err.name === 'AbortError') {
         console.log('[Accounts] AbortError ignored during cleanup');
@@ -60,9 +70,11 @@ export default function SocialStudioLayout() {
       setLoadingPosts(false);
       return;
     }
+    const requestedProject = api.activeProjectId;
     try {
       setLoadingPosts(true);
       const data = await api.getPosts();
+      if (projectRef.current !== requestedProject) return;
       setPosts(data || []);
     } catch (err: any) {
       if (err.name === 'AbortError') {
@@ -74,6 +86,10 @@ export default function SocialStudioLayout() {
   }, [api, api.activeProjectId]);
 
   useEffect(() => {
+    // Switching project: drop everything that belonged to the previous one.
+    setAccounts([]);
+    setPosts([]);
+    setPostToEdit(null);
     loadAccounts();
     loadPosts();
 
@@ -83,7 +99,6 @@ export default function SocialStudioLayout() {
     if (connected) {
       toast.success(`✅ ${connected.charAt(0).toUpperCase() + connected.slice(1)} connected!`);
       setSearchParams({ tab: 'accounts' });
-      loadAccounts();
     }
     if (error) {
       toast.error(`OAuth error: ${decodeURIComponent(error)}`);

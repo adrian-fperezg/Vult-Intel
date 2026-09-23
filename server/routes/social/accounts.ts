@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import { AuthRequest } from '../../middleware.js';
 import db from '../../db.js';
+import { TwitterApi } from 'twitter-api-v2';
+import { getFreshAccessToken } from '../../lib/social/tokens.js';
+import { META_GRAPH_URL } from '../../lib/social/utils.js';
 
 const router = Router();
 
@@ -14,7 +17,8 @@ router.get('/', async (req: AuthRequest, res) => {
   try {
     const accounts = await db.all(`
       SELECT id, platform, account_id, username, display_name, avatar_url, 
-             token_expires_at, scopes, page_id, channel_id, created_at
+             token_expires_at, scopes, page_id, channel_id, created_at,
+             (refresh_token IS NOT NULL) AS has_refresh_token
       FROM social_accounts 
       WHERE project_id = ? AND user_id = ?
       ORDER BY platform, created_at ASC
@@ -153,20 +157,12 @@ router.post('/sync/:id', async (req: AuthRequest, res) => {
         ORDER BY created_at DESC LIMIT 1
       `, pId, userId);
 
-      // Fallback 1: If the user deleted the main profile from this project, try to find it in another project.
-      if (!mainFbAccount) {
-        mainFbAccount = await db.get<any>(`
-          SELECT * FROM social_accounts 
-          WHERE user_id = ? AND platform = 'facebook' AND (channel_id IS NULL OR channel_id = '')
-          ORDER BY created_at DESC LIMIT 1
-        `, userId);
-      }
-
+      // Each project keeps its own connections: never borrow a Facebook login from another project.
       let pagesData: any = null;
       
       if (mainFbAccount) {
         const accessToken = decryptToken(mainFbAccount.access_token);
-        const pagesRes = await fetch(`https://graph.facebook.com/v19.0/me/accounts?fields=name,access_token,picture,instagram_business_account&limit=100&access_token=${accessToken}`);
+        const pagesRes = await fetch(`${META_GRAPH_URL}/me/accounts?fields=name,access_token,picture,instagram_business_account&limit=100&access_token=${accessToken}`);
         pagesData = await pagesRes.json() as any;
       }
       
@@ -180,7 +176,7 @@ router.post('/sync/:id', async (req: AuthRequest, res) => {
         }
         
         const pageToken = decryptToken(targetAccount.access_token);
-        const singlePageRes = await fetch(`https://graph.facebook.com/v19.0/me?fields=name,picture,instagram_business_account&access_token=${pageToken}`);
+        const singlePageRes = await fetch(`${META_GRAPH_URL}/me?fields=name,picture,instagram_business_account&access_token=${pageToken}`);
         const singlePageData = await singlePageRes.json() as any;
         
         if (singlePageData.error) {
@@ -215,10 +211,10 @@ router.post('/sync/:id', async (req: AuthRequest, res) => {
             const igId = page.instagram_business_account.id;
             let igUser = page.name;
             let igDisplay = page.name;
-            let igAvatar = mainFbAccount.avatar_url;
+            let igAvatar = mainFbAccount?.avatar_url || page.picture?.data?.url || '';
             
             try {
-              const igRes = await fetch(`https://graph.facebook.com/v19.0/${igId}?fields=username,name,profile_picture_url&access_token=${page.access_token}`);
+              const igRes = await fetch(`${META_GRAPH_URL}/${igId}?fields=username,name,profile_picture_url&access_token=${page.access_token}`);
               const igData = await igRes.json() as any;
               if (igData.username) igUser = igData.username;
               if (igData.name) igDisplay = igData.name;
@@ -284,24 +280,26 @@ router.post('/sync/:id', async (req: AuthRequest, res) => {
         console.error('LinkedIn Orgs sync failed:', e);
       }
     } else if (platform === 'twitter') {
-      const accessToken = decryptToken(targetAccount.access_token);
-      const userRes = await fetch('https://api.twitter.com/2/users/me?user.fields=profile_image_url', { 
-        headers: { Authorization: `Bearer ${accessToken}` } 
+      // Twitter accounts are connected with OAuth 1.0a: the stored token is "accessToken:accessSecret".
+      const [accessToken, accessSecret] = decryptToken(targetAccount.access_token).split(':');
+      const client = new TwitterApi({
+        appKey: (process.env.TWITTER_API_KEY || process.env.TWITTER_CLIENT_ID || '').trim(),
+        appSecret: (process.env.TWITTER_API_SECRET || process.env.TWITTER_CLIENT_SECRET || '').trim(),
+        accessToken,
+        accessSecret,
       });
-      const userData = await userRes.json() as any;
-      if (userData.data) {
-        accountsToInsert.push({
-          platform: 'twitter',
-          accountId: userData.data.id,
-          username: `@${userData.data.username}`,
-          displayName: userData.data.name,
-          avatarUrl: userData.data.profile_image_url || '',
-          channelId: '',
-          tokenToSave: targetAccount.access_token
-        });
-      }
+      const { data } = await client.v2.me({ 'user.fields': ['profile_image_url', 'name', 'username'] });
+      accountsToInsert.push({
+        platform: 'twitter',
+        accountId: data.id,
+        username: `@${data.username}`,
+        displayName: data.name,
+        avatarUrl: data.profile_image_url || '',
+        channelId: '',
+        tokenToSave: targetAccount.access_token
+      });
     } else if (platform === 'youtube') {
-      const accessToken = decryptToken(targetAccount.access_token);
+      const accessToken = await getFreshAccessToken({ ...targetAccount, social_account_id: targetAccount.id });
       const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { 
         headers: { Authorization: `Bearer ${accessToken}` } 
       });
@@ -325,7 +323,7 @@ router.post('/sync/:id', async (req: AuthRequest, res) => {
           displayName,
           avatarUrl: userData.picture || '',
           channelId,
-          tokenToSave: targetAccount.access_token
+          tokenToSave: (await db.get<any>(`SELECT access_token FROM social_accounts WHERE id = ?`, targetAccount.id))?.access_token || targetAccount.access_token
         });
       }
     } else {
