@@ -207,7 +207,7 @@ export default function AnalyticsView() {
 
   const getHeaders = useCallback(async () => {
     if (!currentUser) throw new Error('Not authenticated');
-    const token = await currentUser.getIdToken(true);
+    const token = await currentUser.getIdToken();
     return {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',

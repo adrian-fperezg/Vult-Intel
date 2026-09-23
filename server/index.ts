@@ -92,12 +92,15 @@ import db, { initDb } from "./db";
 import { google } from "googleapis";
 import { verifyFirebaseToken, AuthRequest, verifyToken } from "./middleware";
 import { adminOnly } from "./middleware/adminOnly.js";
+import { requireProjectAccess } from "./lib/projectAccess.js";
+import { pollImap } from "./lib/outreach/imapPoller.js";
 import { enrollContactInSequence, getTrueNextStep, scheduleNextStep, ensureValidMailboxAssignment, getNextBusinessSlot } from "./lib/outreach/sequenceEngine.js";
 import { getGlobalLimitStatus } from './lib/outreach/sendLimits.js';
 import { emailQueue, campaignQueue } from "./queues/queueInstance.js";
-import { processEmail, cancelMailboxJobs, pollMailboxes, resetRepeatableJobs, sequenceWatchdog, cancelScheduledSequenceStart } from "./queues/emailQueue.js";
+import { processEmail, cancelMailboxJobs, pollMailboxes, resetRepeatableJobs, sequenceWatchdog, cancelScheduledSequenceStart, removeContactSequenceJobs } from "./queues/emailQueue.js";
 import {
   buildGoogleAuthUrl,
+  consumeGoogleAuthState,
   exchangeCodeForTokens,
   fetchGoogleUserInfo,
   getValidAccessToken,
@@ -1150,35 +1153,9 @@ app.get("/api/admin/sequence/force-recovery", verifyFirebaseToken, adminOnly, as
   }
 });
 
-// ─── Google OAuth — PUBLIC (no Firebase token required) ──────────────────────
-// The frontend hits this after getting a short-lived "auth init token" from the
-// already-authenticated Firebase session. We embed userId+projectId in the state.
-
-app.get("/api/outreach/auth/google", async (req, res) => {
-  const { userId, projectId } = req.query as {
-    userId?: string;
-    projectId?: string;
-  };
-
-  if (!userId || !projectId) {
-    return res.status(400).json({ error: "userId and projectId are required" });
-  }
-
-  // Check if Google credentials are configured
-  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-    return res.status(503).json({
-      error:
-        "Gmail OAuth not configured. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env",
-    });
-  }
-
-  try {
-    const url = buildGoogleAuthUrl(userId, projectId);
-    return res.redirect(url);
-  } catch (err: any) {
-    return res.status(500).json({ error: err.message });
-  }
-});
+// ─── Google OAuth callback — PUBLIC (Google redirects here) ──────────────────
+// The consent URL comes from the authenticated /api/outreach/auth/gmail-url;
+// the state is a single-use Redis token created there.
 
 app.get(["/api/outreach/auth/google/callback", "/api/outreach/gmail/callback"], async (req, res) => {
   const { code, state, error } = req.query as {
@@ -1196,10 +1173,11 @@ app.get(["/api/outreach/auth/google/callback", "/api/outreach/gmail/callback"], 
   }
 
   try {
-    // Decode state
-    const { userId, projectId } = JSON.parse(
-      Buffer.from(state, "base64url").toString("utf8"),
-    );
+    const session = await consumeGoogleAuthState(state);
+    if (!session) {
+      return res.redirect(`${frontendBase}/outreach?gmail_error=${encodeURIComponent('Connection session expired. Please try again.')}`);
+    }
+    const { userId, projectId } = session;
 
     // Exchange code for tokens
     const tokens = await exchangeCodeForTokens(code);
@@ -1226,6 +1204,7 @@ app.get(["/api/outreach/auth/google/callback", "/api/outreach/gmail/callback"], 
         refresh_token = CASE WHEN excluded.refresh_token != '' THEN excluded.refresh_token ELSE outreach_mailboxes.refresh_token END,
         expires_at = excluded.expires_at,
         scope = excluded.scope,
+        connection_type = 'gmail_oauth',
         status = 'active'
       RETURNING id
     `,
@@ -1337,34 +1316,72 @@ app.get("/api/outreach/unsubscribe", express.json(), async (req, res) => {
 app.post("/api/outreach/unsubscribe", express.json(), async (req, res) => {
   try {
     const { email: directEmail, contact_id, project_id, token } = req.body;
-    let resolvedEmail = directEmail;
 
-    if (!resolvedEmail && token) {
+    // Legacy links carried an encrypted email (proof of receipt) but no project,
+    // so they opt the address out everywhere via the 'global' suppression entry.
+    if (!directEmail && token) {
+      let legacyEmail: string;
       try {
-        const rawCipher = Buffer.from(token, 'base64').toString('utf8');
-        resolvedEmail = decryptToken(rawCipher);
+        legacyEmail = decryptToken(Buffer.from(token, 'base64').toString('utf8'));
       } catch {
         return res.status(400).json({ error: "Invalid or expired token." });
       }
+      if (!legacyEmail?.includes('@')) return res.status(400).json({ error: "Invalid or expired token." });
+      await db.prepare(`
+        INSERT INTO suppression_list (project_id, email, reason, created_at)
+        VALUES ('global', ?, 'user_request', CURRENT_TIMESTAMP)
+        ON CONFLICT(project_id, email) DO NOTHING
+      `).run(legacyEmail.toLowerCase().trim());
+      return res.json({ success: true, message: "Unsubscribed successfully" });
     }
 
-    if (!resolvedEmail || !resolvedEmail.includes('@')) return res.status(400).json({ error: "Valid email required." });
-    const emailLower = resolvedEmail.toLowerCase().trim();
+    if (!directEmail || !directEmail.includes('@')) return res.status(400).json({ error: "Valid email required." });
+    if (!project_id) return res.status(400).json({ error: "Invalid unsubscribe link." });
+    const emailLower = directEmail.toLowerCase().trim();
+
+    // The link must match something this project actually sent, so nobody can
+    // opt arbitrary addresses out of other people's projects.
+    if (contact_id) {
+      const contact = await db.get<any>(
+        "SELECT id FROM outreach_contacts WHERE id = ? AND project_id = ? AND LOWER(email) = ?",
+        contact_id, project_id, emailLower
+      );
+      if (!contact) return res.status(400).json({ error: "Invalid unsubscribe link." });
+    } else {
+      const sent = await db.get<any>(
+        "SELECT 1 AS ok FROM outreach_individual_emails WHERE project_id = ? AND LOWER(to_email) = ? LIMIT 1",
+        project_id, emailLower
+      );
+      if (!sent) return res.status(400).json({ error: "Invalid unsubscribe link." });
+    }
 
     await db.prepare(`
       INSERT INTO suppression_list (project_id, email, reason, created_at)
       VALUES (?, ?, 'user_request', CURRENT_TIMESTAMP)
       ON CONFLICT(project_id, email) DO NOTHING
-    `).run(project_id || 'global', emailLower);
+    `).run(project_id, emailLower);
 
-    if (contact_id) {
-      await db.run(`UPDATE outreach_contacts SET status = 'unsubscribed', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [contact_id]);
-    } else {
-      await db.run(`UPDATE outreach_contacts SET status = 'unsubscribed', updated_at = CURRENT_TIMESTAMP WHERE LOWER(email) = ?`, [emailLower]);
+    const contacts = await db.all<any>(
+      "SELECT id FROM outreach_contacts WHERE project_id = ? AND LOWER(email) = ?",
+      project_id, emailLower
+    );
+    for (const c of contacts) {
+      await db.run(`UPDATE outreach_contacts SET status = 'unsubscribed', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, c.id);
+      await db.run(
+        "UPDATE outreach_sequence_enrollments SET status = 'stopped', last_error = 'Unsubscribed' WHERE contact_id = ? AND project_id = ? AND status = 'active'",
+        c.id, project_id
+      );
+      await removeContactSequenceJobs(c.id);
+      await db.run(`
+        INSERT INTO outreach_events (id, project_id, contact_id, type, event_key, metadata)
+        VALUES (?, ?, ?, 'unsubscribed', ?, ?)
+        ON CONFLICT (event_key) DO NOTHING
+      `, uuidv4(), project_id, c.id, `unsubscribed:${project_id}:${c.id}`, JSON.stringify({ email: emailLower }));
     }
 
     res.json({ success: true, message: "Unsubscribed successfully" });
   } catch (err: any) {
+    console.error("[Unsubscribe] Error:", err.message);
     res.status(500).json({ error: "Failed to process unsubscribe" });
   }
 });
@@ -1384,9 +1401,11 @@ app.get("/api/track/open/:emailId", async (req, res) => {
         VALUES (?, ?, 'open', ?, ?)
       `).run(uuidv4(), emailId, String(ip), String(userAgent));
 
+      // Engagement lives in opened_at; status stays 'sent' so sent counts,
+      // history and daily limits keep including this email.
       await db.run(`
         UPDATE outreach_individual_emails 
-        SET opened_at = CURRENT_TIMESTAMP, status = 'opened'
+        SET opened_at = CURRENT_TIMESTAMP
         WHERE id = ? AND opened_at IS NULL
       `, [emailId]);
 
@@ -1426,9 +1445,27 @@ app.get("/api/track/click/:emailId", async (req, res) => {
 
   if (!targetUrl) return res.status(400).send("Missing URL parameter");
 
+  // Only http(s) links of a real email are redirected (no open redirect).
+  let parsedTarget: URL;
   try {
-    const email = await db.prepare("SELECT id, contact_id, project_id, sequence_id, step_id, campaign_id FROM outreach_individual_emails WHERE id = ?").get(emailId) as any;
-    if (email) {
+    parsedTarget = new URL(targetUrl);
+    if (!['http:', 'https:'].includes(parsedTarget.protocol)) throw new Error('bad protocol');
+  } catch {
+    return res.status(400).send("Invalid URL");
+  }
+
+  let email: any;
+  try {
+    email = await db.prepare("SELECT id, contact_id, project_id, sequence_id, step_id, campaign_id FROM outreach_individual_emails WHERE id = ?").get(emailId) as any;
+    if (!email) return res.status(404).send("Link not found");
+  } catch (err) {
+    // DB hiccup: don't break the recipient's link, just skip tracking.
+    console.error("Tracking click lookup error:", err);
+    return res.redirect(parsedTarget.toString());
+  }
+
+  try {
+    {
       await db.prepare(`
         INSERT INTO outreach_individual_email_events (id, email_id, type, ip_address, user_agent, link_url)
         VALUES (?, ?, 'click', ?, ?, ?)
@@ -1436,7 +1473,7 @@ app.get("/api/track/click/:emailId", async (req, res) => {
 
       await db.run(`
         UPDATE outreach_individual_emails 
-        SET clicked_at = CURRENT_TIMESTAMP, status = 'clicked'
+        SET clicked_at = CURRENT_TIMESTAMP
         WHERE id = ? AND clicked_at IS NULL
       `, [emailId]);
 
@@ -1455,18 +1492,16 @@ app.get("/api/track/click/:emailId", async (req, res) => {
   } catch (err) {
     console.error("Tracking click error:", err);
   }
-  res.redirect(targetUrl);
+  res.redirect(parsedTarget.toString());
 });
 
 // ─── Protected routes (require Firebase token) ────────────────────────────────
 
 app.use("/api/outreach", verifyFirebaseToken as any);
 
-app.use("/api/outreach", (req: any, res, next) => {
-  const pId = req.headers["x-project-id"] || req.query.project_id || req.query.projectId || req.body?.project_id || req.body?.projectId;
-  req.projectId = pId;
-  next();
-});
+// Every project named in the request (header, query, body or /projects/:id path)
+// must belong to the caller. Most outreach tables are scoped only by project_id.
+app.use("/api/outreach", requireProjectAccess as any);
 
 // ─── QUEUE MONITOR OPERATIONS ───────────────────────────────────────────────
 
@@ -2938,7 +2973,7 @@ app.post("/api/outreach/mailboxes/:id/verify-dns", async (req: AuthRequest, res)
   if (!userId) return res.status(401).json({ error: "Auth required" });
 
   try {
-    let target = await db.prepare("SELECT * FROM outreach_mailboxes WHERE id = ? AND user_id = ?").get(id, userId) as any;
+    let target = await db.prepare("SELECT * FROM outreach_mailboxes WHERE id = ? AND user_id = ? AND project_id = ?").get(id, userId, req.projectId) as any;
     let isAlias = false;
 
     if (!target) {
@@ -2946,8 +2981,8 @@ app.post("/api/outreach/mailboxes/:id/verify-dns", async (req: AuthRequest, res)
         SELECT a.*, m.user_id 
         FROM outreach_mailbox_aliases a
         JOIN outreach_mailboxes m ON a.mailbox_id = m.id
-        WHERE a.id = ? AND m.user_id = ?
-      `).get(id, userId) as any;
+        WHERE a.id = ? AND m.user_id = ? AND m.project_id = ?
+      `).get(id, userId, req.projectId) as any;
       isAlias = true;
     }
 
@@ -3132,10 +3167,26 @@ app.post("/api/outreach/mailboxes/smtp", async (req: AuthRequest, res) => {
   }
 });
 
+// Mailbox routes address a mailbox by id; it must belong to the caller's project.
+async function getOwnedMailbox(req: AuthRequest, mailboxId: string) {
+  if (!req.user?.uid || !req.projectId) return null;
+  return await db.get<any>(
+    "SELECT * FROM outreach_mailboxes WHERE id = ? AND user_id = ? AND project_id = ?",
+    mailboxId, req.user.uid, req.projectId
+  );
+}
+
+// Lists have no user_id; they are addressed by id and must belong to the project.
+async function getOwnedList(projectId: string | undefined, listId: string) {
+  if (!projectId || !listId) return null;
+  return await db.get<any>("SELECT id FROM outreach_lists WHERE id = ? AND project_id = ?", listId, projectId);
+}
+
 // POST /api/outreach/mailboxes/:id/aliases/sync
 app.post("/api/outreach/mailboxes/:id/aliases/sync", async (req: AuthRequest, res) => {
   const { id } = req.params;
   try {
+    if (!(await getOwnedMailbox(req, id))) return res.status(404).json({ error: "Mailbox not found" });
     await fetchGmailAliases(id);
     res.json({ success: true });
   } catch (err: any) {
@@ -3147,6 +3198,7 @@ app.post("/api/outreach/mailboxes/:id/aliases/sync", async (req: AuthRequest, re
 app.get("/api/outreach/mailboxes/:id/aliases", async (req: AuthRequest, res) => {
   const { id } = req.params;
   try {
+    if (!(await getOwnedMailbox(req, id))) return res.status(404).json({ error: "Mailbox not found" });
     const aliases = await db.prepare("SELECT email, name FROM outreach_mailbox_aliases WHERE mailbox_id = ?").all(id) as any[];
     res.json(aliases);
   } catch (err: any) {
@@ -3158,13 +3210,14 @@ app.get("/api/outreach/mailboxes/:id/aliases", async (req: AuthRequest, res) => 
 // Manually add an alias (useful for SMTP mailboxes that might have aliases)
 app.post("/api/outreach/mailboxes/:id/aliases", async (req: AuthRequest, res) => {
   const { id } = req.params;
-  const { email, name, projectId } = req.body;
-  const project_id = projectId || req.query.project_id;
+  const { email, name } = req.body;
+  const project_id = req.projectId;
 
   if (!email) return res.status(400).json({ error: "Email is required" });
   if (!project_id) return res.status(400).json({ error: "project_id is required" });
 
   try {
+    if (!(await getOwnedMailbox(req, id))) return res.status(404).json({ error: "Mailbox not found" });
     const domain = extractDomain(email);
 
     // Check if the domain is verified for this project
@@ -3188,7 +3241,7 @@ app.post("/api/outreach/mailboxes/:id/aliases", async (req: AuthRequest, res) =>
       await tx.prepare(`
         INSERT INTO outreach_mailbox_aliases (id, mailbox_id, email, name, is_verified)
         VALUES (?, ?, ?, ?, ${db.isPostgres ? 'TRUE' : '1'})
-      `).run(uuidv4(), id, email, name);
+      `).run(aliasId, id, email, name);
 
       // 2. Sync aliases JSON array in outreach_mailboxes
       const mailbox = await tx.prepare("SELECT aliases FROM outreach_mailboxes WHERE id = ?").get(id) as any;
@@ -3221,6 +3274,12 @@ app.post("/api/outreach/mailboxes/:id/aliases", async (req: AuthRequest, res) =>
 app.post("/api/outreach/mailboxes/:id/sync", async (req: AuthRequest, res) => {
   const mailboxId = req.params.id;
   try {
+    const mailbox = await getOwnedMailbox(req, mailboxId);
+    if (!mailbox) return res.status(404).json({ error: "Mailbox not found" });
+    if (mailbox.connection_type === 'smtp_imap' || mailbox.connection_type === 'smtp') {
+      await pollImap(mailboxId);
+      return res.json({ success: true });
+    }
     const count = await syncMailbox(mailboxId, getValidAccessToken);
     res.json({ success: true, newMessages: count });
   } catch (err: any) {
@@ -3232,6 +3291,7 @@ app.post("/api/outreach/mailboxes/:id/sync", async (req: AuthRequest, res) => {
 app.post("/api/outreach/mailboxes/:id/sync-gmail-aliases", async (req: AuthRequest, res) => {
   const { id } = req.params;
   try {
+    if (!(await getOwnedMailbox(req, id))) return res.status(404).json({ error: "Mailbox not found" });
     await fetchGmailAliases(id);
     const mailbox = await db.prepare("SELECT aliases FROM outreach_mailboxes WHERE id = ?").get(id) as any;
     const rawAliases = mailbox.aliases || '[]';
@@ -3244,7 +3304,7 @@ app.post("/api/outreach/mailboxes/:id/sync-gmail-aliases", async (req: AuthReque
 
 // GET /api/outreach/auth/gmail-url?project_id=xxx
 // Returns the Google OAuth URL so the frontend can redirect to it
-app.get("/api/outreach/auth/gmail-url", (req: AuthRequest, res) => {
+app.get("/api/outreach/auth/gmail-url", async (req: AuthRequest, res) => {
   const userId = req.user?.uid;
   const { project_id } = req.query as { project_id?: string };
 
@@ -3260,7 +3320,7 @@ app.get("/api/outreach/auth/gmail-url", (req: AuthRequest, res) => {
   }
 
   try {
-    const url = buildGoogleAuthUrl(userId, project_id);
+    const url = await buildGoogleAuthUrl(userId, project_id);
     res.json({ url });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -3603,10 +3663,21 @@ app.post("/api/outreach/campaigns/:id/launch", async (req: AuthRequest, res) => 
   } = req.body;
 
   if (!userId) return res.status(401).json({ error: "Auth required" });
+  if (!settings?.mailbox_id) return res.status(400).json({ error: "Select a mailbox to send from" });
+  if (!content?.subject && !content?.body_html) return res.status(400).json({ error: "The email needs a subject or body" });
+  if (!Array.isArray(contacts) || !columnMapping?.email) return res.status(400).json({ error: "Contacts and an email column are required" });
 
   try {
-    const campaign = await db.prepare("SELECT project_id FROM outreach_campaigns WHERE id = ? AND project_id = ?").get(campaignId, req.projectId) as any;
+    const campaign = await db.prepare("SELECT project_id, name, sequence_id FROM outreach_campaigns WHERE id = ? AND user_id = ? AND project_id = ?").get(campaignId, userId, req.projectId) as any;
     if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+
+    // The sender (mailbox id, optionally "uuid:alias") must belong to this project.
+    const mailboxUuid = String(settings.mailbox_id).split(':')[0];
+    const mailbox = await db.get<any>(
+      "SELECT id FROM outreach_mailboxes WHERE id = ? AND user_id = ? AND project_id = ? AND status = 'active'",
+      mailboxUuid, userId, req.projectId
+    );
+    if (!mailbox) return res.status(400).json({ error: "The selected mailbox is not connected to this project" });
 
     await db.transaction(async (tx) => {
       // 1. Update Campaign Settings & Scheduling
@@ -3634,29 +3705,25 @@ app.post("/api/outreach/campaigns/:id/launch", async (req: AuthRequest, res) => 
         req.projectId
       );
 
-      // 2. Create Sequence for this campaign (Single Step)
-      const sequenceId = uuidv4();
-      const steps = [{
-        id: uuidv4(),
-        type: 'email',
-        wait_days: 0,
-        subject: content.subject,
-        body_html: content.body_html
-      }];
-
-      await tx.prepare(`
-        INSERT INTO outreach_sequences (id, user_id, project_id, name, steps, status)
-        VALUES (?, ?, ?, ?, ?, 'active')
-      `).run(
-        sequenceId,
-        userId,
-        campaign.project_id,
-        `Sequence for ${campaignId}`,
-        JSON.stringify(steps)
-      );
-
-      // Link sequence to campaign
-      await tx.prepare("UPDATE outreach_campaigns SET sequence_id = ? WHERE id = ? AND project_id = ?").run(sequenceId, campaignId, req.projectId);
+      // 2. Single-step backing sequence. The campaign worker reads the email from
+      // outreach_sequence_steps (the legacy JSON `steps` column is never read).
+      // It is 'archived' so it doesn't show up as a sequence of its own.
+      const sequenceId = campaign.sequence_id || uuidv4();
+      if (!campaign.sequence_id) {
+        await tx.prepare(`
+          INSERT INTO outreach_sequences (id, user_id, project_id, name, status, mailbox_id, from_email, from_name)
+          VALUES (?, ?, ?, ?, 'archived', ?, ?, ?)
+        `).run(
+          sequenceId, userId, campaign.project_id, `Campaign: ${campaign.name}`,
+          settings.mailbox_id, settings.from_email || null, settings.from_name || null
+        );
+        await tx.prepare("UPDATE outreach_campaigns SET sequence_id = ? WHERE id = ? AND project_id = ?").run(sequenceId, campaignId, req.projectId);
+      }
+      await tx.run("DELETE FROM outreach_sequence_steps WHERE sequence_id = ? AND project_id = ?", sequenceId, campaign.project_id);
+      await tx.run(`
+        INSERT INTO outreach_sequence_steps (id, sequence_id, project_id, step_number, step_type, config, delay_amount, delay_unit, attachments, parent_step_id)
+        VALUES (?, ?, ?, 1, 'email', ?, 0, 'days', '[]', NULL)
+      `, uuidv4(), sequenceId, campaign.project_id, JSON.stringify({ subject: content.subject || '', body_html: content.body_html || '' }));
 
       // 3. Upsert Contacts and Enroll them
       const insertContactQuery = `
@@ -3676,10 +3743,10 @@ app.post("/api/outreach/campaigns/:id/launch", async (req: AuthRequest, res) => 
       `;
 
       for (const contactData of contacts) {
-        const email = contactData[columnMapping.email];
-        if (!email) continue;
+        const email = String(contactData[columnMapping.email] || '').toLowerCase().trim();
+        if (!email || !email.includes('@')) continue;
 
-        const existingContact = await tx.prepare("SELECT id FROM outreach_contacts WHERE email = ? AND project_id = ?").get(email, campaign.project_id) as any;
+        const existingContact = await tx.prepare("SELECT id FROM outreach_contacts WHERE LOWER(email) = ? AND project_id = ?").get(email, campaign.project_id) as any;
 
         let contactId;
         if (existingContact) {
@@ -3708,7 +3775,7 @@ app.post("/api/outreach/campaigns/:id/launch", async (req: AuthRequest, res) => 
     });
 
     // 4. Trigger Campaign Processing
-    campaignQueue.add(`campaign-launch-${campaignId}`, { campaignId });
+    await campaignQueue.add(`campaign-launch-${campaignId}`, { campaignId });
 
     res.json({ success: true });
   } catch (error) {
@@ -4165,6 +4232,7 @@ app.get("/api/outreach/sequences", async (req: AuthRequest, res) => {
              (SELECT COUNT(*) FROM outreach_events WHERE sequence_id = s.id AND type IN ('unsubscribed', 'unsubscribe') AND created_at BETWEEN ? AND ? AND EXISTS (SELECT 1 FROM outreach_contacts WHERE id = outreach_events.contact_id)) as unsub_in_period
       FROM outreach_sequences s
       WHERE s.user_id = ? AND s.project_id = ?
+        AND NOT EXISTS (SELECT 1 FROM outreach_campaigns c WHERE c.sequence_id = s.id)
       ORDER BY s.is_pinned DESC, s.pinned_at DESC NULLS LAST, s.created_at DESC
     `, startDateStr, endDateStr, startDateStr, endDateStr, startDateStr, endDateStr, startDateStr, endDateStr, startDateStr, endDateStr, startDateStr, endDateStr, userId, project_id);
 
@@ -4713,7 +4781,8 @@ app.post("/api/outreach/sequences/:id/activate", async (req: AuthRequest, res) =
 app.post("/api/outreach/sequences/:id/recipients", async (req: AuthRequest, res) => {
   const userId = req.user?.uid;
   const { id } = req.params;
-  const { recipients, project_id, type: recipientType, list_name } = req.body;
+  const { recipients, type: recipientType, list_name } = req.body;
+  const project_id = req.projectId;
 
   if (!userId) return res.status(401).json({ error: "Auth required" });
 
@@ -4783,12 +4852,17 @@ app.post("/api/outreach/sequences/:id/recipients", async (req: AuthRequest, res)
               contactObj = upsertRes;
             }
           } else if (typeof item === 'object' && item.id) {
-            // Existing contact ID
-            contact_id = item.id;
-            contactObj = await tx.get("SELECT * FROM outreach_contacts WHERE id = ? AND user_id = ? AND project_id = ?", contact_id, userId, project_id);
+            // Existing contact ID — must belong to this project
+            contactObj = await tx.get("SELECT * FROM outreach_contacts WHERE id = ? AND project_id = ?", item.id, project_id);
+            contact_id = contactObj?.id;
           } else if (typeof item === 'object' && item.list_id) {
-            // It's a list - expand it and add its members
-            const listMembers = await tx.all("SELECT contact_id FROM outreach_list_members WHERE list_id = ?", item.list_id) as any[];
+            // It's a list - expand it and add its members (same project only)
+            const listMembers = await tx.all(`
+              SELECT m.contact_id FROM outreach_list_members m
+              JOIN outreach_lists l ON l.id = m.list_id
+              JOIN outreach_contacts c ON c.id = m.contact_id
+              WHERE m.list_id = ? AND l.project_id = ? AND c.project_id = ?
+            `, item.list_id, project_id, project_id) as any[];
             for (const member of listMembers) {
               const memberContactId = member.contact_id;
               const existing = await tx.get("SELECT id FROM outreach_sequence_recipients WHERE sequence_id = ? AND contact_id = ?", id, memberContactId);
@@ -4804,8 +4878,9 @@ app.post("/api/outreach/sequences/:id/recipients", async (req: AuthRequest, res)
             }
             await tx.exec(`RELEASE SAVEPOINT ${savepointName}`);
             continue; // Skip the individual add logic since we handled the list
-          } else {
-            contact_id = typeof item === 'string' ? item : item.id;
+          } else if (typeof item === 'string') {
+            const owned = await tx.get<any>("SELECT id FROM outreach_contacts WHERE id = ? AND project_id = ?", item, project_id);
+            contact_id = owned?.id;
           }
 
           if (contact_id) {
@@ -5118,9 +5193,11 @@ app.post("/api/outreach/contacts", async (req: AuthRequest, res) => {
     return res.status(400).json({ error: "project_id is required" });
   if (!email) return res.status(400).json({ error: "email is required" });
 
-  const suppressed = await db.prepare("SELECT email FROM suppression_list WHERE email = ?").get(email);
+  const suppressed = await db.prepare(
+    "SELECT email FROM suppression_list WHERE LOWER(email) = LOWER(?) AND (project_id = ? OR project_id = 'global')"
+  ).get(email, project_id);
   if (suppressed) {
-    return res.status(403).json({ error: "Unauthorized action: This email is in the global suppression list and cannot be re-added per compliance regulations." });
+    return res.status(403).json({ error: "This email is on the project's suppression list (unsubscribed or bounced) and cannot be re-added." });
   }
 
   const id = uuidv4();
@@ -5144,7 +5221,7 @@ app.post("/api/outreach/contacts", async (req: AuthRequest, res) => {
       website = EXCLUDED.website,
       phone = EXCLUDED.phone,
       linkedin = EXCLUDED.linkedin,
-      tags = EXCLUDED.tags,
+      tags = CASE WHEN EXCLUDED.tags = '["Not Enrolled"]' THEN outreach_contacts.tags ELSE EXCLUDED.tags END,
       source_detail = EXCLUDED.source_detail,
       confidence_score = EXCLUDED.confidence_score,
       verification_status = EXCLUDED.verification_status,
@@ -5222,7 +5299,7 @@ app.post("/api/outreach/contacts/bulk", async (req: AuthRequest, res) => {
           website = EXCLUDED.website,
           phone = EXCLUDED.phone,
           linkedin = EXCLUDED.linkedin,
-          tags = EXCLUDED.tags,
+          tags = CASE WHEN EXCLUDED.tags = '["Not Enrolled"]' THEN outreach_contacts.tags ELSE EXCLUDED.tags END,
           source_detail = EXCLUDED.source_detail,
           confidence_score = EXCLUDED.confidence_score,
           verification_status = EXCLUDED.verification_status,
@@ -5241,6 +5318,12 @@ app.post("/api/outreach/contacts/bulk", async (req: AuthRequest, res) => {
 
       for (const contact of contacts) {
         if (!contact.email) continue;
+        contact.email = String(contact.email).trim();
+        const suppressedRow = await tx.get(
+          "SELECT 1 AS s FROM suppression_list WHERE LOWER(email) = LOWER(?) AND (project_id = ? OR project_id = 'global')",
+          contact.email, project_id
+        );
+        if (suppressedRow) continue;
         const timezone = inferTimezone(contact.locationCity || contact.location, contact.locationCountry);
 
         const contactRes = await tx.prepare(upsertQuery).get(
@@ -5292,6 +5375,9 @@ app.post("/api/outreach/lists/save", async (req: AuthRequest, res) => {
   if (!project_id || !Array.isArray(contacts)) {
     return res.status(400).json({ error: "Missing project_id or contacts array" });
   }
+  if (list_id && list_id !== 'all' && !(await getOwnedList(project_id, list_id))) {
+    return res.status(404).json({ error: "List not found" });
+  }
 
   try {
     const savedContactIds: string[] = [];
@@ -5314,7 +5400,7 @@ app.post("/api/outreach/lists/save", async (req: AuthRequest, res) => {
             website = EXCLUDED.website,
             phone = EXCLUDED.phone,
             linkedin = EXCLUDED.linkedin,
-            tags = EXCLUDED.tags,
+            tags = CASE WHEN EXCLUDED.tags = '["Not Enrolled"]' THEN outreach_contacts.tags ELSE EXCLUDED.tags END,
             source_detail = EXCLUDED.source_detail,
             confidence_score = EXCLUDED.confidence_score,
             verification_status = EXCLUDED.verification_status,
@@ -5334,6 +5420,12 @@ app.post("/api/outreach/lists/save", async (req: AuthRequest, res) => {
 
       for (const contact of contacts) {
         if (!contact.email) continue;
+        contact.email = String(contact.email).trim();
+        const suppressedRow = await tx.get(
+          "SELECT 1 AS s FROM suppression_list WHERE LOWER(email) = LOWER(?) AND (project_id = ? OR project_id = 'global')",
+          contact.email, project_id
+        );
+        if (suppressedRow) continue;
         const timezone = inferTimezone(contact.locationCity || contact.location, contact.locationCountry);
 
         // 1. Upsert contact
@@ -5387,10 +5479,15 @@ const csvUpload = multer({ storage: multer.memoryStorage() });
 // POST /api/outreach/contacts/import-csv
 app.post(["/api/outreach/contacts/import", "/api/outreach/contacts/import-csv"], csvUpload.single('file'), async (req: AuthRequest, res) => {
   const userId = req.user?.uid;
-  const { project_id, list_id } = req.body;
+  const { list_id } = req.body;
+  // Multipart body is parsed after the project guard, so only trust the verified header.
+  const project_id = req.projectId;
 
   if (!userId || !project_id) {
     return res.status(401).json({ error: "Authentication and Project ID required" });
+  }
+  if (list_id && list_id !== 'all' && !(await getOwnedList(project_id, list_id))) {
+    return res.status(404).json({ error: "List not found" });
   }
 
   if (!req.file) {
@@ -5513,7 +5610,8 @@ app.post(["/api/outreach/contacts/import", "/api/outreach/contacts/import-csv"],
         }
 
         // --- IMMUTABLE GUARDRAIL ---
-        const suppressed = await tx.prepare("SELECT email FROM suppression_list WHERE project_id = ? AND email = ?")
+        contactData.email = String(contactData.email).trim();
+        const suppressed = await tx.prepare("SELECT email FROM suppression_list WHERE (project_id = ? OR project_id = 'global') AND LOWER(email) = LOWER(?)")
           .get(project_id, contactData.email);
         if (suppressed) {
           suppressedCount++;
@@ -5884,7 +5982,7 @@ app.post("/api/outreach/contact-lists", verifyToken, async (req: AuthRequest, re
               location = COALESCE(EXCLUDED.location, outreach_contacts.location),
               industry = COALESCE(EXCLUDED.industry, outreach_contacts.industry),
               company_size = COALESCE(EXCLUDED.company_size, outreach_contacts.company_size),
-              tags = COALESCE(EXCLUDED.tags, outreach_contacts.tags),
+              tags = CASE WHEN EXCLUDED.tags = '["Not Enrolled"]' THEN outreach_contacts.tags ELSE EXCLUDED.tags END,
               updated_at = CURRENT_TIMESTAMP
             RETURNING id
           `).get(
@@ -5919,6 +6017,7 @@ app.delete("/api/outreach/contact-lists/:id", async (req: AuthRequest, res) => {
   const deleteContacts = req.query.deleteContacts === 'true' || req.body.deleteContacts === true;
 
   if (!userId) return res.status(401).json({ error: "Auth required" });
+  if (!(await getOwnedList(req.projectId, listId))) return res.status(404).json({ error: "List not found" });
 
   try {
     await db.transaction(async (tx) => {
@@ -6000,6 +6099,7 @@ app.get("/api/outreach/contact-lists/:id/members", async (req: AuthRequest, res)
   const { id } = req.params;
 
   if (!userId) return res.json([]);
+  if (!(await getOwnedList(req.projectId, id))) return res.status(404).json({ error: "List not found" });
 
   const members = await db
     .prepare("SELECT contact_id FROM outreach_list_members WHERE list_id = ?")
@@ -6015,11 +6115,15 @@ app.post("/api/outreach/contact-lists/:id/members", async (req: AuthRequest, res
   const { contact_ids } = req.body;
 
   if (!userId || !Array.isArray(contact_ids)) return res.status(400).json({ error: "Invalid payload" });
+  if (!(await getOwnedList(req.projectId, id))) return res.status(404).json({ error: "List not found" });
 
   await db.transaction(async (tx) => {
-    const query = "INSERT INTO outreach_list_members (list_id, contact_id) VALUES (?, ?) ON CONFLICT DO NOTHING";
+    // Only contacts of the same project can join the list.
+    const query = `INSERT INTO outreach_list_members (list_id, contact_id)
+                   SELECT ?, id FROM outreach_contacts WHERE id = ? AND project_id = ?
+                   ON CONFLICT DO NOTHING`;
     for (const cid of contact_ids) {
-      await tx.prepare(query).run(id, cid);
+      await tx.prepare(query).run(id, cid, req.projectId);
     }
   });
 
@@ -6050,7 +6154,7 @@ app.post("/api/outreach/suppression-list", async (req: AuthRequest, res) => {
   if (!project_id || !email) return res.status(400).json({ error: "project_id and email required" });
 
   await db.prepare("INSERT INTO suppression_list (project_id, email, reason) VALUES (?, ?, ?) ON CONFLICT(project_id, email) DO UPDATE SET reason = excluded.reason")
-    .run(project_id, email, reason || "manual");
+    .run(project_id, String(email).toLowerCase().trim(), reason || "manual");
 
   res.json({ success: true });
 });
@@ -6062,35 +6166,13 @@ app.delete("/api/outreach/suppression-list", async (req: AuthRequest, res) => {
 
   if (!project_id || !email) return res.status(400).json({ error: "project_id and email required" });
 
-  await db.prepare("DELETE FROM suppression_list WHERE project_id = ? AND email = ?")
-    .run(project_id, email);
+  await db.prepare("DELETE FROM suppression_list WHERE project_id = ? AND LOWER(email) = LOWER(?)")
+    .run(project_id, String(email).trim());
 
   res.json({ success: true });
 });
 
 // ─── UNIFIED INBOX ────────────────────────────────────────────────────────────
-
-// GET /api/inbox/:projectId
-app.get("/api/inbox/:projectId", async (req: AuthRequest, res) => {
-  const userId = req.user?.uid;
-  const { projectId } = req.params;
-
-  if (!userId || !projectId) return res.status(401).json({ error: "Auth required" });
-
-  try {
-    const messages = await db.all(`
-      SELECT m.*, c.first_name, c.last_name, c.email as contact_email
-      FROM outreach_inbox_messages m
-      LEFT JOIN outreach_contacts c ON m.contact_id = c.id
-      WHERE m.project_id = ?
-      ORDER BY m.received_at DESC
-    `, projectId);
-    res.json(messages);
-  } catch (error) {
-    console.error("[Inbox Fetch Error]:", error);
-    res.status(500).json({ error: "Failed to fetch inbox" });
-  }
-});
 
 // ─── INBOX ────────────────────────────────────────────────────────────────────
 
@@ -6178,12 +6260,22 @@ app.post("/api/outreach/inbox/:id/summarize", verifyFirebaseToken, async (req: A
   if (!userId) return res.status(401).json({ error: "Auth required" });
 
   try {
-    const sentEmails = await db.all("SELECT created_at, metadata FROM outreach_events WHERE contact_id = ? AND type = 'sent' ORDER BY created_at ASC", [id]) as any[];
-    const replies = await db.all("SELECT received_at, body_text FROM outreach_inbox_messages WHERE contact_id = ? ORDER BY received_at ASC", [id]) as any[];
+    const contact = await db.get<any>("SELECT id FROM outreach_contacts WHERE id = ? AND project_id = ?", id, req.projectId);
+    if (!contact) return res.status(404).json({ error: "Contact not found" });
 
+    const sentEmails = await db.all(
+      "SELECT sent_at, body_html FROM outreach_individual_emails WHERE contact_id = ? AND project_id = ? AND sent_at IS NOT NULL AND COALESCE(is_reply, FALSE) = FALSE ORDER BY sent_at ASC",
+      id, req.projectId
+    ) as any[];
+    const replies = await db.all(
+      "SELECT received_at, body_text, is_incoming FROM outreach_inbox_messages WHERE contact_id = ? AND project_id = ? ORDER BY received_at ASC",
+      id, req.projectId
+    ) as any[];
+
+    const stripHtml = (html: string) => (html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 2000);
     const threadParts = [
-      ...sentEmails.map((s: any) => `[Sent ${s.created_at}] ME: ${JSON.parse(s.metadata || '{}').body || '(No content)'}`),
-      ...replies.map((r: any) => `[Received ${r.received_at}] LEAD: ${r.body_text}`)
+      ...sentEmails.map((m: any) => `[Sent ${m.sent_at}] ME: ${stripHtml(m.body_html) || '(No content)'}`),
+      ...replies.map((r: any) => `[${r.is_incoming === false ? 'Sent' : 'Received'} ${r.received_at}] ${r.is_incoming === false ? 'ME' : 'LEAD'}: ${r.body_text || ''}`)
     ];
 
     if (threadParts.length === 0) return res.status(404).json({ error: "No conversation history found." });
@@ -6213,19 +6305,20 @@ app.post("/api/outreach/inbox/:id/reply", verifyFirebaseToken, async (req: AuthR
 
   try {
     // 1. Fetch the inbox message we are replying to
+    // (Projects live in Firestore; ownership was already verified by requireProjectAccess.)
     const inboxMsg = await db.get(`
       SELECT * FROM outreach_inbox_messages 
-      WHERE id = ? AND project_id IN (SELECT id FROM outreach_projects WHERE user_id = ?)
-    `, [id, userId]) as any;
+      WHERE id = ? AND project_id = ?
+    `, [id, req.projectId]) as any;
 
     if (!inboxMsg) return res.status(404).json({ error: "Original message not found" });
 
     // 2. Fetch the mailbox to use for sending
     const mailbox = await db.get(`
-      SELECT * FROM outreach_mailboxes WHERE id = ?
-    `, [inboxMsg.mailbox_id]) as any;
+      SELECT * FROM outreach_mailboxes WHERE id = ? AND user_id = ? AND project_id = ? AND status = 'active'
+    `, [inboxMsg.mailbox_id, userId, req.projectId]) as any;
 
-    if (!mailbox) return res.status(404).json({ error: "Mailbox not found" });
+    if (!mailbox) return res.status(404).json({ error: "The mailbox that received this message is no longer connected" });
 
     // 3. Determine the from address (Alias vs Primary)
     let fromEmail = mailbox.email;
@@ -6251,9 +6344,15 @@ app.post("/api/outreach/inbox/:id/reply", verifyFirebaseToken, async (req: AuthR
 
     // 4. Build the reply
     const replyId = uuidv4();
-    const replySubject = inboxMsg.subject.toLowerCase().startsWith('re:')
-      ? inboxMsg.subject
-      : `Re: ${inboxMsg.subject}`;
+    const originalSubject = inboxMsg.subject || '';
+    const replySubject = originalSubject.toLowerCase().startsWith('re:')
+      ? originalSubject
+      : `Re: ${originalSubject}`;
+    // In-Reply-To needs the RFC form <id@host>.
+    const rawParentId = String(inboxMsg.message_id || '').trim();
+    const parentMessageId = rawParentId.includes('@') && !rawParentId.startsWith('<') ? `<${rawParentId}>` : rawParentId || null;
+    // The lead's address (from_email may be "Name <addr>").
+    const leadEmail = ((inboxMsg.from_email || '').match(/<([^>]+)>/)?.[1] || inboxMsg.from_email || '').trim();
 
     // 4.5. Snippet Parsing (Variable Interpolation)
     let parsedBodyHtml = body_html;
@@ -6286,9 +6385,18 @@ app.post("/api/outreach/inbox/:id/reply", verifyFirebaseToken, async (req: AuthR
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     `, [
       replyId, userId, inboxMsg.project_id, mailbox.id, inboxMsg.contact_id, inboxMsg.sequence_id,
-      fromEmail, fromName, inboxMsg.from_email, replySubject, parsedBodyHtml,
-      'scheduled', inboxMsg.thread_id, inboxMsg.message_id, true
+      fromEmail, fromName, leadEmail, replySubject, parsedBodyHtml,
+      'scheduled', inboxMsg.thread_id, parentMessageId, true
     ]);
+
+    // Send right away (the row used to be left 'scheduled' and never queued).
+    const sendResult: any = await processEmail(replyId).catch(async (sendErr: any) => {
+      await db.run("UPDATE outreach_individual_emails SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE id = ?", replyId);
+      throw sendErr;
+    });
+    if (sendResult?.success === false) {
+      return res.status(409).json({ error: `Reply not sent: ${sendResult.blocked}` });
+    }
     
     // 6. Record in outreach_inbox_messages for conversation history
     await db.run(`
@@ -6298,8 +6406,8 @@ app.post("/api/outreach/inbox/:id/reply", verifyFirebaseToken, async (req: AuthR
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, TRUE, ?, FALSE)
     `, [
-      uuidv4(), inboxMsg.contact_id, inboxMsg.project_id, inboxMsg.sequence_id, inboxMsg.thread_id, replyId,
-      fromEmail, inboxMsg.from_email, replySubject, parsedBodyHtml, mailbox.id
+      uuidv4(), inboxMsg.contact_id, inboxMsg.project_id, inboxMsg.sequence_id, inboxMsg.thread_id, sendResult?.messageId || replyId,
+      fromEmail, leadEmail, replySubject, parsedBodyHtml, mailbox.id
     ]);
 
     res.json({ success: true, id: replyId });
@@ -6319,7 +6427,7 @@ app.post("/api/outreach/projects/:projectId/sync-inbox", async (req: AuthRequest
   try {
     // Find all active mailboxes for this project
     const mailboxes = await db.prepare(
-      "SELECT id FROM outreach_mailboxes WHERE project_id = ? AND user_id = ? AND status = 'active'"
+      "SELECT id, connection_type FROM outreach_mailboxes WHERE project_id = ? AND user_id = ? AND status = 'active'"
     ).all(projectId, userId) as any[];
 
     if (mailboxes.length === 0) {
@@ -6328,7 +6436,11 @@ app.post("/api/outreach/projects/:projectId/sync-inbox", async (req: AuthRequest
 
     // Trigger sync for each mailbox
     for (const mailbox of mailboxes) {
-      await syncMailbox(mailbox.id, getValidAccessToken);
+      if (mailbox.connection_type === 'smtp_imap' || mailbox.connection_type === 'smtp') {
+        await pollImap(mailbox.id);
+      } else {
+        await syncMailbox(mailbox.id, getValidAccessToken);
+      }
     }
 
     res.json({ success: true, count: mailboxes.length });
@@ -6411,7 +6523,6 @@ app.post("/api/outreach/upload", upload.single('file'), async (req: AuthRequest,
 app.post("/api/outreach/compose", upload.array('attachments', 5), async (req: AuthRequest, res) => {
   const userId = req.user?.uid;
   const {
-    project_id,
     mailbox_id,
     contact_id,
     to_email,
@@ -6422,6 +6533,8 @@ app.post("/api/outreach/compose", upload.array('attachments', 5), async (req: Au
     from_email,
     from_name,
   } = req.body;
+  // Multipart body is parsed after the project guard, so only trust the verified header.
+  const project_id = req.projectId;
 
   if (!userId) return res.status(401).json({ error: "Auth required" });
   if (!project_id)
@@ -6429,6 +6542,12 @@ app.post("/api/outreach/compose", upload.array('attachments', 5), async (req: Au
   if (!mailbox_id)
     return res.status(400).json({ error: "mailbox_id is required" });
   if (!to_email) return res.status(400).json({ error: "to_email is required" });
+  if (!(await getOwnedMailbox(req, String(mailbox_id).split(':')[0])))
+    return res.status(400).json({ error: "The selected mailbox is not connected to this project" });
+  if (contact_id && String(contact_id).trim() !== "") {
+    const contact = await db.get("SELECT id FROM outreach_contacts WHERE id = ? AND project_id = ?", contact_id, project_id);
+    if (!contact) return res.status(400).json({ error: "Contact not found in this project" });
+  }
 
   const attachments = (req.files as any[] || []).map(f => ({
     filename: f.originalname,
@@ -6447,13 +6566,13 @@ app.post("/api/outreach/compose", upload.array('attachments', 5), async (req: Au
     id,
     userId,
     project_id,
-    mailbox_id,
+    String(mailbox_id).split(':')[0],
     (contact_id && contact_id.trim() !== "") ? contact_id : null,
     to_email,
     subject || "",
     body_html || "",
     JSON.stringify(attachments),
-    status || "draft",
+    ['draft', 'scheduled'].includes(status) ? status : "draft",
     (scheduled_at && typeof scheduled_at === 'string' && scheduled_at.trim() !== "") ? scheduled_at : null,
     from_email || null,
     from_name || null,
@@ -6487,8 +6606,10 @@ app.patch("/api/outreach/compose/:id", upload.array('attachments', 5), async (re
   const values: any[] = [];
 
   if (mailbox_id !== undefined) {
+    if (!(await getOwnedMailbox(req, String(mailbox_id).split(':')[0])))
+      return res.status(400).json({ error: "The selected mailbox is not connected to this project" });
     fields.push("mailbox_id = ?");
-    values.push(mailbox_id);
+    values.push(String(mailbox_id).split(':')[0]);
   }
   if (contact_id !== undefined) {
     fields.push("contact_id = ?");
@@ -6507,6 +6628,8 @@ app.patch("/api/outreach/compose/:id", upload.array('attachments', 5), async (re
     values.push(body_html);
   }
   if (status !== undefined) {
+    // Sent/sending states are set by the sender only.
+    if (!['draft', 'scheduled'].includes(status)) return res.status(400).json({ error: "Invalid status" });
     fields.push("status = ?");
     values.push(status);
   }
@@ -6602,6 +6725,12 @@ app.post("/api/outreach/compose/:id/send", async (req: AuthRequest, res) => {
       console.error(`ERROR: Email ${id} is missing mailbox_id`);
       return res.status(400).json({ error: "No mailbox associated with this email. Please select a mailbox." });
     }
+    if (!(await getOwnedMailbox(req, String(email.mailbox_id).split(':')[0]))) {
+      return res.status(400).json({ error: "The selected mailbox is not connected to this project" });
+    }
+    if (email.sent_at) {
+      return res.status(400).json({ error: "This email was already sent" });
+    }
 
     const isScheduled = scheduled_at && typeof scheduled_at === 'string' && scheduled_at.trim() !== "";
     if (isScheduled) {
@@ -6611,7 +6740,10 @@ app.post("/api/outreach/compose/:id/send", async (req: AuthRequest, res) => {
         "UPDATE outreach_individual_emails SET status = ?, scheduled_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
       ).run("scheduled", scheduled_at || null, id);
 
-      await emailQueue.add(`send-email-${id}`, { emailId: id }, { delay });
+      // Deterministic jobId: re-scheduling replaces the old job instead of sending twice.
+      const existingJob = await emailQueue.getJob(id);
+      if (existingJob) await existingJob.remove().catch(() => {});
+      await emailQueue.add(`send-email-${id}`, { emailId: id }, { delay, jobId: id });
 
       return res.json({ success: true, status: "scheduled", scheduled_at });
     }
@@ -6625,7 +6757,19 @@ app.post("/api/outreach/compose/:id/send", async (req: AuthRequest, res) => {
     ).run(id);
 
     try {
-      const result = await processEmail(id);
+      const result: any = await processEmail(id);
+
+      if (!result?.success) {
+        const reasons: Record<string, string> = {
+          SUPPRESSED: "This address is on the project's suppression list.",
+          UNSUBSCRIBED: "This contact unsubscribed.",
+          BOUNCED: "This contact's address bounced.",
+          BOUNCED_TAG: "This contact's address bounced.",
+          BLACKLISTED: "This contact is blacklisted.",
+          STOP_ON_REPLY: "This contact already replied.",
+        };
+        return res.status(409).json({ error: reasons[result?.blocked] || "Email was not sent.", code: result?.blocked });
+      }
 
       console.log(`[OUTREACH] Direct send successful for email ${id}. messageId: ${result.messageId}`);
       res.json({
@@ -6796,35 +6940,6 @@ app.get("/api/outreach/sequences/:id/step-analytics", async (req: AuthRequest, r
   } catch (error: any) {
     console.error("Step analytics error:", error);
     res.status(500).json({ error: error.message });
-  }
-});
-
-// GET /api/analytics/sequence/:sequenceId
-app.get("/api/analytics/sequence/:sequenceId", async (req: AuthRequest, res) => {
-  const { sequenceId } = req.params;
-  const projectId = req.headers['x-project-id'] as string;
-
-  try {
-    const stats = await db.get(`
-      SELECT 
-        COUNT(CASE WHEN status = 'sent' OR status = 'opened' OR status = 'clicked' OR status = 'replied' THEN 1 END) as total_sent,
-        COUNT(CASE WHEN opened_at IS NOT NULL THEN 1 END) as total_opened,
-        COUNT(CASE WHEN replied_at IS NOT NULL OR status = 'replied' THEN 1 END) as total_replied,
-        COUNT(CASE WHEN status = 'bounced' THEN 1 END) as total_bounced
-      FROM outreach_individual_emails
-      WHERE sequence_id = ? AND project_id = ?
-    `, sequenceId, projectId) as any;
-
-    res.json({
-      sequenceId,
-      total_sent: stats.total_sent || 0,
-      total_opened: stats.total_opened || 0,
-      total_replied: stats.total_replied || 0,
-      total_bounced: stats.total_bounced || 0
-    });
-  } catch (err: any) {
-    console.error("[Analytics] Error:", err);
-    res.status(500).json({ error: "Failed to fetch sequence analytics" });
   }
 });
 
@@ -8429,10 +8544,11 @@ syncMailboxesFromRedis();
 //   jobId: 'poll-mailboxes-repeat'
 // }).catch(console.error);
 
-// Start Outreach Sequence Watchdog every 24 hours (safety net for stalled sequences)
+// Outreach Sequence Watchdog (safety net for stalled sequences). It only audits
+// enrollments that are already due, so running it often is cheap.
 setInterval(() => {
   sequenceWatchdog().catch(err => console.error('[Watchdog Error]', err));
-}, 24 * 60 * 60 * 1000);
+}, 15 * 60 * 1000);
 
 // ─── GLOBAL ERROR HANDLER & FORENSICS ──────────────────────────────────────────
 

@@ -100,22 +100,45 @@ export class DbWrapper {
     return [];
   }
 
+  private afterCommitCallbacks: (() => Promise<unknown> | unknown)[] = [];
+
+  /**
+   * Runs `fn` once the surrounding transaction commits (immediately when not in
+   * one). Used for side effects such as queueing jobs, which must not run
+   * before the rows they depend on are visible — or at all if it rolls back.
+   */
+  async onCommit(fn: () => Promise<unknown> | unknown): Promise<void> {
+    if (this.client) {
+      this.afterCommitCallbacks.push(fn);
+    } else {
+      await fn();
+    }
+  }
+
   // Robust async transaction wrapper
   async transaction(cb: (tx: DbWrapper) => Promise<any>): Promise<any> {
     const client = await this.pgPool!.connect();
     const tx = new DbWrapper(this.pgPool);
     tx.client = client;
+    let result: any;
     try {
       await client.query('BEGIN');
-      const result = await cb(tx);
+      result = await cb(tx);
       await client.query('COMMIT');
-      return result;
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
     } finally {
       client.release();
     }
+    for (const fn of tx.afterCommitCallbacks) {
+      try {
+        await fn();
+      } catch (err: any) {
+        console.error('[DB] after-commit callback failed:', err.message);
+      }
+    }
+    return result;
   }
 
   async close() {
@@ -254,7 +277,13 @@ export const initDb = async () => {
       { name: 'bounced_count', type: 'INTEGER DEFAULT 0' },
       { name: 'funnel_stage', type: 'TEXT DEFAULT \'TOFU\'' },
       { name: 'type', type: 'TEXT DEFAULT \'email\'' },
-      { name: 'settings', type: 'TEXT' }
+      { name: 'settings', type: 'TEXT' },
+      // Written by campaign launch / read by the campaign worker
+      { name: 'sequence_id', type: 'TEXT' },
+      { name: 'daily_limit', type: 'INTEGER DEFAULT 50' },
+      { name: 'min_delay', type: 'INTEGER DEFAULT 2' },
+      { name: 'max_delay', type: 'INTEGER DEFAULT 5' },
+      { name: 'send_weekends', type: 'BOOLEAN DEFAULT FALSE' },
     ];
 
     for (const col of campaignColsMigration) {
@@ -1008,6 +1037,16 @@ export const initDb = async () => {
         UNIQUE(campaign_id, contact_id)
       )
     `);
+    for (const col of [
+      { name: 'current_step_id', type: 'TEXT' },
+      { name: 'last_event_at', type: 'TIMESTAMP' },
+    ]) {
+      try {
+        await db.run(`ALTER TABLE outreach_campaign_enrollments ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`);
+      } catch (err) {
+        console.warn(`[DB] PG Migration for campaign enrollments ${col.name} failed:`, (err as Error).message);
+      }
+    }
 
     // 21. Snippets
     await db.run(`

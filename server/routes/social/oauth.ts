@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 import redis from '../../redis.js';
 import { TwitterApi } from 'twitter-api-v2';
-import admin from '../../lib/firebase.js';
+import { userOwnsProject } from '../../lib/projectAccess.js';
 import { META_GRAPH_VERSION, META_GRAPH_URL } from '../../lib/social/utils.js';
 
 const router = Router();
@@ -55,11 +55,6 @@ const getTwitterAppKeys = () => ({
 });
 
 const OAUTH_STATE_TTL_SECONDS = 600;
-
-async function userOwnsProject(userId: string, projectId: string): Promise<boolean> {
-  const snap = await admin.firestore().doc(`customers/${userId}/projects/${projectId}`).get();
-  return snap.exists;
-}
 
 const PLATFORMS: Record<string, {
   name: string;

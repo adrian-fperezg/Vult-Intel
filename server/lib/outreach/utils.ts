@@ -13,12 +13,17 @@ export async function findOriginalEmail(params: {
 }) {
   const { potentialIds, threadId, fromEmail, projectId, expectedContactEmail } = params;
 
+  // Exact Message-ID match only (a LIKE '%id%' could match another tenant's
+  // email), and always within the mailbox's project when it is known.
   for (const mid of potentialIds) {
-    const cleanId = mid.replace(/[<>]/g, '').trim();
+    const cleanId = (mid || '').replace(/[<>]/g, '').trim();
+    if (cleanId.length < 8) continue;
     const original = await db.prepare(`
       SELECT * FROM outreach_individual_emails 
-      WHERE message_id = ? OR message_id LIKE ?
-    `).get(cleanId, `%${cleanId}%`) as any;
+      WHERE message_id = ? AND COALESCE(is_reply, FALSE) = FALSE
+        ${projectId ? 'AND project_id = ?' : ''}
+      LIMIT 1
+    `).get(...(projectId ? [cleanId, projectId] : [cleanId])) as any;
 
     if (original) {
       if (expectedContactEmail && original.to_email?.toLowerCase() !== expectedContactEmail.toLowerCase()) {
@@ -31,7 +36,12 @@ export async function findOriginalEmail(params: {
   }
 
   if (threadId) {
-    const original = await db.prepare(`SELECT * FROM outreach_individual_emails WHERE thread_id = ?`).get(threadId) as any;
+    const original = await db.prepare(`
+      SELECT * FROM outreach_individual_emails
+      WHERE thread_id = ? AND COALESCE(is_reply, FALSE) = FALSE
+        ${projectId ? 'AND project_id = ?' : ''}
+      ORDER BY sent_at DESC LIMIT 1
+    `).get(...(projectId ? [threadId, projectId] : [threadId])) as any;
     if (original) {
       if (expectedContactEmail && original.to_email?.toLowerCase() !== expectedContactEmail.toLowerCase()) {
          console.warn(`[DEBUG] Potential match via Thread-ID for ${original.id}, but Contact Email Mismatch: Expected ${expectedContactEmail}, found ${original.to_email}`);
@@ -50,7 +60,7 @@ export async function findOriginalEmail(params: {
       FROM outreach_individual_emails e
       JOIN outreach_contacts c ON e.contact_id = c.id
       JOIN outreach_sequence_enrollments en ON e.sequence_id = en.sequence_id AND e.contact_id = en.contact_id
-      WHERE c.email = ? 
+      WHERE LOWER(c.email) = LOWER(?) 
         AND c.project_id = ?
         AND en.status = 'active'
         AND e.is_reply = FALSE
@@ -448,21 +458,25 @@ export async function handleCriticalBounce(contactId: string, sequenceId: string
   const runner = tx || db;
 
   try {
-    // 1. Update Contact Status and Tags
-    await runner.run(`
-      UPDATE outreach_contacts 
-      SET status = 'bounced',
-          tags = json_set(
-            COALESCE(tags, '[]'),
-            '$[' || json_array_length(COALESCE(tags, '[]')) || ']',
-            'Bounced'
-          )
-      WHERE id = ?
-    `, contactId);
+    // 1. Update Contact Status and Tags (tags is a JSON text column; the old
+    // json_set/json_array_length SQL was SQLite-only and aborted the whole
+    // Postgres transaction, so bounces were never recorded).
+    const current = await runner.get("SELECT tags FROM outreach_contacts WHERE id = ?", contactId) as any;
+    let tags: string[] = [];
+    try {
+      const parsed = typeof current?.tags === 'string' ? JSON.parse(current.tags) : current?.tags;
+      if (Array.isArray(parsed)) tags = parsed;
+    } catch { /* malformed tags are replaced */ }
+    tags = tags.filter(t => t !== 'Not Enrolled');
+    if (!tags.includes('Bounced')) tags.push('Bounced');
+    await runner.run(
+      "UPDATE outreach_contacts SET status = 'bounced', tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      JSON.stringify(tags), contactId
+    );
 
     // 2. Stop ALL sequences for this contact across the project
     const activeEnrollments = await runner.all("SELECT sequence_id FROM outreach_sequence_enrollments WHERE contact_id = ? AND project_id = ? AND status = 'active'", contactId, projectId) as any[];
-    await runner.run("UPDATE outreach_sequence_enrollments SET status = 'failed' WHERE contact_id = ? AND project_id = ?", contactId, projectId);
+    await runner.run("UPDATE outreach_sequence_enrollments SET status = 'failed' WHERE contact_id = ? AND project_id = ? AND status = 'active'", contactId, projectId);
 
     // 2b. Sync analytics: Increment sequence bounced counter
     for (const enrollment of activeEnrollments) {
@@ -480,7 +494,7 @@ export async function handleCriticalBounce(contactId: string, sequenceId: string
         INSERT INTO suppression_list (project_id, email, reason, created_at)
         VALUES (?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(project_id, email) DO NOTHING
-      `, projectId, contact.email, 'Hard Bounce Detected');
+      `, projectId, String(contact.email).toLowerCase().trim(), 'Hard Bounce Detected');
     }
 
     // 4. Purge Queue (Forcefully remove searching by contactId)

@@ -3,7 +3,7 @@ import { simpleParser } from 'mailparser';
 import db from '../../db.js';
 import { decryptToken } from "./encrypt.js";
 import { v4 as uuidv4 } from 'uuid';
-import { findOriginalEmail, recordOutreachEvent, isBounce, handleCriticalBounce, extractBouncedEmail } from './utils.js';
+import { findOriginalEmail, recordOutreachEvent, isBounce, isTransientDeferral, handleCriticalBounce, extractBouncedEmail } from './utils.js';
 import { analyzeLeadIntent } from "./intentDetection.js";
 import { sendAlert } from '../notifier.js';
 
@@ -42,7 +42,8 @@ async function extractEmailContent(msg: imap.Message): Promise<{ text: string; h
 
 export async function pollImap(mailboxId: string) {
   const mailbox = await db.prepare("SELECT * FROM outreach_mailboxes WHERE id = ?").get(mailboxId) as any;
-  if (!mailbox || mailbox.connection_type !== 'smtp' || !mailbox.imap_host) return;
+  // SMTP mailboxes are stored as 'smtp_imap' (older rows may say 'smtp').
+  if (!mailbox || !['smtp_imap', 'smtp'].includes(mailbox.connection_type) || !mailbox.imap_host) return;
 
   const password = decryptToken(mailbox.imap_password || mailbox.smtp_password);
   const imapConfig = {
@@ -86,11 +87,10 @@ export async function pollImap(mailboxId: string) {
 
         const messageId = (headers?.['message-id']?.[0] || '').toString();
         
-        // De-duplication: skip if already recorded as a reply event
-        if (messageId) {
-          const existingEvent = await db.prepare("SELECT id FROM outreach_events WHERE type = 'replied' AND event_key = ?").get(`replied:imap:${uid}`);
-          if (existingEvent) continue;
-        }
+        // De-duplication: IMAP UIDs are only unique per mailbox, so the key includes it.
+        const eventKeyBase = `imap:${mailbox.id}:${uid}`;
+        const existingEvent = await db.prepare("SELECT id FROM outreach_events WHERE event_key IN (?, ?)").get(`replied:${eventKeyBase}`, `bounced:${eventKeyBase}`);
+        if (existingEvent) continue;
 
         const from = (headers.from?.[0] || '').toString();
         const subject = (headers.subject?.[0] || '').toString();
@@ -102,11 +102,20 @@ export async function pollImap(mailboxId: string) {
         // Extract body content early for bounce detection and reply persistence
         const content = await extractEmailContent(msg);
 
+        // 4xx "delayed" warnings are not bounces — the server is still retrying.
+        if (isTransientDeferral(subject, content.text)) {
+          console.log(`[IMAP] [UID: ${uid}] Transient deferral warning ignored.`);
+          continue;
+        }
+
         // 1. BOUNCE DETECTION
         if (isBounce(from, subject, content.text, returnPath)) {
           console.warn(`[IMAP] [UID: ${uid}] Bounce detected from "${from}" Subject: "${subject}"`);
 
-          const original = await findOriginalEmail({ potentialIds: [messageId || String(uid)].filter(Boolean) });
+          // Bounce reports quote the original Message-ID in their body.
+          const quotedIds = (content.text.match(/Message-ID:\s*<([^>]+)>/gi) || [])
+            .map(m => m.replace(/Message-ID:\s*</i, '').replace(/>$/, ''));
+          const original = await findOriginalEmail({ potentialIds: quotedIds, projectId: mailbox.project_id });
 
           if (original) {
             // Happy path — we matched the bounce to a known outreach email
@@ -114,7 +123,7 @@ export async function pollImap(mailboxId: string) {
               project_id: mailbox.project_id, sequence_id: original.sequence_id,
               step_id: original.step_id, contact_id: original.contact_id,
               email_id: original.id, event_type: 'bounced',
-              event_key: `bounced:imap:${uid}`, metadata: { from, subject }
+              event_key: `bounced:${eventKeyBase}`, metadata: { from, subject }
             });
             console.log(`[IMAP] [UID: ${uid}] Bounce handled for contact ${original.contact_id}.`);
           } else {
@@ -182,14 +191,16 @@ export async function pollImap(mailboxId: string) {
         });
 
         if (!originalEmail || !originalEmail.contact_id) {
+          // Not an outreach conversation: leave the user's email untouched (unread).
           console.log(`[IMAP] Skipping email from ${from} (Subject: ${subject}) - No matching outreach email or strict contact verification failed.`);
-          await connection.addFlags(uid, ['\\Seen']);
           continue;
         }
 
         console.log(`[IMAP] [UID: ${uid}] Successfully linked to original email ${originalEmail.id} (Contact: ${originalEmail.contact_id})`);
 
-        // Persist reply record using early-extracted content
+        // Persist reply record using early-extracted content.
+        // message_id is UNIQUE: never store '' for messages lacking the header.
+        const storedMessageId = messageId.replace(/[<>]/g, '').trim() || eventKeyBase;
         const replyId = uuidv4();
         
         // 1. Existing Individual Email Record (for sequencing logic)
@@ -201,7 +212,7 @@ export async function pollImap(mailboxId: string) {
         `, [
           replyId, originalEmail.user_id, originalEmail.project_id, mailbox.id,
           originalEmail.contact_id, originalEmail.sequence_id, originalEmail.step_id,
-          from, '', mailbox.email, subject, content.text, content.html, 'received', messageId, originalEmail.thread_id, true
+          from, '', mailbox.email, subject, content.text, content.html, 'received', storedMessageId, originalEmail.thread_id, true
         ]);
 
         // 2. New Unified Inbox Record (for Phase 1 CRM)
@@ -215,7 +226,7 @@ export async function pollImap(mailboxId: string) {
           ON CONFLICT (message_id) DO NOTHING
         `, [
           inboxMessageId, originalEmail.contact_id, originalEmail.project_id, 
-          originalEmail.sequence_id, originalEmail.thread_id, messageId, from, 
+          originalEmail.sequence_id, originalEmail.thread_id, storedMessageId, from, 
           mailbox.email, subject, content.text, content.html, isIncoming ? false : true, mailbox.id,
           aiResponse.intent, aiResponse.score, isIncoming
         ]);
@@ -241,7 +252,7 @@ export async function pollImap(mailboxId: string) {
             contact_id: originalEmail.contact_id,
             email_id: originalEmail.id, 
             event_type: 'replied',
-            event_key: `replied:imap:${uid}`,
+            event_key: `replied:${eventKeyBase}`,
             metadata: { subject, intent: aiResponse.intent },
             contactStatus: newStatus
           });
@@ -250,8 +261,6 @@ export async function pollImap(mailboxId: string) {
         } else {
           console.log(`[IMAP] [UID: ${uid}] Successfully saved outgoing message to inbox history (Contact: ${originalEmail.contact_id})`);
         }
-
-        await connection.addFlags(uid, ['\\Seen']);
 
       } catch (msgErr: any) {
         console.error(`[IMAP] [UID: ${uid}] Error:`, msgErr.message);

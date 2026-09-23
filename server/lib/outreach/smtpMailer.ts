@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
 import MailComposer from 'nodemailer/lib/mail-composer/index.js';
+import nodemailer from 'nodemailer';
 import db from '../../db.js';
 import { decryptToken } from "./encrypt.js";
 import { sendAlert } from '../notifier.js';
@@ -122,3 +123,56 @@ export async function sendGmailMessage(
 
 // Keep the old function name for a moment as an alias to prevent immediate runtime crashes until dependencies are updated
 export const sendSmtpMessage = sendGmailMessage;
+
+/**
+ * Sends through the mailbox's own SMTP server (mailboxes connected with
+ * connection_type 'smtp_imap'). Returns the RFC Message-ID without angle
+ * brackets so IMAP replies (In-Reply-To) can be matched back to this email.
+ */
+export async function sendSmtpMail(
+  mailbox: any,
+  emailData: {
+    to: string;
+    subject: string;
+    bodyHtml: string;
+    fromEmail?: string;
+    fromName?: string;
+    attachments?: any[];
+    parentMessageId?: string;
+  }
+) {
+  if (!mailbox.smtp_host || !mailbox.smtp_password) {
+    throw new Error('Mailbox is missing SMTP settings. Please reconnect it in Settings.');
+  }
+
+  const port = Number(mailbox.smtp_port) || 587;
+  const transporter = nodemailer.createTransport({
+    host: mailbox.smtp_host,
+    port,
+    // 465 is implicit TLS; other ports upgrade with STARTTLS.
+    secure: mailbox.smtp_secure === true || mailbox.smtp_secure === 1 || port === 465,
+    auth: {
+      user: mailbox.smtp_username || mailbox.email,
+      pass: decryptToken(mailbox.smtp_password),
+    },
+    connectionTimeout: 20_000,
+    greetingTimeout: 20_000,
+    socketTimeout: 60_000,
+  });
+
+  const fromEmail = emailData.fromEmail || mailbox.email;
+  const fromName = emailData.fromName || mailbox.name;
+
+  const info = await transporter.sendMail({
+    from: fromName ? `"${fromName}" <${fromEmail}>` : fromEmail,
+    to: emailData.to,
+    subject: emailData.subject,
+    html: emailData.bodyHtml,
+    attachments: emailData.attachments || [],
+    ...(emailData.parentMessageId
+      ? { inReplyTo: emailData.parentMessageId, references: emailData.parentMessageId }
+      : {}),
+  });
+
+  return { messageId: String(info.messageId || '').replace(/[<>]/g, '') };
+}
