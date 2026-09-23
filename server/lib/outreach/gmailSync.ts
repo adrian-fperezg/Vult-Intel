@@ -118,7 +118,8 @@ export async function syncMailbox(mailboxId: string, getAccessToken: (id: string
 
       const original = await findOriginalEmail({
         potentialIds: [messageId].filter(Boolean),
-        threadId: msg.threadId
+        threadId: msg.threadId,
+        projectId: mailbox.project_id
       });
 
       if (original) {

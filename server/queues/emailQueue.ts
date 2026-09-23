@@ -4,7 +4,7 @@ import db from '../db.js';
 import dotenv from 'dotenv';
 import { getValidGmailClient } from '../oauth.js';
 import redis from '../redis.js';
-import { sendGmailMessage } from '../lib/outreach/smtpMailer.js';
+import { sendSmtpMail } from '../lib/outreach/smtpMailer.js';
 import { pollImap } from '../lib/outreach/imapPoller.js';
 import { resolveAttachments } from '../lib/outreach/sequenceMailer.js';
 // @ts-ignore
@@ -20,7 +20,7 @@ import { parseSpintax } from '../utils/spintax.js';
 import { parseSnippets } from '../../shared/utils/snippetParser.js';
 import { OUTREACH_CONFIG } from '../config/outreach.js';
 import { checkAndIncrementGlobalLimit } from '../lib/outreach/sendLimits.js';
-import { getEffectiveSequenceConfig } from '../lib/outreach/configUtils.js';
+import { getEffectiveSequenceConfig, getMergedOutreachConfig } from '../lib/outreach/configUtils.js';
 
 
 dotenv.config();
@@ -65,7 +65,7 @@ export async function pollMailboxes() {
 
         for (const mailbox of mailboxes) {
           try {
-            if (mailbox.connection_type === 'smtp') {
+            if (mailbox.connection_type === 'smtp_imap' || mailbox.connection_type === 'smtp') {
               console.log(`[IMAP] Polling: ${mailbox.email} (Project: ${projectId})`);
               await pollImap(mailbox.id);
             } else if (mailbox.connection_type === 'gmail_oauth') {
@@ -95,6 +95,25 @@ export async function pollMailboxes() {
 }
 
 /**
+ * IMAP mailboxes have no push notifications, so replies/bounces are only seen
+ * when polled. Stop-on-reply depends on this, hence the short interval.
+ */
+export async function pollImapMailboxes() {
+  const mailboxes = await db.all<any>(`
+    SELECT id, email FROM outreach_mailboxes
+    WHERE connection_type IN ('smtp_imap', 'smtp') AND status = 'active'
+      AND enabled = ${db.bool(true)} AND imap_host IS NOT NULL
+  `);
+  for (const mailbox of mailboxes) {
+    try {
+      await pollImap(mailbox.id);
+    } catch (err: any) {
+      console.error(`[IMAP] Poll failed for ${mailbox.email}:`, err.message);
+    }
+  }
+}
+
+/**
  * Forcefully clear ANY existing repeatable jobs to ensure fresh schedule
  */
 export async function resetRepeatableJobs() {
@@ -112,6 +131,12 @@ export async function resetRepeatableJobs() {
       jobId: 'poll-mailboxes-repeat'
     });
     console.log('[QUEUE] Re-added poll-mailboxes with 24-hour interval.');
+
+    await emailQueue.add('poll-imap-mailboxes', {}, {
+      repeat: { every: 10 * 60 * 1000 },
+      jobId: 'poll-imap-mailboxes-repeat'
+    });
+    console.log('[QUEUE] Added poll-imap-mailboxes with 10-minute interval.');
   } catch (err) {
     console.error('[QUEUE] Error resetting repeatable jobs:', err);
   }
@@ -143,6 +168,11 @@ export const emailWorker = new Worker('email-queue', async (job: Job) => {
 
   if (name === 'poll-mailboxes') {
     await pollMailboxes();
+    return;
+  }
+
+  if (name === 'poll-imap-mailboxes') {
+    await pollImapMailboxes();
     return;
   }
 
@@ -319,8 +349,24 @@ export const emailWorker = new Worker('email-queue', async (job: Job) => {
       // Heartbeat: Log start of processing
       console.log(`[Sequence] [Heartbeat] Processing step ${stepId} (${stepNumber}) for contact ${contactId} in sequence ${sequenceId}`);
 
-      // 2. Global Send Limit Enforcement
-      const isWithinLimit = await checkAndIncrementGlobalLimit(projectId);
+      // 2. Daily send limits (project-wide and per sequence) — only emails count.
+      const stepMeta = await db.get<any>('SELECT step_type FROM outreach_sequence_steps WHERE id = ?', [stepId]);
+      let isWithinLimit = true;
+      if (stepMeta?.step_type === 'email') {
+        isWithinLimit = await checkAndIncrementGlobalLimit(projectId);
+        const sequenceLimit = Number(sequence.daily_send_limit) || 0;
+        if (isWithinLimit && sequenceLimit > 0) {
+          const sentToday = await db.get<any>(
+            `SELECT COUNT(*) AS count FROM outreach_individual_emails
+             WHERE sequence_id = ? AND sent_at >= CURRENT_DATE AND COALESCE(is_reply, FALSE) = FALSE`,
+            [sequenceId]
+          );
+          if (parseInt(sentToday?.count || '0', 10) >= sequenceLimit) {
+            console.warn(`[SendLimits] Sequence ${sequenceId} reached its daily limit (${sequenceLimit}).`);
+            isWithinLimit = false;
+          }
+        }
+      }
       if (!isWithinLimit && !bypassRestrictions) {
         const targetTz = config.send_timezone;
         const now = DateTime.now().setZone(targetTz);
@@ -391,19 +437,21 @@ export const emailWorker = new Worker('email-queue', async (job: Job) => {
         // --- EMAIL DEDUPLICATION CHECK ---
         // Check if an email has already been RECORDED for this step
         let existingEmail = await db.prepare(`
-          SELECT id, status FROM outreach_individual_emails 
-          WHERE contact_id = ? AND sequence_id = ? AND step_id = ?
+          SELECT id, status, sent_at FROM outreach_individual_emails 
+          WHERE contact_id = ? AND sequence_id = ? AND step_id = ? AND COALESCE(is_reply, FALSE) = FALSE
+          ORDER BY created_at DESC LIMIT 1
         `).get(contactId, sequenceId, stepId) as any;
 
         let emailId: string;
+        let sendResult: any = null;
         
         if (existingEmail) {
           emailId = existingEmail.id;
-          if (existingEmail.status === 'sent') {
+          if (existingEmail.sent_at) {
             console.log(`[Sequence] [Deduplication] Email already sent for step ${stepId} (EmailID: ${emailId}). Skipping to event log.`);
           } else {
             console.log(`[Sequence] [Deduplication] Retrying existing email ${emailId} (Status: ${existingEmail.status})`);
-            await processEmail(emailId);
+            sendResult = await processEmail(emailId);
           }
         } else {
           // Resolve variables (Standard + Custom Fields)
@@ -577,7 +625,7 @@ export const emailWorker = new Worker('email-queue', async (job: Job) => {
 
           // Send via processEmail
           try {
-            await processEmail(emailId);
+            sendResult = await processEmail(emailId);
           } catch (procErr: any) {
             console.error(`[Sequence] processEmail failed for ${emailId}:`, procErr);
             await db.prepare("UPDATE outreach_individual_emails SET status = 'failed', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(emailId);
@@ -585,6 +633,17 @@ export const emailWorker = new Worker('email-queue', async (job: Job) => {
           }
         }
         
+        // Suppressed / unsubscribed / replied contacts: stop here instead of
+        // advancing to the next step.
+        if (sendResult && sendResult.success === false) {
+          console.warn(`[Sequence] Send blocked (${sendResult.blocked}) for contact ${contactId}. Stopping enrollment.`);
+          await db.run(
+            "UPDATE outreach_sequence_enrollments SET status = 'stopped', last_error = ? WHERE sequence_id = ? AND contact_id = ?",
+            `Send blocked: ${sendResult.blocked}`, sequenceId, contactId
+          );
+          return;
+        }
+
         // --- RECORD EVENT (ONLY IF NOT ALREADY DONE) ---
         // Double-check just before insert to be extra safe in high concurrency (unlikely with jobId but good practice)
         const safetyCheck = await db.prepare(`
@@ -713,6 +772,13 @@ export async function processEmail(emailId: string, signal?: AbortSignal) {
     throw new Error("EMAIL_NOT_FOUND");
   }
 
+  // Idempotency: a retried job (or a second trigger) must never send twice.
+  // (message_id alone is not proof: an old migration filled it with the row id.)
+  if (email.sent_at || email.status === 'sent') {
+    console.warn(`[processEmail] Email ${emailId} was already sent (status: ${email.status}). Skipping.`);
+    return { success: true, messageId: email.message_id, alreadySent: true };
+  }
+
   const rawMailboxId = email.mailbox_id;
   if (!rawMailboxId) {
     console.error(`[processEmail] Email ${emailId} is missing mailbox_id`);
@@ -743,7 +809,7 @@ export async function processEmail(emailId: string, signal?: AbortSignal) {
         if (hasReplied) {
            console.log(`[processEmail] Contact ${email.contact_id} replied. Sequence aborted for this job.`);
            await db.prepare("UPDATE outreach_individual_emails SET status = 'failed', error_code = 'STOP_ON_REPLY' WHERE id = ?").run(emailId);
-           return;
+           return { success: false, blocked: 'STOP_ON_REPLY' };
         }
       }
 
@@ -804,11 +870,14 @@ export async function processEmail(emailId: string, signal?: AbortSignal) {
   let bodyWithWrappedLinks = wrapLinks(bodyWithSignature, emailId, backendUrl);
 
   // --- FAIL-SAFE SUPPRESSION CHECK ---
-  const suppressed = await db.prepare("SELECT email FROM suppression_list WHERE email = ?").get(email.to_email);
+  // Suppression is per project (plus legacy 'global' opt-outs), case-insensitive.
+  const suppressed = await db.prepare(
+    "SELECT email FROM suppression_list WHERE LOWER(email) = LOWER(?) AND (project_id = ? OR project_id = 'global')"
+  ).get(email.to_email, email.project_id);
   if (suppressed) {
     console.error(`[processEmail] Suppressed email aborted: ${email.to_email}`);
     await db.prepare("UPDATE outreach_individual_emails SET status = 'failed', error_code = 'SUPPRESSED' WHERE id = ?").run(emailId);
-    throw new Error("Email is on the global suppression list. Job discarded.");
+    return { success: false, blocked: 'SUPPRESSED' };
   }
 
   // --- COMPLIANCE HARD STOP: Unsubscribed / Bounced / Blacklisted ---
@@ -833,8 +902,8 @@ export async function processEmail(emailId: string, signal?: AbortSignal) {
     if (contactData && (blockedStatuses.includes(contactData.status) || isBouncedByTag)) {
       const errorCode = isBouncedByTag ? 'BOUNCED_TAG' : contactData.status.toUpperCase();
       console.warn(`[processEmail] COMPLIANCE BLOCK: Contact ${email.contact_id} is ${contactData.status}${isBouncedByTag ? ' (Bounced Tag)' : ''}. Aborting send.`);
-      await db.prepare(`UPDATE outreach_individual_emails SET status = 'failed', error_code = '${errorCode}' WHERE id = ?`).run(emailId);
-      return;
+      await db.prepare(`UPDATE outreach_individual_emails SET status = 'failed', error_code = ? WHERE id = ?`).run(errorCode, emailId);
+      return { success: false, blocked: errorCode };
     }
   }
 
@@ -905,36 +974,30 @@ export async function processEmail(emailId: string, signal?: AbortSignal) {
   // Use resilient attachment resolver to handle missing files on ephemeral hosts
   const attachments = await resolveAttachments(email.attachments);
 
-  if (mailbox.connection_type === 'smtp' || mailbox.connection_type === 'gmail') {
-    // Hard check for OAuth2 credentials before calling Gmail API
-    if (!mailbox.access_token || !mailbox.refresh_token) {
-      throw new Error('Mailbox is missing OAuth2 tokens. Please reconnect in Settings.');
-    }
-
-    const result = await sendGmailMessage(mailboxUuid, {
+  if (mailbox.connection_type === 'smtp_imap' || mailbox.connection_type === 'smtp') {
+    const result = await sendSmtpMail(mailbox, {
       to: email.to_email,
       subject: email.subject || "(No Subject)",
       bodyHtml: bodyWithTracking,
       fromEmail: email.from_email,
       fromName: email.from_name,
       attachments,
-      threadId: email.thread_id,
-      parentMessageId: email.parent_message_id
+      parentMessageId: email.parent_message_id,
     });
 
-    console.log(`[processEmail] Gmail API email sent. messageId: ${result.messageId}`);
-    
+    console.log(`[processEmail] SMTP email sent. messageId: ${result.messageId}`);
+
     await db.prepare(`
       UPDATE outreach_individual_emails 
       SET status = 'sent', sent_at = CURRENT_TIMESTAMP, message_id = ?, updated_at = CURRENT_TIMESTAMP 
       WHERE id = ?
     `).run(result.messageId, emailId);
 
-    // Record sent event with atomic counter increment
     await recordOutreachEvent({
       project_id: email.project_id,
       sequence_id: email.sequence_id,
       step_id: email.step_id,
+      campaign_id: email.campaign_id,
       contact_id: email.contact_id,
       email_id: emailId,
       event_type: 'sent',
@@ -958,13 +1021,18 @@ export async function processEmail(emailId: string, signal?: AbortSignal) {
   const fromName = email.from_name || mailbox.name;
   const fromHeader = fromName ? `"${fromName}" <${fromEmail}>` : fromEmail;
 
-  const mailOptions = {
+  const mailOptions: any = {
     from: fromHeader,
     to: to,
     subject: subject,
     html: bodyWithTracking,
     attachments: attachments // Pre-resolved and verified by resolveAttachments()
   };
+  // Replies (e.g. from the Inbox) must stay in the lead's thread.
+  if (email.parent_message_id) {
+    mailOptions.inReplyTo = email.parent_message_id;
+    mailOptions.references = email.parent_message_id;
+  }
 
   const mail = new MailComposer(mailOptions);
   const message = await mail.compile().build();
@@ -980,6 +1048,7 @@ export async function processEmail(emailId: string, signal?: AbortSignal) {
       userId: mailboxEmail, // Use primary email for auth context
       requestBody: {
         raw: encodedMessage,
+        ...(email.thread_id ? { threadId: email.thread_id } : {}),
       },
     });
 
@@ -997,6 +1066,7 @@ export async function processEmail(emailId: string, signal?: AbortSignal) {
       project_id: email.project_id,
       sequence_id: email.sequence_id,
       step_id: email.step_id,
+      campaign_id: email.campaign_id,
       contact_id: email.contact_id,
       email_id: emailId,
       event_type: 'sent',
@@ -1055,9 +1125,67 @@ export const campaignWorker = new Worker('campaign-queue', async (job: Job) => {
   const attachmentsJson = JSON.stringify(mappedAttachments);
 
 
+  // ── Send pacing ────────────────────────────────────────────────────────────
+  // Each email gets its own send time: a random gap of min..max minutes after
+  // the previous one, at most `daily_limit` per day (capped by the project's
+  // global limit), inside the sending window and skipping weekends if asked.
+  const cfg = await getMergedOutreachConfig(campaign.project_id);
+  const tz = cfg.send_timezone || 'UTC';
+  const dailyCap = Math.max(1, Math.min(Number(campaign.daily_limit) || 50, Number(cfg.global_daily_limit) || 50));
+  const minGap = Math.max(1, Number(campaign.min_delay) || 2);
+  const maxGap = Math.max(minGap, Number(campaign.max_delay) || 5);
+  const sendWeekends = campaign.send_weekends === true || campaign.send_weekends === 1;
+  const [startH, startM] = String(cfg.sending_start_time || '09:00').split(':').map(Number);
+  const [endH, endM] = String(cfg.sending_end_time || '17:00').split(':').map(Number);
+
+  const dayCounts = new Map<string, number>();
+  const countForDay = async (day: DateTime) => {
+    const key = day.toISODate()!;
+    if (!dayCounts.has(key)) {
+      const start = day.startOf('day');
+      const row = await db.get<any>(
+        `SELECT COUNT(*) AS c FROM outreach_individual_emails WHERE campaign_id = ? AND scheduled_at >= ? AND scheduled_at < ?`,
+        campaignId, start.toUTC().toISO(), start.plus({ days: 1 }).toUTC().toISO()
+      );
+      dayCounts.set(key, parseInt(row?.c || '0', 10));
+    }
+    return dayCounts.get(key)!;
+  };
+  const nextDayStart = (d: DateTime) => d.plus({ days: 1 }).set({ hour: startH, minute: startM, second: 0, millisecond: 0 });
+  const fitWindow = (d: DateTime): DateTime => {
+    let t = d;
+    for (let guard = 0; guard < 14; guard++) {
+      if (!sendWeekends && t.weekday >= 6) { t = nextDayStart(t); continue; }
+      if (cfg.restrict_sending_hours) {
+        const start = t.set({ hour: startH, minute: startM, second: 0, millisecond: 0 });
+        const end = t.set({ hour: endH, minute: endM, second: 0, millisecond: 0 });
+        if (t < start) t = start;
+        if (t >= end) { t = nextDayStart(t); continue; }
+      }
+      break;
+    }
+    return t;
+  };
+
+  const lastScheduled = await db.get<any>('SELECT MAX(scheduled_at) AS last FROM outreach_individual_emails WHERE campaign_id = ?', campaignId);
+  let cursor: DateTime | null = lastScheduled?.last ? DateTime.fromJSDate(new Date(lastScheduled.last)).setZone(tz) : null;
+  const nextSlot = async (): Promise<DateTime> => {
+    const now = DateTime.now().setZone(tz);
+    const gap = minGap + Math.random() * (maxGap - minGap);
+    let t = cursor && cursor > now ? cursor.plus({ minutes: gap }) : (cursor ? now : now.plus({ seconds: 5 }));
+    t = fitWindow(t);
+    for (let guard = 0; guard < 60 && (await countForDay(t)) >= dailyCap; guard++) {
+      t = fitWindow(nextDayStart(t));
+    }
+    dayCounts.set(t.toISODate()!, (await countForDay(t)) + 1);
+    cursor = t;
+    return t;
+  };
+
   // Find pending enrollments - added LIMIT 50 to prevent OOM
   const enrollments = await db.prepare(`
-    SELECT e.*, c.email as contact_email, c.first_name, c.last_name, c.company
+    SELECT e.*, c.email as contact_email, c.first_name, c.last_name, c.company, c.job_title, c.phone,
+           c.linkedin, c.location_city, c.location_country, c.website, c.custom_fields
     FROM outreach_campaign_enrollments e
     JOIN outreach_contacts c ON e.contact_id = c.id
     WHERE e.campaign_id = ? AND e.status = 'pending'
@@ -1105,13 +1233,15 @@ export const campaignWorker = new Worker('campaign-queue', async (job: Job) => {
 
 
         const finalMailboxUuid = campaign.mailbox_id?.includes(':') ? campaign.mailbox_id.split(':')[0] : campaign.mailbox_id;
+        const aliasEmail = campaign.mailbox_id?.includes(':') ? campaign.mailbox_id.split(':')[1] : null;
+        const sendAt = await nextSlot();
 
         await tx.prepare(`
           INSERT INTO outreach_individual_emails (
             id, user_id, project_id, mailbox_id, contact_id, sequence_id, step_id, campaign_id,
-            from_email, from_name, to_email, subject, body_html, attachments, status, sender_alias
+            from_email, from_name, to_email, subject, body_html, attachments, status, sender_alias, scheduled_at
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', ?, ?)
         `).run(
           emailId,
           campaign.user_id,
@@ -1121,13 +1251,14 @@ export const campaignWorker = new Worker('campaign-queue', async (job: Job) => {
           campaign.sequence_id,
           firstStep.id,
           campaign.id,
-          campaign.from_email,
+          aliasEmail || campaign.from_email,
           campaign.from_name,
           enrollment.contact_email,
           subject,
           bodyHtml,
           attachmentsJson,
-          campaign.mailbox_id
+          campaign.mailbox_id,
+          sendAt.toUTC().toISO()
         );
 
 
@@ -1138,8 +1269,10 @@ export const campaignWorker = new Worker('campaign-queue', async (job: Job) => {
           WHERE id = ?
         `).run(firstStep.id, enrollment.id);
 
-        // Queue the email job with a deterministic jobId for easy cancellation
-        emailQueue.add(`email-${emailId}`, { emailId }, { jobId: emailId });
+        // Queue after COMMIT (the worker must see the row) with a deterministic
+        // jobId for easy cancellation.
+        const delay = Math.max(0, sendAt.toMillis() - Date.now());
+        await tx.onCommit(() => emailQueue.add(`email-${emailId}`, { emailId }, { jobId: emailId, delay }));
       });
     } catch (err) {
       console.error(`[Campaign] Failed to enroll contact ${enrollment.contact_id} for campaign ${campaignId}:`, err);
@@ -1265,13 +1398,16 @@ export async function sequenceWatchdog() {
   
   try {
     // 1. Find active enrollments that are overdue OR missing next_step_id
+    // Only enrollments that are due; oldest first so a backlog can't starve the tail.
     const activeEnrollments = await db.all(`
       SELECT e.*, s.project_id
       FROM outreach_sequence_enrollments e
       JOIN outreach_sequences s ON e.sequence_id = s.id
       WHERE e.status = 'active' 
         AND s.status = 'active'
-      LIMIT 100
+        AND (e.scheduled_at IS NULL OR e.scheduled_at <= CURRENT_TIMESTAMP)
+      ORDER BY e.scheduled_at ASC NULLS FIRST
+      LIMIT 200
     `) as any[];
 
     if (activeEnrollments.length === 0) {
@@ -1314,10 +1450,17 @@ export async function sequenceWatchdog() {
         const jobId = `seq-${enrollment.sequence_id}-${enrollment.contact_id}-step-${stepId}`;
         const deferredJobId = `${jobId}-deferred`;
 
-        const [job, deferredJob] = await Promise.all([
-          emailQueue.getJob(jobId),
-          emailQueue.getJob(deferredJobId)
-        ]);
+        // A job only counts if it can still run. Completed/failed leftovers with the
+        // same id would otherwise block recovery forever.
+        const isPending = async (id: string) => {
+          const j = await emailQueue.getJob(id);
+          if (!j) return false;
+          const state = await j.getState();
+          if (['waiting', 'delayed', 'active', 'waiting-children', 'prioritized'].includes(state)) return true;
+          if (state === 'completed' || state === 'failed') await j.remove().catch(() => {});
+          return false;
+        };
+        const [job, deferredJob] = await Promise.all([isPending(jobId), isPending(deferredJobId)]);
         
         // If NO job exists AND it's "overdue" (scheduled_at <= now), re-queue
         const now = new Date();

@@ -6,7 +6,8 @@
 export const OUTREACH_CONFIG = {
   // Staggering & Intervals
   DEFAULTS: {
-    STAGGER_DELAY_MINUTES: 15,    // Delay between enrolling individual contacts in a batch
+    // Must match the defaults shown in Settings → Sending (SendingTab.tsx).
+    STAGGER_DELAY_MINUTES: 2,     // Delay between enrolling individual contacts in a batch
     SENDING_INTERVAL_MINUTES: 20, // Minimum gap between emails from the same mailbox
     SMART_SEND_MAX_JITTER_SECONDS: 0, // Default jitter if not specified in sequence
   },
@@ -21,7 +22,7 @@ export const OUTREACH_CONFIG = {
 
   // Limits
   LIMITS: {
-    GLOBAL_DAILY_LIMIT: 999999, // Effectively unlimited (legacy/default)
+    GLOBAL_DAILY_LIMIT: 50,     // Default shown in Settings → Sending until the user changes it
     MAX_SCHEDULE_LOOKAHEAD_DAYS: 14,
   }
 };

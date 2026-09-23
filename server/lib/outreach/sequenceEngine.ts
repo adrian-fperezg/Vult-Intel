@@ -242,14 +242,16 @@ export async function scheduleNextStep(
 
   const jobId = `seq-${sequenceId}-${contactId}-step-${step.id}`;
 
-  await emailQueue.add('execute-sequence-step', {
+  // Inside a transaction the job must wait for COMMIT, otherwise a worker can
+  // pick it up before the enrollment row is visible and silently drop it.
+  await d.onCommit(() => emailQueue.add('execute-sequence-step', {
     projectId, sequenceId, contactId, stepId: step.id, stepNumber: step.step_number
   }, {
     delay: finalDelay,
     attempts: 3,
     backoff: { type: 'exponential', delay: 5000 },
     jobId: jobId
-  });
+  }));
 
   console.log(`[Queue] [Scheduled] Contact ${contactId} → Step ${step.step_number} in Sequence ${sequenceId} @ ${DateTime.fromJSDate(scheduledAt).setZone(targetTz).toFormat('yyyy-MM-dd HH:mm:ss')} (${targetTz})`);
 }

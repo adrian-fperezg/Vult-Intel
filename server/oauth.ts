@@ -35,9 +35,14 @@ function createOAuthClient(): OAuth2Client {
 
 // ─── Exported Helpers ────────────────────────────────────────────────────────
 
-export function buildGoogleAuthUrl(userId: string, projectId: string): string {
+const OAUTH_STATE_TTL_SECONDS = 600;
+
+// The state is an opaque single-use token; who/which project lives server-side,
+// so a callback can't be forged to attach a mailbox to someone else's project.
+export async function buildGoogleAuthUrl(userId: string, projectId: string): Promise<string> {
   const oauth2Client = createOAuthClient();
-  const state = Buffer.from(JSON.stringify({ userId, projectId })).toString('base64url');
+  const state = crypto.randomBytes(24).toString('base64url');
+  await redis.setex(`oauth:gmail:${state}`, OAUTH_STATE_TTL_SECONDS, JSON.stringify({ userId, projectId }));
 
   return oauth2Client.generateAuthUrl({
     access_type: 'offline',
@@ -45,6 +50,14 @@ export function buildGoogleAuthUrl(userId: string, projectId: string): string {
     prompt: 'consent',
     state,
   });
+}
+
+export async function consumeGoogleAuthState(state: string): Promise<{ userId: string; projectId: string } | null> {
+  const key = `oauth:gmail:${state}`;
+  const raw = await redis.get(key);
+  if (!raw) return null;
+  await redis.del(key);
+  return JSON.parse(raw);
 }
 
 export async function exchangeCodeForTokens(code: string) {
