@@ -14,7 +14,7 @@
     "start": "tsx server/index.ts",
     "dev:all": "concurrently -n \"frontend,backend\" -c \"cyan,green\" \"npm run dev\" \"npm run server\"",
     "verify-deployment": "sh scripts/grep-guard.sh",
-    "test": "node --import tsx --test server/lib/outreach/dataSanitizer.test.ts server/lib/outreach/sequenceUtils.test.ts server/lib/outreach/intentDetection.test.ts",
+    "test": "node --import tsx --test server/lib/outreach/dataSanitizer.test.ts server/lib/outreach/sequenceUtils.test.ts server/lib/outreach/intentDetection.test.ts server/lib/social/utils.test.ts",
     "test:alert": "tsx scripts/test-alert.ts",
     "queue:status": "tsx scripts/queue-status.ts",
     "backfill:inbox": "tsx server/scripts/runBackfill.ts",

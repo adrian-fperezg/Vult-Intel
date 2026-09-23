@@ -2,8 +2,44 @@ import { Router } from 'express';
 import { AuthRequest } from '../../middleware.js';
 import db from '../../db.js';
 import { v4 as uuidv4 } from 'uuid';
+import { PUBLISHABLE_PLATFORMS } from '../../lib/social/utils.js';
 
 const router = Router();
+
+const getProjectId = (req: AuthRequest): string | undefined =>
+  (req.headers['x-project-id'] as string) || req.body?.project_id || (req.query.project_id as string) || undefined;
+
+// Only accounts connected to THIS project by THIS user can be publish targets.
+async function loadOwnedAccounts(accountIds: unknown, userId: string, pId: string) {
+  if (!Array.isArray(accountIds) || accountIds.length === 0) return [];
+  const ids = accountIds.filter((id): id is string => typeof id === 'string');
+  const placeholders = ids.map(() => '?').join(', ');
+  const platformPlaceholders = PUBLISHABLE_PLATFORMS.map(() => '?').join(', ');
+  return db.all<{ id: string; platform: string }>(
+    `SELECT id, platform FROM social_accounts
+     WHERE id IN (${placeholders}) AND user_id = ? AND project_id = ? AND platform IN (${platformPlaceholders})`,
+    ...ids, userId, pId, ...PUBLISHABLE_PLATFORMS
+  );
+}
+
+async function insertTargets(postId: string, accounts: { id: string; platform: string }[], body: any) {
+  const { custom_bodies, network_first_comments, network_options, network_media_urls } = body;
+  for (const account of accounts) {
+    const customBody = custom_bodies?.[account.id] || null;
+    const targetFirstComment = network_first_comments?.[account.id] || null;
+
+    const mergedPlatformOptions = { ...(network_options?.[account.id] || {}) };
+    if (network_media_urls?.[account.id]) {
+      mergedPlatformOptions.media_urls = network_media_urls[account.id];
+    }
+
+    await db.run(`
+      INSERT INTO social_post_targets (id, post_id, account_id, platform, status, custom_body, first_comment, platform_options)
+      VALUES (?, ?, ?, ?, 'pending', ?, ?, ?::jsonb)
+      ON CONFLICT (post_id, account_id) DO NOTHING
+    `, uuidv4(), postId, account.id, account.platform, customBody, targetFirstComment, JSON.stringify(mergedPlatformOptions));
+  }
+}
 
 // GET /api/social/posts
 router.get('/', async (req: AuthRequest, res) => {
@@ -62,71 +98,48 @@ router.get('/', async (req: AuthRequest, res) => {
 // POST /api/social/posts
 router.post('/', async (req: AuthRequest, res) => {
   const userId = req.user?.uid;
-  const pId = (req.headers['x-project-id'] as string) || req.body.project_id;
-  const { 
-    body, 
-    media_urls, 
-    link_url, 
-    link_title, 
-    link_description, 
-    link_image, 
-    first_comment, 
-    scheduled_at, 
-    account_ids, 
-    status, 
-    custom_bodies, 
-    network_first_comments, 
+  const pId = getProjectId(req);
+  const {
+    body,
+    media_urls,
+    link_url,
+    link_title,
+    link_description,
+    link_image,
+    first_comment,
+    scheduled_at,
+    account_ids,
+    status,
+    custom_bodies,
     network_options,
-    network_media_urls 
+    network_media_urls
   } = req.body;
   if (!userId || !pId) return res.status(400).json({ error: 'project_id required' });
   if (!account_ids?.length) return res.status(400).json({ error: 'Select at least one account' });
 
-  let allHaveCustom = true;
-  for (const acctId of account_ids) {
-    if (!custom_bodies?.[acctId]?.trim() && !network_options?.[acctId]?.media_urls?.length && !media_urls?.length) {
-      // If no custom body and no network media, and no master media, we check master body
-      if (!body?.trim() && !media_urls?.length) {
-        allHaveCustom = false;
-        break;
-      }
-    }
+  if (!body?.trim() && !media_urls?.length) {
+    const everyTargetHasContent = account_ids.every((id: string) =>
+      custom_bodies?.[id]?.trim() || network_media_urls?.[id]?.length || network_options?.[id]?.media_urls?.length
+    );
+    if (!everyTargetHasContent) return res.status(400).json({ error: 'Body or media is required for all accounts' });
   }
-
-  if (!allHaveCustom && !body?.trim() && !media_urls?.length) {
-    return res.status(400).json({ error: 'Body or media is required for all accounts' });
-  }
-
-  console.log("[DEBUG] PAYLOAD RECIBIDO:", JSON.stringify(req.body, null, 2));
 
   try {
+    const accounts = await loadOwnedAccounts(account_ids, userId, pId);
+    if (accounts.length !== new Set(account_ids).size) {
+      return res.status(400).json({ error: 'One or more selected accounts are not connected to this project' });
+    }
+
     const postId = uuidv4();
-    const postStatus = scheduled_at ? 'scheduled' : (status || 'draft');
+    // Without a date a post is a draft ("Post now" publishes drafts directly).
+    const postStatus = scheduled_at && status !== 'draft' ? 'scheduled' : 'draft';
 
     await db.run(`
       INSERT INTO social_posts (id, project_id, user_id, body, media_urls, link_url, link_title, link_description, link_image, first_comment, status, scheduled_at)
       VALUES (?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?, ?, ?)
     `, postId, pId, userId, body || '', JSON.stringify(media_urls || []), link_url || null, link_title || null, link_description || null, link_image || null, first_comment || null, postStatus, scheduled_at || null);
 
-    // Create targets for each account
-    for (const accountId of account_ids) {
-      const account = await db.get<any>(`SELECT platform FROM social_accounts WHERE id = ?`, accountId);
-      if (account) {
-        const customBody = custom_bodies?.[accountId] || null;
-        const targetFirstComment = network_first_comments?.[accountId] || null;
-        
-        let mergedPlatformOptions = network_options?.[accountId] || {};
-        if (network_media_urls && network_media_urls[accountId]) {
-          mergedPlatformOptions.media_urls = network_media_urls[accountId];
-        }
-        const platformOptionsStr = Object.keys(mergedPlatformOptions).length > 0 ? JSON.stringify(mergedPlatformOptions) : '{}';
-
-        await db.run(`
-          INSERT INTO social_post_targets (id, post_id, account_id, platform, status, custom_body, first_comment, platform_options)
-          VALUES (?, ?, ?, ?, 'pending', ?, ?, ?::jsonb)
-        `, uuidv4(), postId, accountId, account.platform, customBody, targetFirstComment, platformOptionsStr);
-      }
-    }
+    await insertTargets(postId, accounts, req.body);
 
     const post = await db.get<any>(`SELECT * FROM social_posts WHERE id = ?`, postId);
     res.status(201).json(post);
@@ -137,53 +150,65 @@ router.post('/', async (req: AuthRequest, res) => {
 });
 
 // PATCH /api/social/posts/:id
+// Only the fields present in the body are updated (null clears a field).
 router.patch('/:id', async (req: AuthRequest, res) => {
   const userId = req.user?.uid;
+  const pId = getProjectId(req);
   const { id } = req.params;
-  const { body, media_urls, link_url, first_comment, scheduled_at, account_ids, status, custom_bodies, network_first_comments, network_options, network_media_urls } = req.body;
+  if (!userId || !pId) return res.status(400).json({ error: 'project_id required' });
+
   try {
-    const post = await db.get<any>(`SELECT * FROM social_posts WHERE id = ? AND user_id = ?`, id, userId);
+    const post = await db.get<any>(`SELECT * FROM social_posts WHERE id = ? AND user_id = ? AND project_id = ?`, id, userId, pId);
     if (!post) return res.status(404).json({ error: 'Post not found' });
+    if (['published', 'publishing', 'published_partial'].includes(post.status)) {
+      return res.status(400).json({ error: `Cannot edit a post that is ${post.status}` });
+    }
 
-    console.log('[SOCIAL_POSTS] UPDATE Payload received:', {
-      media_urls,
-      network_options: network_options ? JSON.stringify(network_options) : null,
-      account_ids
-    });
-
-    await db.run(`
-      UPDATE social_posts SET
-        body = COALESCE(?, body),
-        media_urls = COALESCE(?::jsonb, media_urls),
-        link_url = COALESCE(?, link_url),
-        first_comment = COALESCE(?, first_comment),
-        scheduled_at = ?,
-        status = COALESCE(?, status),
-        updated_at = NOW()
-      WHERE id = ?
-    `, body, media_urls ? JSON.stringify(media_urls) : null, link_url, first_comment, scheduled_at || null, status, id);
-
-    if (account_ids) {
-      await db.run(`DELETE FROM social_post_targets WHERE post_id = ? AND status = 'pending'`, id);
-      for (const accountId of account_ids) {
-        const account = await db.get<any>(`SELECT platform FROM social_accounts WHERE id = ?`, accountId);
-        if (account) {
-          const customBody = custom_bodies?.[accountId] || null;
-          const targetFirstComment = network_first_comments?.[accountId] || null;
-          
-          let mergedPlatformOptions = network_options?.[accountId] || {};
-          if (network_media_urls && network_media_urls[accountId]) {
-            mergedPlatformOptions.media_urls = network_media_urls[accountId];
-          }
-          const platformOptionsStr = Object.keys(mergedPlatformOptions).length > 0 ? JSON.stringify(mergedPlatformOptions) : '{}';
-
-          await db.run(`
-            INSERT INTO social_post_targets (id, post_id, account_id, platform, status, custom_body, first_comment, platform_options)
-            VALUES (?, ?, ?, ?, 'pending', ?, ?, ?::jsonb)
-            ON CONFLICT DO NOTHING
-          `, uuidv4(), id, accountId, account.platform, customBody, targetFirstComment, platformOptionsStr);
-        }
+    let accounts: { id: string; platform: string }[] | null = null;
+    if (req.body.account_ids !== undefined) {
+      if (!Array.isArray(req.body.account_ids) || req.body.account_ids.length === 0) {
+        return res.status(400).json({ error: 'Select at least one account' });
       }
+      accounts = await loadOwnedAccounts(req.body.account_ids, userId, pId);
+      if (accounts.length !== new Set(req.body.account_ids).size) {
+        return res.status(400).json({ error: 'One or more selected accounts are not connected to this project' });
+      }
+    }
+
+    const sets: string[] = [];
+    const params: any[] = [];
+    const setField = (column: string, value: any, cast = '') => { sets.push(`${column} = ?${cast}`); params.push(value); };
+
+    if ('body' in req.body) setField('body', req.body.body || '');
+    if ('media_urls' in req.body) setField('media_urls', JSON.stringify(req.body.media_urls || []), '::jsonb');
+    if ('link_url' in req.body) setField('link_url', req.body.link_url || null);
+    if ('first_comment' in req.body) setField('first_comment', req.body.first_comment || null);
+    if ('scheduled_at' in req.body) setField('scheduled_at', req.body.scheduled_at || null);
+
+    if ('status' in req.body || 'scheduled_at' in req.body) {
+      const scheduledAt = 'scheduled_at' in req.body ? req.body.scheduled_at : post.scheduled_at;
+      // Picking a new date for a draft/failed post (e.g. from the queue) schedules it again.
+      let nextStatus = req.body.status || (['draft', 'failed'].includes(post.status) && scheduledAt ? 'scheduled' : post.status);
+      // A post can only sit in 'scheduled' if it has a date; otherwise the cron never picks it up.
+      if (nextStatus === 'scheduled' && !scheduledAt) nextStatus = 'draft';
+      if (!['draft', 'scheduled', 'paused'].includes(nextStatus)) nextStatus = 'draft';
+      setField('status', nextStatus);
+      sets.push('error_message = NULL', 'error_code = NULL');
+    }
+
+    if (sets.length) {
+      await db.run(`UPDATE social_posts SET ${sets.join(', ')}, updated_at = NOW() WHERE id = ?`, ...params, id);
+    }
+
+    if (post.status === 'failed' && !accounts) {
+      // Leaving 'failed' (rescheduled or back to draft): failed targets get another attempt.
+      await db.run(`UPDATE social_post_targets SET status = 'pending', error_message = NULL, error_code = NULL WHERE post_id = ? AND status = 'failed'`, id);
+    }
+
+    if (accounts) {
+      // Replace every target that has not gone out yet (pending or failed).
+      await db.run(`DELETE FROM social_post_targets WHERE post_id = ? AND status IN ('pending', 'failed')`, id);
+      await insertTargets(id, accounts, req.body);
     }
 
     const updated = await db.get<any>(`SELECT * FROM social_posts WHERE id = ?`, id);
@@ -219,14 +244,16 @@ router.post('/:id/publish', async (req: AuthRequest, res) => {
   try {
     const post = await db.get<any>(`SELECT * FROM social_posts WHERE id = ? AND user_id = ?`, id, userId);
     if (!post) return res.status(404).json({ error: 'Post not found' });
-    if (post.status === 'published') return res.status(400).json({ error: 'Already published' });
+    if (!['draft', 'scheduled', 'paused', 'failed'].includes(post.status)) {
+      return res.status(400).json({ error: `Post is ${post.status}` });
+    }
 
-    // Set to publish immediately (cron will pick it up or we invoke directly)
-    await db.run(`UPDATE social_posts SET scheduled_at = NOW(), status = 'scheduled' WHERE id = ?`, id);
-    
-    // Import and run publisher inline
+    // Failed targets get another attempt; already-published ones are left alone.
+    await db.run(`UPDATE social_post_targets SET status = 'pending', error_message = NULL, error_code = NULL WHERE post_id = ? AND status = 'failed'`, id);
+
     const { publishPost } = await import('../../lib/social/publisher.js');
-    await publishPost(post.id);
+    const finalStatus = await publishPost(post.id, ['draft', 'scheduled', 'paused', 'failed']);
+    if (!finalStatus) return res.status(409).json({ error: 'This post is already being published' });
 
     const updated = await db.get<any>(`SELECT * FROM social_posts WHERE id = ?`, id);
     res.json(updated);

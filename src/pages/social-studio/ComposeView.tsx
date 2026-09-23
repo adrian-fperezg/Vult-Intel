@@ -24,7 +24,7 @@ const PLATFORM_META: Record<string, {
     icon: Linkedin, color: 'text-blue-400', bg: 'bg-blue-500/8 border-blue-500/15',
     activeBg: 'bg-blue-500/15 border-blue-500/35', label: 'LinkedIn', charLimit: 3000,
     supportsFirstComment: true,
-    contentTypes: ['Post', 'Article', 'Document'],
+    contentTypes: ['Post'],
     features: ['visibility', 'poll'],
     focusBorder: 'focus-within:border-blue-500/30',
   },
@@ -41,15 +41,15 @@ const PLATFORM_META: Record<string, {
     activeBg: 'bg-pink-500/15 border-pink-500/35', label: 'Instagram', charLimit: 2200,
     supportsFirstComment: true,
     contentTypes: ['Post', 'Reel', 'Story', 'Carousel'],
-    features: ['alt_text', 'location', 'collab'],
+    features: ['alt_text', 'collab'],
     focusBorder: 'focus-within:border-pink-500/30',
   },
   youtube: {
     icon: Youtube, color: 'text-red-400', bg: 'bg-red-500/8 border-red-500/15',
     activeBg: 'bg-red-500/15 border-red-500/35', label: 'YouTube', charLimit: 5000,
     supportsFirstComment: false,
-    contentTypes: ['Community Post'],
-    features: ['visibility', 'poll'],
+    contentTypes: ['Video'],
+    features: ['visibility', 'title'],
     focusBorder: 'focus-within:border-red-500/30',
   },
   twitter: {
@@ -97,7 +97,7 @@ interface NetworkState {
   instagramCollabAccount: string;
   // YouTube
   youtubeVisibility: 'PUBLIC' | 'UNLISTED' | 'PRIVATE';
-  youtubePoll: { options: string[] } | null;
+  youtubeTitle: string;
   // TikTok
   tiktokPrivacy: 'PUBLIC_TO_EVERYONE' | 'MUTUAL_FOLLOW_FRIENDS' | 'SELF_ONLY';
   tiktokAllowComments: boolean;
@@ -131,7 +131,7 @@ const defaultNetworkState = (platform: string): NetworkState => ({
   instagramLocation: '',
   instagramCollabAccount: '',
   youtubeVisibility: 'PUBLIC',
-  youtubePoll: null,
+  youtubeTitle: '',
   tiktokPrivacy: 'PUBLIC_TO_EVERYONE',
   tiktokAllowComments: true,
   tiktokAllowDuet: true,
@@ -150,6 +150,11 @@ interface ComposeViewProps {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+// Uploaded media are signed URLs with a query string, so check the path only.
+function isVideoUrl(url: string): boolean {
+  return /\.(mp4|mov|m4v|webm)$/i.test(url.split(/[?#]/)[0]);
+}
 
 function charColor(count: number, limit: number): string {
   const pct = count / limit;
@@ -402,22 +407,12 @@ function PlatformOptions({ platform, state, onChange }: {
               />
             </div>
           )}
-          {meta.features.includes('location') && (
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] text-slate-500 w-24 shrink-0">Location</span>
-              <input value={state.instagramLocation}
-                onChange={e => onChange({ instagramLocation: e.target.value })}
-                placeholder="Add location..."
-                className="flex-1 bg-white/[0.03] border border-white/8 rounded-lg px-3 py-1.5 text-[12px] text-white placeholder:text-slate-700 outline-none focus:border-pink-500/30"
-              />
-            </div>
-          )}
           {meta.features.includes('collab') && (
             <div className="flex items-center gap-2">
               <span className="text-[11px] text-slate-500 w-24 shrink-0">Collab</span>
               <input value={state.instagramCollabAccount}
                 onChange={e => onChange({ instagramCollabAccount: e.target.value })}
-                placeholder="@username for collaboration post..."
+                placeholder="@username (up to 3, comma separated)"
                 className="flex-1 bg-white/[0.03] border border-white/8 rounded-lg px-3 py-1.5 text-[12px] text-white placeholder:text-slate-700 outline-none focus:border-pink-500/30"
               />
             </div>
@@ -452,40 +447,15 @@ function PlatformOptions({ platform, state, onChange }: {
               </div>
             </div>
           )}
-          {!state.youtubePoll ? (
-            <button onClick={() => onChange({ youtubePoll: { options: ['', ''] } })}
-              className="text-[11px] text-slate-600 hover:text-slate-400 flex items-center gap-1 transition-colors"
-            >
-              <Plus className="size-3" /> Add Poll
-            </button>
-          ) : (
-            <div className="space-y-2 p-3 rounded-xl bg-white/[0.03] border border-white/8">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] text-slate-500 font-semibold uppercase tracking-widest">Poll</span>
-                <button onClick={() => onChange({ youtubePoll: null })} className="text-slate-600 hover:text-red-400">
-                  <X className="size-3" />
-                </button>
-              </div>
-              {state.youtubePoll.options.map((opt, i) => (
-                <input key={i} value={opt}
-                  onChange={e => {
-                    const options = [...state.youtubePoll!.options];
-                    options[i] = e.target.value;
-                    onChange({ youtubePoll: { options } });
-                  }}
-                  placeholder={`Option ${i + 1}`}
-                  className="w-full bg-white/[0.03] border border-white/8 rounded-lg px-3 py-1.5 text-[12px] text-white placeholder:text-slate-700 outline-none focus:border-red-500/30"
-                />
-              ))}
-              {state.youtubePoll.options.length < 5 && (
-                <button onClick={() => onChange({ youtubePoll: { options: [...state.youtubePoll!.options, ''] } })}
-                  className="text-[11px] text-slate-600 hover:text-slate-400 flex items-center gap-1"
-                >
-                  <Plus className="size-3" /> Add option
-                </button>
-              )}
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-slate-500 w-24 shrink-0">Title</span>
+            <input value={state.youtubeTitle}
+              onChange={e => onChange({ youtubeTitle: e.target.value })}
+              placeholder="Video title (defaults to the first line of the text)"
+              maxLength={100}
+              className="flex-1 bg-white/[0.03] border border-white/8 rounded-lg px-3 py-1.5 text-[12px] text-white placeholder:text-slate-700 outline-none focus:border-red-500/30"
+            />
+          </div>
         </>
       )}
 
@@ -837,7 +807,7 @@ function PlatformPreview({ account, text, mediaUrls, linkUrl, firstComment, cont
           )}>
             {mediaUrls.slice(0, platform === 'instagram' && contentType === 'Story' ? 1 : 4).map((url, i) => (
               <div key={i} className="aspect-square bg-black/30">
-                {url.match(/\.(mp4|mov)$/i)
+                {isVideoUrl(url)
                   ? <div className="w-full h-full flex items-center justify-center"><Video className="size-6 text-white/20" /></div>
                   : <SafeImage src={getMediaUrl(url)} className="w-full h-full object-cover" alt="" />
                 }
@@ -1129,7 +1099,7 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
       
       if (Array.isArray(initialTargets)) {
         initialTargets.forEach((t: any) => {
-          newSelected.add(t.social_account_id);
+          newSelected.add(t.account_id);
           let po: any = {};
           if (t.platform_options) {
             try { po = typeof t.platform_options === 'string' ? JSON.parse(t.platform_options) : t.platform_options; } catch(e) {}
@@ -1138,7 +1108,7 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
           const platform = t.platform;
           const defaultState = defaultNetworkState(platform);
           
-          newNetStates[t.social_account_id] = {
+          newNetStates[t.account_id] = {
             ...defaultState,
             customBody: t.custom_body, // can be null/undefined, meaning fallback to global
             firstComment: t.first_comment || '',
@@ -1152,7 +1122,7 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
             instagramLocation: po.location || defaultState.instagramLocation,
             instagramCollabAccount: po.collabAccount || defaultState.instagramCollabAccount,
             youtubeVisibility: po.visibility || defaultState.youtubeVisibility,
-            youtubePoll: po.poll || defaultState.youtubePoll,
+            youtubeTitle: po.title || defaultState.youtubeTitle,
             tiktokPrivacy: po.privacy || defaultState.tiktokPrivacy,
             tiktokAllowComments: po.allowComments ?? defaultState.tiktokAllowComments,
             tiktokAllowDuet: po.allowDuet ?? defaultState.tiktokAllowDuet,
@@ -1161,7 +1131,7 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
           };
           
           if (po.media_urls && Array.isArray(po.media_urls) && po.media_urls.length > 0) {
-            newMediaMapping[t.social_account_id] = {
+            newMediaMapping[t.account_id] = {
               previewUrl: po.media_urls[0],
               uploadedUrl: po.media_urls[0],
               fileName: 'Custom Media'
@@ -1176,7 +1146,11 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
       
       if (newSelected.size > 0 && Array.isArray(initialTargets)) {
         // If any target has custom body or thread or specific media, turn on customize mode
-        const hasCustom = initialTargets.some((t: any) => t.custom_body || t.first_comment || (t.platform_options && t.platform_options.includes('media_urls')));
+        const hasCustom = initialTargets.some((t: any) => {
+          let po: any = t.platform_options;
+          if (typeof po === 'string') { try { po = JSON.parse(po); } catch { po = {}; } }
+          return t.custom_body || t.first_comment || (po?.media_urls?.length > 0);
+        });
         setCustomizePerNetwork(hasCustom);
       }
     }
@@ -1373,6 +1347,17 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
       if (acct.platform === 'instagram' && mediaUrls.length === 0 && !mediaMapping[id]) {
         return toast.error('Instagram requires at least one image or video');
       }
+      const targetMedia = mediaMapping[id]?.uploadedUrl ? [mediaMapping[id].uploadedUrl as string] : mediaUrls;
+      const hasVideo = targetMedia.some(isVideoUrl);
+      if ((acct.platform === 'youtube' || acct.platform === 'tiktok') && !hasVideo) {
+        return toast.error(`${meta?.label || acct.platform} requires a video`);
+      }
+      if ((acct.platform === 'instagram' || acct.platform === 'facebook') && ns.contentType === 'Reel' && !hasVideo) {
+        return toast.error(`${meta?.label} Reels require a video`);
+      }
+      if (acct.platform === 'facebook' && !acct.channel_id) {
+        return toast.error('Facebook only allows publishing to Pages. Select a Facebook Page instead of your profile.');
+      }
     }
 
     setIsSubmitting(true);
@@ -1411,7 +1396,7 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
         }
         if (acct.platform === 'youtube') {
           opts.visibility = ns.youtubeVisibility;
-          if (ns.youtubePoll) opts.poll = ns.youtubePoll;
+          if (ns.youtubeTitle.trim()) opts.title = ns.youtubeTitle.trim();
         }
         if (acct.platform === 'tiktok') {
           opts.privacy = ns.tiktokPrivacy;
@@ -1443,11 +1428,11 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
 
       const payload = {
         body,
-        link_url: linkUrl || undefined,
-        media_urls: mediaUrls.length > 0 ? mediaUrls : undefined,
-        scheduled_at: mode === 'schedule' && scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
+        link_url: linkUrl || null,
+        media_urls: mediaUrls,
+        scheduled_at: mode === 'schedule' && scheduledAt ? new Date(scheduledAt).toISOString() : null,
         account_ids: Array.from(selectedAccountIds),
-        status: mode === 'draft' ? 'draft' : 'scheduled',
+        status: mode === 'schedule' ? 'scheduled' : 'draft',
         custom_bodies: Object.keys(custom_bodies).length > 0 ? custom_bodies : undefined,
         network_first_comments: Object.keys(network_first_comments).length > 0 ? network_first_comments : undefined,
         network_options: Object.keys(network_options).length > 0 ? network_options : undefined,
@@ -1463,15 +1448,16 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
 
       if (mode === 'now') {
         try {
-          await api.publishNow(post.id);
-          toast.success('🚀 Published!');
+          const result = await api.publishNow(post.id);
+          if (result?.status === 'published') {
+            toast.success('🚀 Published!');
+          } else if (result?.status === 'published_partial') {
+            toast(`⚠️ Published with warnings: ${result.error_message || 'check the queue'}`);
+          } else {
+            toast.error(`Publishing failed: ${result?.error_message || 'check the queue for details'}`);
+          }
         } catch (publishErr: any) {
-          // Post already created: degrade to draft so it doesn't sit in queue as
-          // "scheduled" with no scheduled_at date (the scheduler will never pick it up).
-          try { await api.updatePost(post.id, { status: 'draft' }); } catch { /* best effort */ }
-          toast.error(`No se pudo publicar: ${publishErr.message}. El post quedó en la cola, revísalo ahí.`);
-          resetComposer();
-          return;
+          toast.error(`No se pudo publicar: ${publishErr.message}. El post quedó como borrador en la cola.`);
         }
       } else if (mode === 'schedule') {
         toast.success('📅 Scheduled!');
@@ -1525,7 +1511,7 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
             <div className="space-y-2.5">
               <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-widest">Post to</p>
               <div className="flex flex-wrap gap-1.5">
-                {accounts.map(account => {
+                {accounts.filter(a => !(a.platform === 'facebook' && !a.channel_id)).map(account => {
                   const meta = PLATFORM_META[account.platform];
                   const Icon = meta?.icon || ExternalLink;
                   const selected = selectedAccountIds.has(account.id);
@@ -1570,7 +1556,7 @@ export default function ComposeView({ accounts, loadingAccounts, onPostCreated, 
                 {mediaUrls.length > 0 && (
                   <div className="px-4 pb-4 grid grid-cols-5 gap-2">
                     {mediaUrls.map((url, i) => {
-                      const isVideo = url.match(/\.(mp4|mov)$/i);
+                      const isVideo = isVideoUrl(url);
                       return (
                         <div key={i} className="relative aspect-square rounded-lg overflow-hidden border border-white/10 group">
                           {isVideo

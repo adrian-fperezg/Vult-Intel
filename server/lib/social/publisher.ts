@@ -6,10 +6,13 @@
 import db from '../../db.js';
 import { decryptToken, encryptToken } from '../outreach/encrypt.js';
 import fetch from 'node-fetch';
-import FormData from 'form-data';
-import axios from 'axios';
-import admin from '../../lib/firebase.js';
 import { TwitterApi } from 'twitter-api-v2';
+import { getFreshAccessToken } from './tokens.js';
+import {
+  isVideoUrl, mimeTypeFromUrl, parseJsonObject, normalizeContentType,
+  getLinkedInVersion, getLinkedInAuthorUrn, mapTwitterReplySettings, mapThreadsReplyControl,
+  youtubeTitleFrom, linkedInPollDuration, tiktokChunkPlan, META_GRAPH_URL,
+} from './utils.js';
 
 export class PartialPublishError extends Error {
   constructor(message: string, public platformPostId: string) {
@@ -24,63 +27,103 @@ const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, m
 // Delay before posting a first comment so the platform has time to index the post
 const COMMENT_DELAY_MS = 20_000;
 
-// ─── PLATFORM PUBLISHERS ──────────────────────────────────────────────────────
+async function downloadMedia(url: string): Promise<Buffer> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Could not download media (${res.status}): ${url.split('?')[0]}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
+// Some endpoints (LinkedIn /rest/posts) answer 201 with an empty body.
+async function readJson(res: { text(): Promise<string> }): Promise<any> {
+  const text = await res.text();
+  if (!text) return {};
+  try { return JSON.parse(text); } catch { return { raw: text }; }
+}
+
+async function graphPost(path: string, body: Record<string, any>): Promise<any> {
+  const res = await fetch(`${META_GRAPH_URL}/${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await readJson(res);
+  if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+  if (!res.ok) throw new Error(JSON.stringify(data));
+  return data;
+}
+
+// ─── LINKEDIN ─────────────────────────────────────────────────────────────────
 
 async function publishToLinkedIn(account: any, post: any): Promise<string> {
   const token = decryptToken(account.access_token);
-  const authorUrn = `urn:li:person:${account.account_id}`;
-  const mediaUrls = post.media_urls || [];
-  
-  const headers = { 
-    Authorization: `Bearer ${token}`, 
+  const authorUrn = getLinkedInAuthorUrn(account);
+  const isOrg = authorUrn.startsWith('urn:li:organization:');
+  const opts = post.platform_options;
+  const mediaUrls: string[] = post.media_urls || [];
+
+  const headers = {
+    Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
-    'LinkedIn-Version': '2024-01'
+    'LinkedIn-Version': getLinkedInVersion(),
+    'X-Restli-Protocol-Version': '2.0.0',
   };
 
   let content: any = undefined;
 
   if (mediaUrls.length > 0) {
-    const isVideo = mediaUrls[0].match(/\\.(mp4|mov)$/i);
-    const mediaUrns = [];
+    if (isVideoUrl(mediaUrls[0])) {
+      // Video: multipart upload driven by uploadInstructions, then finalize.
+      const buffer = await downloadMedia(mediaUrls[0]);
+      const initReq = await fetch('https://api.linkedin.com/rest/videos?action=initializeUpload', {
+        method: 'POST', headers,
+        body: JSON.stringify({ initializeUploadRequest: { owner: authorUrn, fileSizeBytes: buffer.length, uploadCaptions: false, uploadThumbnail: false } }),
+      });
+      const initData = await readJson(initReq);
+      if (!initReq.ok) throw new Error(`LinkedIn video init error: ${initData.message || JSON.stringify(initData)}`);
 
-    for (const url of mediaUrls.slice(0, 9)) {
-      // 1. Download file
-      const fileRes = await fetch(url);
-      const arrayBuffer = await fileRes.arrayBuffer();
-      
-      let initUrl = 'https://api.linkedin.com/rest/images?action=initializeUpload';
-      let initBody: any = { initializeUploadRequest: { owner: authorUrn } };
-      
-      if (isVideo) {
-        initUrl = 'https://api.linkedin.com/rest/videos?action=initializeUpload';
-        initBody.initializeUploadRequest.fileSizeBytes = arrayBuffer.byteLength;
+      const { video, uploadInstructions = [], uploadToken = '' } = initData.value;
+      const uploadedPartIds: string[] = [];
+      for (const part of uploadInstructions) {
+        const partRes = await fetch(part.uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: buffer.subarray(part.firstByte, part.lastByte + 1),
+        });
+        if (!partRes.ok) throw new Error(`LinkedIn video upload failed (${partRes.status})`);
+        uploadedPartIds.push(partRes.headers.get('etag') || '');
       }
 
-      // 2. Initialize Upload
-      const initReq = await fetch(initUrl, { method: 'POST', headers, body: JSON.stringify(initBody) });
-      const initData = await initReq.json() as any;
-      if (!initReq.ok) throw new Error(`LinkedIn init error: ${initData.message || JSON.stringify(initData)}`);
-      
-      const uploadUrl = initData.value.uploadUrl;
-      const mediaUrn = isVideo ? initData.value.video : initData.value.image;
-
-      // 3. Upload Binary
-      const uploadReq = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/octet-stream', 'Authorization': `Bearer ${token}` },
-        body: Buffer.from(arrayBuffer)
+      const finalizeReq = await fetch('https://api.linkedin.com/rest/videos?action=finalizeUpload', {
+        method: 'POST', headers,
+        body: JSON.stringify({ finalizeUploadRequest: { video, uploadToken, uploadedPartIds } }),
       });
-      if (!uploadReq.ok) throw new Error('Failed to upload media to LinkedIn S3 bucket');
-      
-      mediaUrns.push(mediaUrn);
-    }
-
-    if (isVideo) {
-      content = { media: { id: mediaUrns[0] } };
-    } else if (mediaUrns.length > 1) {
-      content = { multiImage: { images: mediaUrns.map(id => ({ id })) } };
+      if (!finalizeReq.ok) {
+        const err = await readJson(finalizeReq);
+        throw new Error(`LinkedIn video finalize error: ${err.message || JSON.stringify(err)}`);
+      }
+      content = { media: { id: video } };
     } else {
-      content = { media: { id: mediaUrns[0] } };
+      const imageUrns: string[] = [];
+      for (const url of mediaUrls.filter(u => !isVideoUrl(u)).slice(0, 9)) {
+        const buffer = await downloadMedia(url);
+        const initReq = await fetch('https://api.linkedin.com/rest/images?action=initializeUpload', {
+          method: 'POST', headers,
+          body: JSON.stringify({ initializeUploadRequest: { owner: authorUrn } }),
+        });
+        const initData = await readJson(initReq);
+        if (!initReq.ok) throw new Error(`LinkedIn image init error: ${initData.message || JSON.stringify(initData)}`);
+
+        const uploadReq = await fetch(initData.value.uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/octet-stream', Authorization: `Bearer ${token}` },
+          body: buffer,
+        });
+        if (!uploadReq.ok) throw new Error(`LinkedIn image upload failed (${uploadReq.status})`);
+        imageUrns.push(initData.value.image);
+      }
+      content = imageUrns.length > 1
+        ? { multiImage: { images: imageUrns.map(id => ({ id })) } }
+        : { media: { id: imageUrns[0] } };
     }
   } else if (post.link_url) {
     content = {
@@ -90,34 +133,44 @@ async function publishToLinkedIn(account: any, post: any): Promise<string> {
         description: post.link_description || ''
       }
     };
+  } else {
+    const pollOptions = (opts.poll?.options || []).map((o: string) => (o || '').trim()).filter(Boolean);
+    if (pollOptions.length >= 2) {
+      content = {
+        poll: {
+          question: (post.body.split('\n').find((l: string) => l.trim()) || 'Poll').trim().slice(0, 140),
+          options: pollOptions.map((text: string) => ({ text: text.slice(0, 30) })),
+          settings: { duration: linkedInPollDuration(opts.poll.duration) },
+        }
+      };
+    }
   }
 
   const body: any = {
     author: authorUrn,
     commentary: post.body,
-    visibility: 'PUBLIC',
+    // Organization posts must be PUBLIC; members can restrict to connections.
+    visibility: !isOrg && opts.visibility === 'CONNECTIONS' ? 'CONNECTIONS' : 'PUBLIC',
     distribution: { feedDistribution: 'MAIN_FEED', targetEntities: [], thirdPartyDistributionChannels: [] },
     lifecycleState: 'PUBLISHED',
+    isReshareDisabledByAuthor: false,
   };
-  
-  if (content) {
-    body.content = content;
-  }
+  if (content) body.content = content;
 
   const res = await fetch('https://api.linkedin.com/rest/posts', {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
   });
-  
-  const data = await res.json() as any;
+  const data = await readJson(res);
   if (!res.ok) throw new Error(data.message || JSON.stringify(data));
-  
-  const urn = res.headers.get('x-restli-id') || (data && data.id) || 'linkedin_post';
 
-  if (post.first_comment && urn && urn !== 'linkedin_post') {
+  const urn = res.headers.get('x-restli-id') || data.id;
+  if (!urn) throw new Error('LinkedIn did not return a post id');
+
+  if (post.first_comment) {
     await sleep(COMMENT_DELAY_MS);
-    const commentRes = await fetch(`https://api.linkedin.com/rest/socialActions/${urn}/comments`, {
+    const commentRes = await fetch(`https://api.linkedin.com/rest/socialActions/${encodeURIComponent(urn)}/comments`, {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -126,360 +179,295 @@ async function publishToLinkedIn(account: any, post: any): Promise<string> {
         message: { text: post.first_comment }
       }),
     });
-    const commentData = await commentRes.json() as any;
-    if (!commentRes.ok || commentData.status >= 400 || commentData.error) {
-      throw new PartialPublishError('First comment failed: ' + (commentData.message || commentData.error?.message || JSON.stringify(commentData)), urn);
+    if (!commentRes.ok) {
+      const commentData = await readJson(commentRes);
+      throw new PartialPublishError('First comment failed: ' + (commentData.message || JSON.stringify(commentData)), urn);
     }
   }
 
   return urn;
 }
 
-async function publishToFacebook(account: any, post: any): Promise<string> {
-  const token = decryptToken(account.access_token);
-  const pageId = account.page_id || account.account_id;
+// ─── FACEBOOK ─────────────────────────────────────────────────────────────────
 
-  const postType = (post.link_title || 'POST').toUpperCase();
-  const mediaUrls = post.media_urls || [];
-  
-  if (mediaUrls.length > 1 && postType === 'POST') {
-    // CAROUSEL
-    const attachedMedia = [];
-    for (const url of mediaUrls.slice(0, 10)) {
-      const isVideo = url.match(/\\.(mp4|mov)$/i);
-      if (isVideo) throw new Error('Facebook currently does not support mixed video/image carousels via this API.');
-      
-      const res = await fetch(`https://graph.facebook.com/v19.0/${pageId}/photos`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url,
-          published: false,
-          access_token: token
-        }),
-      });
-      const data = await res.json() as any;
-      if (data.error) throw new Error(data.error.message);
-      attachedMedia.push({ media_fbid: data.id });
-    }
-
-    const feedRes = await fetch(`https://graph.facebook.com/v19.0/${pageId}/feed`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: post.body,
-        attached_media: attachedMedia,
-        access_token: token
-      }),
-    });
-    const feedData = await feedRes.json() as any;
-    if (feedData.error) throw new Error(feedData.error.message);
-    
-    if (post.first_comment && feedData.id) {
-      await sleep(COMMENT_DELAY_MS);
-      const commentRes = await fetch(`https://graph.facebook.com/v19.0/${feedData.id}/comments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: post.first_comment, access_token: token }),
-      });
-      const commentData = await commentRes.json() as any;
-      if (commentData.error) {
-        throw new PartialPublishError('First comment failed: ' + commentData.error.message, feedData.id);
-      }
-    }
-    return feedData.id;
-
-  } else if (mediaUrls.length > 0) {
-    // SINGLE MEDIA (Story, Reel, Post)
-    const url = mediaUrls[0];
-    const isVideo = url.match(/\\.(mp4|mov)$/i);
-    
-    if (postType === 'STORY') {
-      const endpoint = isVideo ? `https://graph.facebook.com/v19.0/${pageId}/video_stories` : `https://graph.facebook.com/v19.0/${pageId}/photo_stories`;
-      const body: any = { access_token: token };
-      if (isVideo) body.video_url = url;
-      else body.photo_url = url;
-
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json() as any;
-      if (data.error) throw new Error(data.error.message);
-      return data.id || 'fb_story';
-      
-    } else {
-      // POST or REEL
-      const endpoint = isVideo ? `https://graph.facebook.com/v19.0/${pageId}/videos` : `https://graph.facebook.com/v19.0/${pageId}/photos`;
-      const body: any = { access_token: token };
-      
-      if (isVideo) {
-        body.file_url = url;
-        body.description = post.body;
-      } else {
-        body.url = url;
-        body.message = post.body; // Changed from caption to message for /photos
-      }
-      
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json() as any;
-      if (data.error) throw new Error(data.error.message);
-
-      if (post.first_comment && data.id) {
-        await sleep(COMMENT_DELAY_MS);
-        const commentRes = await fetch(`https://graph.facebook.com/v19.0/${data.id}/comments`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: post.first_comment, access_token: token }),
-        });
-        const commentData = await commentRes.json() as any;
-        if (commentData.error) {
-          throw new PartialPublishError('First comment failed: ' + commentData.error.message, data.id);
-        }
-      }
-
-      return data.id;
-    }
-    
-  } else {
-    // TEXT / LINK ONLY
-    const body: any = { message: post.body, access_token: token };
-    if (post.link_url) body.link = post.link_url;
-
-    const res = await fetch(`https://graph.facebook.com/v19.0/${pageId}/feed`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json() as any;
-    if (data.error) throw new Error(data.error.message);
-
-    if (post.first_comment && data.id) {
-      await sleep(COMMENT_DELAY_MS);
-      const commentRes = await fetch(`https://graph.facebook.com/v19.0/${data.id}/comments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: post.first_comment, access_token: token }),
-      });
-      const commentData = await commentRes.json() as any;
-      if (commentData.error) {
-        throw new PartialPublishError('First comment failed: ' + commentData.error.message, data.id);
-      }
-    }
-
-    return data.id;
+async function facebookFirstComment(objectId: string, message: string, token: string) {
+  await sleep(COMMENT_DELAY_MS);
+  try {
+    await graphPost(`${objectId}/comments`, { message, access_token: token });
+  } catch (e: any) {
+    throw new PartialPublishError('First comment failed: ' + e.message, objectId);
   }
 }
 
-async function checkIgMediaStatus(creationId: string, token: string): Promise<void> {
-  let attempts = 0;
-  while (attempts < 20) { // Try for ~100 seconds
-    const res = await fetch(`https://graph.facebook.com/v19.0/${creationId}?fields=status_code&access_token=${token}`);
+// Reels and video stories use Meta's resumable upload: start → upload by URL → finish.
+async function facebookResumableVideo(pageId: string, edge: 'video_reels' | 'video_stories', url: string, token: string, finishExtra: Record<string, any>): Promise<any> {
+  const start = await graphPost(`${pageId}/${edge}`, { upload_phase: 'start', access_token: token });
+  const uploadRes = await fetch(start.upload_url, {
+    method: 'POST',
+    headers: { Authorization: `OAuth ${token}`, file_url: url },
+  });
+  const uploadData = await readJson(uploadRes);
+  if (!uploadRes.ok || uploadData.success === false) {
+    throw new Error(`Facebook video upload failed: ${uploadData.debug_info?.message || JSON.stringify(uploadData)}`);
+  }
+  const finish = await graphPost(`${pageId}/${edge}`, { upload_phase: 'finish', video_id: start.video_id, access_token: token, ...finishExtra });
+  return { ...finish, video_id: start.video_id };
+}
+
+async function publishToFacebook(account: any, post: any): Promise<string> {
+  const token = decryptToken(account.access_token);
+  // Pages are stored with channel_id = page id. The personal-profile row (no channel_id)
+  // only holds the user token used to list pages — Meta does not allow posting to profiles.
+  const pageId = account.channel_id || account.page_id;
+  if (!pageId) {
+    throw new Error('Facebook only allows publishing to Pages, not personal profiles. Select one of your Facebook Pages instead.');
+  }
+
+  const postType = normalizeContentType(post.platform_options.contentType);
+  const mediaUrls: string[] = post.media_urls || [];
+
+  if (postType === 'STORY') {
+    if (!mediaUrls.length) throw new Error('Facebook Stories require an image or video');
+    const url = mediaUrls[0];
+    if (isVideoUrl(url)) {
+      const data = await facebookResumableVideo(pageId, 'video_stories', url, token, {});
+      return data.post_id || data.video_id;
+    }
+    const photo = await graphPost(`${pageId}/photos`, { url, published: false, access_token: token });
+    const story = await graphPost(`${pageId}/photo_stories`, { photo_id: photo.id, access_token: token });
+    return story.post_id || photo.id;
+  }
+
+  if (postType === 'REEL') {
+    if (!mediaUrls.length || !isVideoUrl(mediaUrls[0])) throw new Error('Facebook Reels require a video');
+    const data = await facebookResumableVideo(pageId, 'video_reels', mediaUrls[0], token, {
+      video_state: 'PUBLISHED',
+      description: post.body,
+    });
+    if (post.first_comment) await facebookFirstComment(data.video_id, post.first_comment, token);
+    return data.video_id;
+  }
+
+  let postId: string;
+  if (mediaUrls.length > 1) {
+    // Multi-photo post
+    if (mediaUrls.some(isVideoUrl)) throw new Error('Facebook multi-media posts only support images. Post the video on its own or as a Reel.');
+    const attachedMedia = [];
+    for (const url of mediaUrls.slice(0, 10)) {
+      const photo = await graphPost(`${pageId}/photos`, { url, published: false, access_token: token });
+      attachedMedia.push({ media_fbid: photo.id });
+    }
+    const feed = await graphPost(`${pageId}/feed`, { message: post.body, attached_media: attachedMedia, access_token: token });
+    postId = feed.id;
+  } else if (mediaUrls.length === 1) {
+    const url = mediaUrls[0];
+    const data = isVideoUrl(url)
+      ? await graphPost(`${pageId}/videos`, { file_url: url, description: post.body, access_token: token })
+      : await graphPost(`${pageId}/photos`, { url, message: post.body, access_token: token });
+    postId = data.post_id || data.id;
+  } else {
+    const body: any = { message: post.body, access_token: token };
+    if (post.link_url) body.link = post.link_url;
+    const data = await graphPost(`${pageId}/feed`, body);
+    postId = data.id;
+  }
+
+  if (post.first_comment && postId) await facebookFirstComment(postId, post.first_comment, token);
+  return postId;
+}
+
+// ─── INSTAGRAM ────────────────────────────────────────────────────────────────
+
+async function waitForIgContainer(creationId: string, token: string): Promise<void> {
+  for (let attempt = 0; attempt < 36; attempt++) { // ~3 minutes
+    const res = await fetch(`${META_GRAPH_URL}/${creationId}?fields=status_code,status&access_token=${token}`);
     const data = await res.json() as any;
-    if (data.status_code === 'FINISHED') return;
-    if (data.status_code === 'ERROR') throw new Error('Instagram media processing failed');
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    attempts++;
+    if (data.status_code === 'FINISHED' || data.status_code === 'PUBLISHED') return;
+    if (data.status_code === 'ERROR' || data.status_code === 'EXPIRED') {
+      throw new Error(`Instagram media processing failed: ${data.status || data.status_code}`);
+    }
+    await sleep(5000);
   }
   throw new Error('Instagram media processing timed out');
 }
 
 async function publishToInstagram(account: any, post: any): Promise<string> {
-  console.log("[DEBUG] DATOS PARA IG:", JSON.stringify(post, null, 2));
   const token = decryptToken(account.access_token);
   const igUserId = account.account_id; // the instagram_business_account id
+  const opts = post.platform_options;
+  const postType = normalizeContentType(opts.contentType);
+  const mediaUrls: string[] = post.media_urls || [];
 
-  // post.media_urls usually contains an array of URLs. 
-  // We'll read post.instagram_type (which might be passed in post.link_description or we infer it).
-  // Wait, I should add a metadata field to social_posts, or just pass it in payload.
-  // For now, let's infer or use post.link_title as the type if we don't have a dedicated column.
-  // We'll use post.link_title as the "post_type" for Instagram (POST, REEL, STORY).
-  const postType = (post.link_title || 'POST').toUpperCase();
-  const mediaUrls = post.media_urls || [];
-  
   if (mediaUrls.length === 0) {
     throw new Error('Instagram requires at least one image or video');
   }
 
-  let creationId = '';
+  const collaborators = typeof opts.collabAccount === 'string'
+    ? opts.collabAccount.split(/[\s,]+/).map((u: string) => u.replace(/^@/, '').trim()).filter(Boolean).slice(0, 3)
+    : [];
+  const altText = typeof opts.altText === 'string' ? opts.altText.trim() : '';
 
-  if (mediaUrls.length > 1 && postType === 'POST') {
-    // CAROUSEL
-    const childrenIds = [];
-    for (const url of mediaUrls.slice(0, 10)) {
-      const isVideo = url.match(/\\.(mp4|mov)$/i);
-      const childBody: any = {
-        access_token: token,
-        is_carousel_item: 'true'
-      };
-      if (isVideo) {
-        childBody.video_url = url;
-        childBody.media_type = 'VIDEO';
-      } else {
-        childBody.image_url = url;
-      }
-      
-      const res = await fetch(`https://graph.facebook.com/v19.0/${igUserId}/media`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(childBody),
-      });
-      const data = await res.json() as any;
-      if (data.error || !data.id) {
-        console.error('[IG CAROUSEL_ITEM ERROR]:', data);
-        throw new Error(data.error?.message || 'Instagram media creation failed: missing ID');
-      }
-      
-      if (isVideo) {
-        await checkIgMediaStatus(data.id, token);
-      }
-      childrenIds.push(data.id);
-    }
+  let creationId: string;
 
-    const carRes = await fetch(`https://graph.facebook.com/v19.0/${igUserId}/media`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        access_token: token,
-        media_type: 'CAROUSEL',
-        children: childrenIds.join(','),
-        caption: post.body
-      }),
-    });
-    const carData = await carRes.json() as any;
-    if (carData.error) throw new Error(carData.error.message);
-    creationId = carData.id;
-    
-  } else {
-    // SINGLE MEDIA
+  if (postType === 'STORY') {
     const url = mediaUrls[0];
-    const isVideo = url.match(/\\.(mp4|mov)$/i);
-    const body: any = { access_token: token };
-    
-    if (postType === 'STORY') {
-      body.media_type = 'STORIES';
-      if (isVideo) body.video_url = url;
-      else body.image_url = url;
-    } else if (postType === 'REEL') {
-      body.media_type = 'REELS';
-      body.video_url = url;
-      body.caption = post.body;
-      if (!isVideo) throw new Error('Reels must be videos');
-    } else {
-      // STANDARD POST
-      if (isVideo) {
-        body.media_type = 'REELS'; // All IG videos are now technically reels, or we use VIDEO for older standard
-        body.video_url = url;
-        body.caption = post.body;
-      } else {
-        body.image_url = url;
-        body.caption = post.body;
-      }
-    }
-
-    const res = await fetch(`https://graph.facebook.com/v19.0/${igUserId}/media`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+    const data = await graphPost(`${igUserId}/media`, {
+      media_type: 'STORIES',
+      [isVideoUrl(url) ? 'video_url' : 'image_url']: url,
+      access_token: token,
     });
-    const data = await res.json() as any;
-    if (data.error || !data.id) {
-      console.error('[IG MEDIA ERROR]:', data);
-      throw new Error(data.error?.message || 'Instagram media creation failed: missing ID');
-    }
     creationId = data.id;
-
-    if (isVideo) {
-      await checkIgMediaStatus(creationId, token);
+  } else if (postType === 'REEL') {
+    if (!isVideoUrl(mediaUrls[0])) throw new Error('Instagram Reels require a video');
+    const data = await graphPost(`${igUserId}/media`, {
+      media_type: 'REELS',
+      video_url: mediaUrls[0],
+      caption: post.body,
+      share_to_feed: true,
+      ...(collaborators.length ? { collaborators } : {}),
+      access_token: token,
+    });
+    creationId = data.id;
+  } else if (mediaUrls.length > 1) {
+    // CAROUSEL
+    const childrenIds: string[] = [];
+    for (const url of mediaUrls.slice(0, 10)) {
+      const video = isVideoUrl(url);
+      const child = await graphPost(`${igUserId}/media`, {
+        is_carousel_item: true,
+        ...(video ? { media_type: 'VIDEO', video_url: url } : { image_url: url, ...(altText ? { alt_text: altText } : {}) }),
+        access_token: token,
+      });
+      await waitForIgContainer(child.id, token);
+      childrenIds.push(child.id);
     }
+    const carousel = await graphPost(`${igUserId}/media`, {
+      media_type: 'CAROUSEL',
+      children: childrenIds.join(','),
+      caption: post.body,
+      ...(collaborators.length ? { collaborators } : {}),
+      access_token: token,
+    });
+    creationId = carousel.id;
+  } else {
+    // Single image, or single video (feed videos are published as Reels)
+    const url = mediaUrls[0];
+    const data = await graphPost(`${igUserId}/media`, {
+      ...(isVideoUrl(url)
+        ? { media_type: 'REELS', video_url: url, share_to_feed: true }
+        : { image_url: url, ...(altText ? { alt_text: altText } : {}) }),
+      caption: post.body,
+      ...(collaborators.length ? { collaborators } : {}),
+      access_token: token,
+    });
+    creationId = data.id;
   }
 
-  // PUBLISH
-  const pubRes = await fetch(`https://graph.facebook.com/v19.0/${igUserId}/media_publish`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      access_token: token,
-      creation_id: creationId
-    }),
-  });
-  const pubData = await pubRes.json() as any;
-  if (pubData.error) throw new Error(pubData.error.message);
-  
-  if (post.first_comment && pubData.id) {
+  await waitForIgContainer(creationId, token);
+
+  const pubData = await graphPost(`${igUserId}/media_publish`, { creation_id: creationId, access_token: token });
+
+  if (post.first_comment && pubData.id && postType !== 'STORY') {
     await sleep(COMMENT_DELAY_MS);
-    const commentRes = await fetch(`https://graph.facebook.com/v19.0/${pubData.id}/comments`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: post.first_comment, access_token: token }),
-    });
-    const commentData = await commentRes.json() as any;
-    if (commentData.error) {
-      throw new PartialPublishError('First comment failed: ' + commentData.error.message, pubData.id);
+    try {
+      await graphPost(`${pubData.id}/comments`, { message: post.first_comment, access_token: token });
+    } catch (e: any) {
+      throw new PartialPublishError('First comment failed: ' + e.message, pubData.id);
     }
   }
 
   return pubData.id;
 }
 
+// ─── YOUTUBE ──────────────────────────────────────────────────────────────────
+// The YouTube Data API has no endpoint for community (text) posts, so YouTube
+// targets publish a video via resumable upload.
+
 async function publishToYouTube(account: any, post: any): Promise<string> {
-  const token = decryptToken(account.access_token);
-  // For community posts (text)
-  const res = await fetch('https://www.googleapis.com/youtube/v3/communityPosts?part=snippet', {
+  const mediaUrls: string[] = post.media_urls || [];
+  const videoUrl = mediaUrls.find(isVideoUrl);
+  if (!videoUrl) throw new Error('YouTube requires a video. The YouTube API does not support text-only community posts.');
+
+  const token = await getFreshAccessToken(account);
+  const buffer = await downloadMedia(videoUrl);
+  const opts = post.platform_options;
+  const privacyStatus = ['PUBLIC', 'UNLISTED', 'PRIVATE'].includes(opts.visibility) ? opts.visibility.toLowerCase() : 'public';
+
+  const initRes = await fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json; charset=UTF-8',
+      'X-Upload-Content-Type': mimeTypeFromUrl(videoUrl),
+      'X-Upload-Content-Length': String(buffer.length),
+    },
     body: JSON.stringify({
-      snippet: { postType: 'textPost', textOriginalPost: { text: post.body } }
+      snippet: { title: youtubeTitleFrom(post.body, opts.title), description: post.body.slice(0, 5000), categoryId: '22' },
+      status: { privacyStatus, selfDeclaredMadeForKids: false },
     }),
   });
-  const data = await res.json() as any;
-  if (!res.ok) throw new Error(data.error?.message || JSON.stringify(data));
-  return data.id || 'yt_post';
+  if (!initRes.ok) {
+    const err = await readJson(initRes);
+    throw new Error(err.error?.message || `YouTube upload init failed (${initRes.status})`);
+  }
+  const uploadUrl = initRes.headers.get('location');
+  if (!uploadUrl) throw new Error('YouTube did not return an upload URL');
+
+  const uploadRes = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': mimeTypeFromUrl(videoUrl), 'Content-Length': String(buffer.length) },
+    body: buffer,
+  });
+  const data = await readJson(uploadRes);
+  if (!uploadRes.ok || !data.id) throw new Error(data.error?.message || `YouTube upload failed (${uploadRes.status})`);
+  return data.id;
 }
+
+// ─── TWITTER / X ──────────────────────────────────────────────────────────────
 
 async function publishToTwitter(account: any, post: any): Promise<string> {
   const [accToken, accSecret] = decryptToken(account.access_token).split(':');
-  const mediaUrls = post.media_urls || [];
-  const mediaIds: string[] = [];
+  const opts = post.platform_options;
+  const mediaUrls: string[] = post.media_urls || [];
 
   const twitterClient = new TwitterApi({
-    appKey: process.env.TWITTER_CLIENT_ID || '',
-    appSecret: process.env.TWITTER_CLIENT_SECRET || '',
+    appKey: (process.env.TWITTER_API_KEY || process.env.TWITTER_CLIENT_ID || '').trim(),
+    appSecret: (process.env.TWITTER_API_SECRET || process.env.TWITTER_CLIENT_SECRET || '').trim(),
     accessToken: accToken,
     accessSecret: accSecret,
   });
 
-  if (mediaUrls.length > 0) {
-    for (const url of mediaUrls.slice(0, 4)) {
-      try {
-        const fileRes = await axios.get(url, { responseType: 'arraybuffer' });
-        
-        let mimeType = 'image/jpeg';
-        if (url.toLowerCase().includes('.png')) mimeType = 'image/png';
-        else if (url.toLowerCase().includes('.gif')) mimeType = 'image/gif';
-        else if (url.toLowerCase().includes('.mp4')) mimeType = 'video/mp4';
-
-        const mediaId = await twitterClient.v1.uploadMedia(Buffer.from(fileRes.data), { mimeType });
-        mediaIds.push(mediaId);
-      } catch (err: any) {
-        const errorDetails = err.data ? JSON.stringify(err.data) : (err.message || err);
-        console.error('[PUBLISHER] Failed to upload media to Twitter:', errorDetails);
-        throw new Error('Twitter API rejected media upload: ' + errorDetails);
-      }
+  // X allows up to 4 images, or a single video/GIF.
+  const firstIsVideo = mediaUrls.length > 0 && isVideoUrl(mediaUrls[0]);
+  const toUpload = firstIsVideo ? mediaUrls.slice(0, 1) : mediaUrls.filter(u => !isVideoUrl(u)).slice(0, 4);
+  const mediaIds: string[] = [];
+  for (const url of toUpload) {
+    try {
+      const buffer = await downloadMedia(url);
+      const mediaType = mimeTypeFromUrl(url);
+      const category = mediaType.startsWith('video/') ? 'tweet_video' : mediaType === 'image/gif' ? 'tweet_gif' : 'tweet_image';
+      const mediaId = await twitterClient.v2.uploadMedia(buffer, { media_type: mediaType as any, media_category: category });
+      mediaIds.push(mediaId);
+    } catch (err: any) {
+      const errorDetails = err.data ? JSON.stringify(err.data) : (err.message || err);
+      console.error('[PUBLISHER] Failed to upload media to Twitter:', errorDetails);
+      throw new Error('Twitter API rejected media upload: ' + errorDetails);
     }
   }
 
   const tweetBody: any = { text: post.body.slice(0, 280) };
-  if (mediaIds.length > 0) {
-    tweetBody.media = { media_ids: mediaIds };
+  if (mediaIds.length > 0) tweetBody.media = { media_ids: mediaIds };
+
+  const pollOptions = (opts.poll?.options || []).map((o: string) => (o || '').trim()).filter(Boolean);
+  if (pollOptions.length >= 2) {
+    if (mediaIds.length > 0) throw new Error('X does not allow polls together with media. Remove the media or the poll.');
+    tweetBody.poll = { options: pollOptions.slice(0, 4), duration_minutes: Math.min(Math.max(Number(opts.poll.duration) || 1, 1), 7) * 24 * 60 };
   }
 
-  let tweetId = 'tweet';
+  const replySettings = mapTwitterReplySettings(opts.replySettings);
+  if (replySettings) tweetBody.reply_settings = replySettings;
+
+  let tweetId: string;
   try {
     const { data } = await twitterClient.v2.tweet(tweetBody);
     tweetId = data.id;
@@ -489,12 +477,26 @@ async function publishToTwitter(account: any, post: any): Promise<string> {
     throw new Error('Twitter API rejected tweet: ' + errorDetails);
   }
 
-  if (post.first_comment && tweetId !== 'tweet') {
+  // Thread continuation: each extra tweet replies to the previous one.
+  const threadTweets: string[] = opts.contentType === 'Thread' && Array.isArray(opts.thread)
+    ? opts.thread.map((t: string) => (t || '').trim()).filter(Boolean)
+    : [];
+  let lastId = tweetId;
+  for (const text of threadTweets) {
+    try {
+      const { data } = await twitterClient.v2.tweet({ text: text.slice(0, 280), reply: { in_reply_to_tweet_id: lastId } });
+      lastId = data.id;
+    } catch (e: any) {
+      throw new PartialPublishError('Thread continuation failed: ' + (e.data ? JSON.stringify(e.data) : e.message), tweetId);
+    }
+  }
+
+  if (post.first_comment) {
     await sleep(COMMENT_DELAY_MS);
     try {
       await twitterClient.v2.tweet({
         text: post.first_comment.slice(0, 280),
-        reply: { in_reply_to_tweet_id: tweetId }
+        reply: { in_reply_to_tweet_id: lastId }
       });
     } catch (e: any) {
       throw new PartialPublishError('First comment failed: ' + (e.message || JSON.stringify(e)), tweetId);
@@ -504,150 +506,160 @@ async function publishToTwitter(account: any, post: any): Promise<string> {
   return tweetId;
 }
 
+// ─── TIKTOK ───────────────────────────────────────────────────────────────────
+// Content Posting API (Direct Post) with FILE_UPLOAD. Unaudited TikTok apps can
+// only post with privacy SELF_ONLY; creator_info tells us what is allowed.
+
 async function publishToTikTok(account: any, post: any): Promise<string> {
-  const token = decryptToken(account.access_token);
-  // TikTok requires video — for text we skip gracefully
-  throw new Error('TikTok requires a video. Upload a video file to publish to TikTok.');
+  const mediaUrls: string[] = post.media_urls || [];
+  const videoUrl = mediaUrls.find(isVideoUrl);
+  if (!videoUrl) throw new Error('TikTok requires a video. Upload a video file to publish to TikTok.');
+
+  const token = await getFreshAccessToken(account);
+  const opts = post.platform_options;
+  const apiHeaders = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json; charset=UTF-8' };
+
+  const creatorRes = await fetch('https://open.tiktokapis.com/v2/post/publish/creator_info/query/', { method: 'POST', headers: apiHeaders });
+  const creator = await readJson(creatorRes);
+  if (creator.error?.code && creator.error.code !== 'ok') throw new Error(`TikTok: ${creator.error.message || creator.error.code}`);
+
+  const allowedPrivacy: string[] = creator.data?.privacy_level_options || [];
+  const privacy = opts.privacy || 'PUBLIC_TO_EVERYONE';
+  if (allowedPrivacy.length && !allowedPrivacy.includes(privacy)) {
+    throw new Error(`TikTok does not allow privacy "${privacy}" for this account/app. Allowed: ${allowedPrivacy.join(', ')}`);
+  }
+
+  const buffer = await downloadMedia(videoUrl);
+  const { chunkSize, totalChunks } = tiktokChunkPlan(buffer.length);
+
+  const initRes = await fetch('https://open.tiktokapis.com/v2/post/publish/video/init/', {
+    method: 'POST',
+    headers: apiHeaders,
+    body: JSON.stringify({
+      post_info: {
+        title: post.body.slice(0, 2200),
+        privacy_level: privacy,
+        disable_comment: opts.allowComments === false,
+        disable_duet: opts.allowDuet === false,
+        disable_stitch: opts.allowStitch === false,
+      },
+      source_info: { source: 'FILE_UPLOAD', video_size: buffer.length, chunk_size: chunkSize, total_chunk_count: totalChunks },
+    }),
+  });
+  const init = await readJson(initRes);
+  if (!initRes.ok || (init.error?.code && init.error.code !== 'ok')) {
+    throw new Error(`TikTok init failed: ${init.error?.message || init.error?.code || initRes.status}`);
+  }
+  const { publish_id: publishId, upload_url: uploadUrl } = init.data;
+
+  for (let i = 0; i < totalChunks; i++) {
+    const start = i * chunkSize;
+    const end = i === totalChunks - 1 ? buffer.length : start + chunkSize;
+    const chunkRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': mimeTypeFromUrl(videoUrl),
+        'Content-Length': String(end - start),
+        'Content-Range': `bytes ${start}-${end - 1}/${buffer.length}`,
+      },
+      body: buffer.subarray(start, end),
+    });
+    if (!chunkRes.ok) throw new Error(`TikTok upload failed on chunk ${i + 1}/${totalChunks} (${chunkRes.status})`);
+  }
+
+  // Processing is async; wait up to ~2 minutes for a final status.
+  for (let attempt = 0; attempt < 24; attempt++) {
+    await sleep(5000);
+    const statusRes = await fetch('https://open.tiktokapis.com/v2/post/publish/status/fetch/', {
+      method: 'POST', headers: apiHeaders, body: JSON.stringify({ publish_id: publishId }),
+    });
+    const status = await readJson(statusRes);
+    const state = status.data?.status;
+    if (state === 'PUBLISH_COMPLETE') return String(status.data?.publicaly_available_post_id?.[0] || publishId);
+    if (state === 'FAILED') throw new Error(`TikTok publish failed: ${status.data?.fail_reason || 'unknown reason'}`);
+  }
+  // Still processing — TikTok will finish it on its side.
+  return publishId;
+}
+
+// ─── THREADS ──────────────────────────────────────────────────────────────────
+
+async function threadsPost(path: string, body: Record<string, any>): Promise<any> {
+  const res = await fetch(`https://graph.threads.net/v1.0/${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await readJson(res);
+  if (data.error || !res.ok || !data.id) throw new Error(data.error?.message || JSON.stringify(data));
+  return data;
+}
+
+async function waitForThreadsContainer(creationId: string, token: string): Promise<void> {
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const res = await fetch(`https://graph.threads.net/v1.0/${creationId}?fields=status,error_message&access_token=${token}`);
+    const data = await res.json() as any;
+    if (data.status === 'FINISHED' || data.status === 'PUBLISHED') return;
+    if (data.status === 'ERROR' || data.status === 'EXPIRED') {
+      throw new Error(`Threads media processing failed: ${data.error_message || data.status}`);
+    }
+    await sleep(5000);
+  }
+  throw new Error('Timeout waiting for Threads media processing');
 }
 
 async function publishToThreads(account: any, post: any): Promise<string> {
   const token = decryptToken(account.access_token);
   const threadsUserId = account.account_id;
-  const mediaUrls = post.media_urls || [];
-  
+  const mediaUrls: string[] = post.media_urls || [];
+  const replyControl = mapThreadsReplyControl(post.platform_options.replySettings);
+
   let creationId: string;
-  let isVideo = false;
-
   if (mediaUrls.length > 1) {
-    const itemIds = [];
-    for (const url of mediaUrls.slice(0, 10)) {
-      const isItemVideo = !!url.match(/\.(mp4|mov)$/i);
-      if (isItemVideo) isVideo = true;
-      const res = await fetch(`https://graph.threads.net/v1.0/${threadsUserId}/threads`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          media_type: isItemVideo ? 'VIDEO' : 'IMAGE',
-          [isItemVideo ? 'video_url' : 'image_url']: url,
-          is_carousel_item: true,
-          access_token: token
-        })
+    const itemIds: string[] = [];
+    for (const url of mediaUrls.slice(0, 20)) {
+      const video = isVideoUrl(url);
+      const item = await threadsPost(`${threadsUserId}/threads`, {
+        media_type: video ? 'VIDEO' : 'IMAGE',
+        [video ? 'video_url' : 'image_url']: url,
+        is_carousel_item: true,
+        access_token: token,
       });
-      const data = await res.json() as any;
-      if (data.error || !res.ok || !data.id) {
-        console.error('[THREADS CAROUSEL_ITEM ERROR]:', data);
-        throw new Error(data.error?.message || JSON.stringify(data));
-      }
-      itemIds.push(data.id);
+      await waitForThreadsContainer(item.id, token);
+      itemIds.push(item.id);
     }
-    
-    const carouselRes = await fetch(`https://graph.threads.net/v1.0/${threadsUserId}/threads`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        media_type: 'CAROUSEL',
-        children: itemIds.join(','),
-        text: post.body,
-        access_token: token
-      })
+    const carousel = await threadsPost(`${threadsUserId}/threads`, {
+      media_type: 'CAROUSEL', children: itemIds.join(','), text: post.body, reply_control: replyControl, access_token: token,
     });
-    const carouselData = await carouselRes.json() as any;
-    if (carouselData.error || !carouselRes.ok || !carouselData.id) {
-      console.error('[THREADS CAROUSEL ERROR]:', carouselData);
-      throw new Error(carouselData.error?.message || JSON.stringify(carouselData));
-    }
-    creationId = carouselData.id;
-
+    creationId = carousel.id;
   } else if (mediaUrls.length === 1) {
-    const url = mediaUrls[0];
-    isVideo = !!url.match(/\.(mp4|mov)$/i);
-    const res = await fetch(`https://graph.threads.net/v1.0/${threadsUserId}/threads`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        media_type: isVideo ? 'VIDEO' : 'IMAGE',
-        [isVideo ? 'video_url' : 'image_url']: url,
-        text: post.body,
-        access_token: token
-      })
+    const video = isVideoUrl(mediaUrls[0]);
+    const data = await threadsPost(`${threadsUserId}/threads`, {
+      media_type: video ? 'VIDEO' : 'IMAGE',
+      [video ? 'video_url' : 'image_url']: mediaUrls[0],
+      text: post.body, reply_control: replyControl, access_token: token,
     });
-    const data = await res.json() as any;
-    if (data.error || !res.ok || !data.id) {
-      console.error('[THREADS MEDIA ERROR]:', data);
-      throw new Error(data.error?.message || JSON.stringify(data));
-    }
     creationId = data.id;
-
   } else {
-    const res = await fetch(`https://graph.threads.net/v1.0/${threadsUserId}/threads`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        media_type: 'TEXT',
-        text: post.body,
-        access_token: token
-      })
+    const data = await threadsPost(`${threadsUserId}/threads`, {
+      media_type: 'TEXT', text: post.body, reply_control: replyControl, access_token: token,
     });
-    const data = await res.json() as any;
-    if (data.error || !res.ok) throw new Error(data.error?.message || JSON.stringify(data));
     creationId = data.id;
   }
 
-  if (isVideo) {
-    let attempts = 0;
-    while (attempts < 15) {
-      const statusRes = await fetch(`https://graph.threads.net/v1.0/${creationId}?fields=status,error_message&access_token=${token}`);
-      const statusData = await statusRes.json() as any;
-      if (statusData.status === 'FINISHED') break;
-      if (statusData.status === 'ERROR') throw new Error(`Threads video processing failed: ${statusData.error_message || JSON.stringify(statusData)}`);
-      attempts++;
-      await new Promise(r => setTimeout(r, 5000));
-    }
-    if (attempts >= 15) throw new Error('Timeout waiting for Threads video processing');
-  }
-
-  const pubRes = await fetch(`https://graph.threads.net/v1.0/${threadsUserId}/threads_publish`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      creation_id: creationId,
-      access_token: token
-    }).toString()
-  });
-  const pubData = await pubRes.json() as any;
-  if (pubData.error || !pubRes.ok) throw new Error(pubData.error?.message || JSON.stringify(pubData));
+  await waitForThreadsContainer(creationId, token);
+  const pubData = await threadsPost(`${threadsUserId}/threads_publish`, { creation_id: creationId, access_token: token });
 
   // First comment: post a reply thread after a delay so the main post is indexed
-  if (post.first_comment && pubData.id) {
+  if (post.first_comment) {
     await sleep(COMMENT_DELAY_MS);
     try {
-      // Create a reply container
-      const replyContainerRes = await fetch(`https://graph.threads.net/v1.0/${threadsUserId}/threads`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          media_type: 'TEXT',
-          text: post.first_comment,
-          reply_to_id: pubData.id,
-          access_token: token
-        })
+      const reply = await threadsPost(`${threadsUserId}/threads`, {
+        media_type: 'TEXT', text: post.first_comment, reply_to_id: pubData.id, access_token: token,
       });
-      const replyContainer = await replyContainerRes.json() as any;
-      if (replyContainer.error || !replyContainer.id) {
-        throw new PartialPublishError('First comment failed: ' + (replyContainer.error?.message || JSON.stringify(replyContainer)), pubData.id);
-      }
-      // Publish the reply
-      const replyPubRes = await fetch(`https://graph.threads.net/v1.0/${threadsUserId}/threads_publish`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ creation_id: replyContainer.id, access_token: token }).toString()
-      });
-      const replyPubData = await replyPubRes.json() as any;
-      if (replyPubData.error) {
-        throw new PartialPublishError('First comment publish failed: ' + replyPubData.error.message, pubData.id);
-      }
+      await waitForThreadsContainer(reply.id, token);
+      await threadsPost(`${threadsUserId}/threads_publish`, { creation_id: reply.id, access_token: token });
     } catch (e: any) {
-      if (e.name === 'PartialPublishError') throw e;
       throw new PartialPublishError('First comment failed: ' + e.message, pubData.id);
     }
   }
@@ -656,134 +668,128 @@ async function publishToThreads(account: any, post: any): Promise<string> {
 }
 
 // ─── PLATFORM DISPATCH ────────────────────────────────────────────────────────
-async function publishToAccount(account: any, post: any): Promise<string> {
-  let platformOptions: any = {};
-  if (account.platform_options) {
-    if (typeof account.platform_options === 'object') {
-      platformOptions = account.platform_options;
-    } else {
-      try {
-        platformOptions = JSON.parse(account.platform_options);
-      } catch (e) {}
-    }
-  }
+async function publishToAccount(target: any, post: any): Promise<string> {
+  const platformOptions = parseJsonObject(target.platform_options);
 
   const postForAccount = {
     ...post,
-    body: account.custom_body || post.body,
-    first_comment: account.first_comment || post.first_comment || null,
-    media_urls: platformOptions.media_urls?.length ? platformOptions.media_urls : post.media_urls
+    body: target.custom_body || post.body || '',
+    first_comment: target.first_comment || post.first_comment || null,
+    media_urls: platformOptions.media_urls?.length ? platformOptions.media_urls : post.media_urls,
+    platform_options: platformOptions,
   };
-  
-  switch (account.platform) {
-    case 'linkedin':  return publishToLinkedIn(account, postForAccount);
-    case 'facebook':  return publishToFacebook(account, postForAccount);
-    case 'instagram': return publishToInstagram(account, postForAccount);
-    case 'youtube':   return publishToYouTube(account, postForAccount);
-    case 'twitter':   return publishToTwitter(account, postForAccount);
-    case 'tiktok':    return publishToTikTok(account, postForAccount);
-    case 'threads':   return publishToThreads(account, postForAccount);
-    default:          throw new Error(`Unsupported platform: ${account.platform}`);
+
+  switch (target.platform) {
+    case 'linkedin':  return publishToLinkedIn(target, postForAccount);
+    case 'facebook':  return publishToFacebook(target, postForAccount);
+    case 'instagram': return publishToInstagram(target, postForAccount);
+    case 'youtube':   return publishToYouTube(target, postForAccount);
+    case 'twitter':   return publishToTwitter(target, postForAccount);
+    case 'tiktok':    return publishToTikTok(target, postForAccount);
+    case 'threads':   return publishToThreads(target, postForAccount);
+    default:          throw new Error(`Unsupported platform: ${target.platform}`);
   }
 }
 
 // ─── MAIN PUBLISH FUNCTION ────────────────────────────────────────────────────
-export async function publishPost(postId: string): Promise<void> {
-  const post = await db.get<any>(`SELECT * FROM social_posts WHERE id = ?`, postId);
-  if (!post) return;
+/**
+ * Atomically claims the post (status → 'publishing') so the cron and "Post Now"
+ * can never publish the same post twice, then publishes every pending target.
+ * Returns the final post status, or null if the post could not be claimed.
+ */
+export async function publishPost(postId: string, claimableStatuses: string[] = ['scheduled']): Promise<string | null> {
+  const placeholders = claimableStatuses.map(() => '?').join(', ');
+  const post = await db.get<any>(
+    `UPDATE social_posts SET status = 'publishing', updated_at = NOW()
+     WHERE id = ? AND status IN (${placeholders})
+     RETURNING *`,
+    postId, ...claimableStatuses
+  );
+  if (!post) return null;
 
   if (!Array.isArray(post.media_urls)) {
     try {
       post.media_urls = post.media_urls ? JSON.parse(post.media_urls) : [];
       if (!Array.isArray(post.media_urls)) post.media_urls = [];
-    } catch(e) {
+    } catch {
       post.media_urls = [];
     }
   }
 
   const targets = await db.all<any>(`
-    SELECT t.*, a.access_token, a.refresh_token, a.account_id, a.page_id, a.channel_id, a.username
+    SELECT t.id, t.platform, t.status, t.custom_body, t.first_comment, t.platform_options,
+           a.id AS social_account_id, a.account_id, a.access_token, a.refresh_token,
+           a.token_expires_at, a.page_id, a.channel_id, a.username
     FROM social_post_targets t
     JOIN social_accounts a ON a.id = t.account_id
-    WHERE t.post_id = ? AND t.status = 'pending'
+    WHERE t.post_id = ?
   `, postId);
 
   if (!targets.length) {
-    await db.run(`UPDATE social_posts SET status = 'published', published_at = NOW() WHERE id = ?`, postId);
-    return;
+    await db.run(
+      `UPDATE social_posts SET status = 'failed', error_message = ?, updated_at = NOW() WHERE id = ?`,
+      'No connected accounts selected for this post (they may have been disconnected).', postId
+    );
+    return 'failed';
   }
 
-  await db.run(`UPDATE social_posts SET status = 'publishing' WHERE id = ?`, postId);
+  const pending = targets.filter(t => t.status === 'pending');
 
-  let allPublished = true;
-  let firstError: { message: string; code: string } | null = null;
-  for (const target of targets) {
+  // Targets are independent, so publish them in parallel.
+  const results = await Promise.all(pending.map(async (target) => {
     try {
       const platformPostId = await publishToAccount(target, post);
       await db.run(`
-        UPDATE social_post_targets SET status = 'published', platform_post_id = ?, published_at = NOW() WHERE id = ?
+        UPDATE social_post_targets SET status = 'published', platform_post_id = ?, published_at = NOW(), error_message = NULL, error_code = NULL WHERE id = ?
       `, platformPostId, target.id);
+      return { ok: true as const };
     } catch (err: any) {
       if (err.name === 'PartialPublishError') {
         const pErr = err as PartialPublishError;
-        console.warn(`[SOCIAL_PUBLISHER] ${target.platform} partial success (comment failed):`, err.message);
-        await db.run(`UPDATE social_post_targets SET status = 'published_partial', platform_post_id = ?, error_message = ? WHERE id = ?`, pErr.platformPostId, pErr.message, target.id);
-        allPublished = false;
-        // Don't set firstError if it's just a partial failure, we want the main post status to reflect partial if no other hard errors occurred.
-        // Or wait, if there are hard errors, firstError handles it. We can track if there was a partial error.
-        // Actually, we should just let `firstError` capture it so the parent post shows the warning.
-        if (!firstError) firstError = { message: pErr.message, code: 'PARTIAL_PUBLISH' };
-      } else {
-        console.error(`[SOCIAL_PUBLISHER] ${target.platform} failed:`, err.message);
-        const errCode = JSON.stringify({ message: err.message, stack: err.stack?.slice(0, 600), response: err.response?.data ?? null });
-        await db.run(`UPDATE social_post_targets SET status = 'failed', error_message = ?, error_code = ? WHERE id = ?`, err.message, errCode, target.id);
-        if (!firstError) firstError = { message: err.message, code: errCode };
-        allPublished = false;
+        console.warn(`[SOCIAL_PUBLISHER] ${target.platform} partial success:`, err.message);
+        await db.run(`UPDATE social_post_targets SET status = 'published_partial', platform_post_id = ?, published_at = NOW(), error_message = ? WHERE id = ?`, pErr.platformPostId, pErr.message, target.id);
+        return { ok: false as const, partial: true, message: pErr.message };
       }
+      console.error(`[SOCIAL_PUBLISHER] ${target.platform} failed:`, err.message);
+      const errCode = JSON.stringify({ message: err.message, stack: err.stack?.slice(0, 600), response: err.response?.data ?? null });
+      await db.run(`UPDATE social_post_targets SET status = 'failed', error_message = ?, error_code = ? WHERE id = ?`, err.message, errCode, target.id);
+      return { ok: false as const, partial: false, message: `${target.platform}: ${err.message}`, code: errCode };
     }
-  }
+  }));
 
-  const newStatus = allPublished ? 'published' : (firstError?.code === 'PARTIAL_PUBLISH' ? 'published_partial' : 'failed');
-  if (allPublished) {
-    await db.run(`UPDATE social_posts SET status = 'published', published_at = NOW(), error_message = NULL, error_code = NULL WHERE id = ?`, postId);
+  const hardFailure = results.find(r => !r.ok && !r.partial);
+  const partialFailure = results.find(r => !r.ok && r.partial);
+
+  let newStatus: string;
+  if (hardFailure) {
+    newStatus = 'failed';
+    await db.run(`UPDATE social_posts SET status = ?, error_message = ?, error_code = ?, updated_at = NOW() WHERE id = ?`,
+      newStatus, (hardFailure as any).message, (hardFailure as any).code ?? null, postId);
+  } else if (partialFailure) {
+    newStatus = 'published_partial';
+    await db.run(`UPDATE social_posts SET status = ?, published_at = NOW(), error_message = ?, error_code = 'PARTIAL_PUBLISH', updated_at = NOW() WHERE id = ?`,
+      newStatus, (partialFailure as any).message, postId);
   } else {
-    await db.run(`
-      UPDATE social_posts SET status = ?, error_message = ?, error_code = ? WHERE id = ?
-    `, newStatus, firstError?.message ?? null, firstError?.code ?? null, postId);
+    newStatus = 'published';
+    await db.run(`UPDATE social_posts SET status = 'published', published_at = NOW(), error_message = NULL, error_code = NULL, updated_at = NOW() WHERE id = ?`, postId);
   }
-
-  // ALWAYS Auto-delete media from local disk after processing
-  try {
-    if (Array.isArray(post.media_urls)) {
-      for (const url of post.media_urls) {
-        if (url.includes('/uploads/media/')) {
-          const urlObj = new URL(url);
-          const fileName = urlObj.pathname.split('/').pop();
-          if (fileName) {
-            const filePath = require('path').join(process.cwd(), 'uploads', 'media', fileName);
-            require('fs').unlink(filePath, (err: any) => {
-              if (err && err.code !== 'ENOENT') {
-                console.warn(`[DISK_CLEANUP] Could not delete ${filePath}:`, err.message);
-              }
-            });
-          }
-        }
-      }
-    }
-  } catch (e: any) {
-    console.error('[DISK_CLEANUP] Error:', e.message);
-  }
+  return newStatus;
 }
 
 // ─── CRON SCHEDULER ───────────────────────────────────────────────────────────
+let cronRunning = false;
+
 export async function runSocialPublisherCron(): Promise<void> {
+  // A publish can take minutes (video processing); never overlap runs.
+  if (cronRunning) return;
+  cronRunning = true;
   try {
     // 1. Refresh expiring Threads tokens (within 15 days)
     try {
       const expiringThreads = await db.all<any>(`
-        SELECT id, access_token 
-        FROM social_accounts 
-        WHERE platform = 'threads' 
+        SELECT id, access_token
+        FROM social_accounts
+        WHERE platform = 'threads'
           AND token_expires_at IS NOT NULL
           AND token_expires_at < NOW() + INTERVAL '15 days'
       `);
@@ -797,8 +803,8 @@ export async function runSocialPublisherCron(): Promise<void> {
             const newExpires = new Date(Date.now() + (data.expires_in || 60 * 60 * 24 * 60) * 1000).toISOString();
             const encryptedNewToken = encryptToken(data.access_token);
             await db.run(`
-              UPDATE social_accounts 
-              SET access_token = ?, token_expires_at = ?, updated_at = NOW() 
+              UPDATE social_accounts
+              SET access_token = ?, token_expires_at = ?, updated_at = NOW()
               WHERE id = ?
             `, encryptedNewToken, newExpires, account.id);
             console.log(`[SOCIAL_CRON] Refreshed Threads token for account ${account.id}`);
@@ -811,20 +817,41 @@ export async function runSocialPublisherCron(): Promise<void> {
       console.error('[SOCIAL_CRON] Threads token refresh error:', err.message);
     }
 
-    // 2. Publish due posts
+    // 2. Posts left in 'publishing' by a crash/redeploy. They are not retried
+    // automatically because a target may have gone out before the crash.
+    try {
+      await db.run(`
+        UPDATE social_posts
+        SET status = 'failed', updated_at = NOW(),
+            error_message = 'Publishing was interrupted. Check the platforms before retrying to avoid duplicates.'
+        WHERE status = 'publishing' AND updated_at < NOW() - INTERVAL '30 minutes'
+      `);
+      await db.run(`
+        UPDATE social_post_targets t SET status = 'failed', error_message = 'Publishing was interrupted'
+        FROM social_posts p
+        WHERE t.post_id = p.id AND p.status = 'failed' AND t.status = 'pending'
+          AND p.error_message LIKE 'Publishing was interrupted%'
+      `);
+    } catch (err: any) {
+      console.error('[SOCIAL_CRON] Stuck post recovery error:', err.message);
+    }
+
+    // 3. Publish due posts
     const duePosts = await db.all<any>(`
-      SELECT id FROM social_posts 
+      SELECT id FROM social_posts
       WHERE status = 'scheduled' AND scheduled_at <= NOW()
       ORDER BY scheduled_at ASC
       LIMIT 20
     `);
 
     for (const post of duePosts) {
-      await publishPost(post.id).catch(err => 
+      await publishPost(post.id).catch(err =>
         console.error('[SOCIAL_CRON] publish error for post', post.id, err.message)
       );
     }
   } catch (err: any) {
     console.error('[SOCIAL_CRON] error:', err.message);
+  } finally {
+    cronRunning = false;
   }
 }

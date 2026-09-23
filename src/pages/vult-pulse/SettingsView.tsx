@@ -141,9 +141,12 @@ export default function SettingsView() {
         }
     };
 
-    const handleOAuthConnect = (platformId: string) => {
-        const url = api.getConnectUrl(platformId, 'vult-pulse');
-        window.location.href = url;
+    const handleOAuthConnect = async (platformId: string) => {
+        try {
+            window.location.href = await api.getConnectUrl(platformId, 'vult-pulse');
+        } catch (err: any) {
+            toast.error(err.message);
+        }
     };
 
     const handleTokenConnect = async (platformId: string) => {

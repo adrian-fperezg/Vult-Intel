@@ -32,6 +32,17 @@ interface QueueViewProps {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 // ─── PostCard Component ────────────────────────────────────────────────────────
+const EDITABLE_STATUSES = ['draft', 'scheduled', 'paused', 'failed'];
+
+const isVideoUrl = (url: string) => /\.(mp4|mov|m4v|webm)$/i.test(url.split(/[?#]/)[0]);
+
+// "Post now" answers 200 even when a platform rejects the post, so read the resulting status.
+function toastPublishResult(result: any, publishedMsg: string) {
+  if (result?.status === 'published') toast.success(publishedMsg);
+  else if (result?.status === 'published_partial') toast(`⚠️ Published with warnings: ${result.error_message || ''}`);
+  else toast.error(`Publishing failed: ${result?.error_message || 'see the post details'}`);
+}
+
 function PostCard({ post, style, onClick, onEdit, onRefresh, api, workingId, setWorkingId }: any) {
   const { t } = useTranslation();
   const targets = safeParseArray<any>(post.targets);
@@ -68,6 +79,17 @@ function PostCard({ post, style, onClick, onEdit, onRefresh, api, workingId, set
     } finally {
       setWorkingId(null);
     }
+  };
+
+  const handlePublishNow = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setWorkingId(post.id);
+    try {
+      toastPublishResult(await api.publishNow(post.id), '🚀 ' + t('queue.published', { defaultValue: 'Published!' }));
+      onRefresh();
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally { setWorkingId(null); }
   };
 
   const wrapAction = async (action: () => Promise<void>, successMsg: string, e: React.MouseEvent) => {
@@ -159,7 +181,7 @@ function PostCard({ post, style, onClick, onEdit, onRefresh, api, workingId, set
           {/* Media Thumbnail */}
           {media.length > 0 && (
             <div className="size-12 rounded-lg overflow-hidden border border-white/10 relative shrink-0">
-              {media[0].match(/\.(mp4|mov|webm)$/i) ? (
+              {isVideoUrl(media[0]) ? (
                 <div className="w-full h-full bg-slate-800 flex items-center justify-center">
                   <Play className="size-4 text-white" />
                 </div>
@@ -190,14 +212,15 @@ function PostCard({ post, style, onClick, onEdit, onRefresh, api, workingId, set
       >
         <div className="flex items-center gap-1.5 bg-[#161b22] p-1.5 rounded-xl border border-white/10 shadow-xl">
           {post.status === 'scheduled' && (
-            <>
-              <button onClick={(e) => wrapAction(() => api.pausePost(post.id), t('queue.postPaused', { defaultValue: 'Post paused' }), e)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-amber-500/10 text-slate-400 hover:text-amber-400" title={t('queue.pause', { defaultValue: 'Pause' })}>
-                <Pause className="size-3.5" />
-              </button>
-              <button onClick={(e) => { e.stopPropagation(); if (onEdit) onEdit(post); }} className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white" title={t('queue.edit', { defaultValue: 'Edit' })}>
-                <FileEdit className="size-3.5" />
-              </button>
-            </>
+            <button onClick={(e) => wrapAction(() => api.pausePost(post.id), t('queue.postPaused', { defaultValue: 'Post paused' }), e)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-amber-500/10 text-slate-400 hover:text-amber-400" title={t('queue.pause', { defaultValue: 'Pause' })}>
+              <Pause className="size-3.5" />
+            </button>
+          )}
+
+          {EDITABLE_STATUSES.includes(post.status) && (
+            <button onClick={(e) => { e.stopPropagation(); if (onEdit) onEdit(post); }} className="p-2 rounded-lg hover:bg-white/5 text-slate-400 hover:text-white" title={t('queue.edit', { defaultValue: 'Edit' })}>
+              <FileEdit className="size-3.5" />
+            </button>
           )}
 
           {post.status === 'paused' && (
@@ -212,8 +235,8 @@ function PostCard({ post, style, onClick, onEdit, onRefresh, api, workingId, set
             </button>
           )}
 
-          {(post.status === 'draft' || post.status === 'scheduled') && (
-            <button onClick={(e) => wrapAction(() => api.publishNow(post.id), '🚀 ' + t('queue.published', { defaultValue: 'Published!' }), e)} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-400" title={t('queue.publishNow', { defaultValue: 'Publish Now' })}>
+          {(post.status === 'draft' || post.status === 'scheduled' || post.status === 'paused') && (
+            <button onClick={handlePublishNow} disabled={workingId === post.id} className="p-2 rounded-lg hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-400" title={t('queue.publishNow', { defaultValue: 'Publish Now' })}>
               <Send className="size-3.5" />
             </button>
           )}
@@ -366,8 +389,7 @@ export default function QueueView({ posts, loading, onRefresh, api, onEdit }: Qu
             onPublishNow={async () => {
               setWorkingId(activePost.id);
               try {
-                await api.publishNow(activePost.id);
-                toast.success('🚀 ' + t('queue.published', { defaultValue: 'Published!' }));
+                toastPublishResult(await api.publishNow(activePost.id), '🚀 ' + t('queue.published', { defaultValue: 'Published!' }));
                 onRefresh();
                 setActivePostId(null);
               } catch (err: any) { toast.error(err.message); } finally { setWorkingId(null); }
@@ -504,7 +526,7 @@ function PostDetailModal({
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {media.map((url: string, i: number) => (
                   <div key={i} className="aspect-square rounded-xl overflow-hidden border border-white/10 bg-black/50 relative group">
-                    {url.match(/\.(mp4|mov|webm)$/i) ? (
+                    {isVideoUrl(url) ? (
                       <video src={getMediaUrl(url)} className="w-full h-full object-cover" controls />
                     ) : (
                       <SafeImage src={getMediaUrl(url)} alt={`Media ${i}`} className="w-full h-full object-cover" />
@@ -604,7 +626,7 @@ function PostDetailModal({
                             <div className="flex flex-wrap gap-2">
                               {pMedia.map((url: string, i: number) => (
                                 <div key={i} className="size-16 rounded-lg overflow-hidden border border-white/10 bg-black/50 shrink-0">
-                                  {url.match(/\.(mp4|mov|webm)$/i) ? (
+                                  {isVideoUrl(url) ? (
                                     <video src={getMediaUrl(url)} className="w-full h-full object-cover" />
                                   ) : (
                                     <SafeImage src={getMediaUrl(url)} className="w-full h-full object-cover" />
@@ -636,11 +658,20 @@ function PostDetailModal({
           </button>
 
           <div className="flex items-center gap-2">
+            {EDITABLE_STATUSES.includes(post.status) && (
+              <button onClick={onEdit} className="flex items-center gap-2 px-4 py-2 text-[12px] font-medium text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors">
+                <FileEdit className="size-4" /> Edit
+              </button>
+            )}
+
+            {(post.status === 'draft' || post.status === 'paused') && (
+              <button onClick={onPublishNow} disabled={workingId === post.id} className="flex items-center gap-2 px-4 py-2 text-[12px] font-medium text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-lg transition-colors">
+                <Send className="size-4" /> Post Now
+              </button>
+            )}
+
             {post.status === 'scheduled' && (
               <>
-                <button onClick={onEdit} className="flex items-center gap-2 px-4 py-2 text-[12px] font-medium text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors">
-                  <FileEdit className="size-4" /> Edit
-                </button>
                 <button onClick={onPause} disabled={workingId === post.id} className="flex items-center gap-2 px-4 py-2 text-[12px] font-medium text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 rounded-lg transition-colors">
                   <Pause className="size-4" /> Pause
                 </button>
